@@ -2,50 +2,104 @@
 
 import { useActionState, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { extractBrandAction, saveCompany, type SaveCompanyState } from "./actions";
-import type { ExtractedBrand } from "@/lib/brand/extract";
+import { saveCompany, type SaveCompanyState } from "./actions";
+import { EXTRACT_STEPS, emptyDraft, type BrandDraft, type ExtractEvent, type ExtractStep } from "@/lib/brand/types";
+import type { AiErrorCode } from "@/lib/ai/errors";
 import { DIALECTS, type BrandColor, type Dialect } from "@/lib/types";
 import { FilmStrip } from "@/components/film-strip";
 import { Heading, boldTag } from "@/components/heading";
 import { CompanyMark } from "@/components/company-mark";
-import { ArrowIcon, CheckIcon, PlusIcon, SpinnerIcon, UploadIcon } from "@/components/icons";
+import { ArrowIcon, CheckIcon, PlusIcon, SparkIcon, SpinnerIcon, UploadIcon } from "@/components/icons";
 
-const STEPS = ["stepLogo", "stepColors", "stepFonts", "stepTone"] as const;
+type StepState = "pending" | "done" | "failed";
+
+const STEP_LABEL: Record<ExtractStep, "stepLogo" | "stepColors" | "stepFonts" | "stepTone"> = {
+  logo: "stepLogo",
+  colors: "stepColors",
+  fonts: "stepFonts",
+  tone: "stepTone",
+};
+
+const idleSteps = (): Record<ExtractStep, StepState> => ({ logo: "pending", colors: "pending", fonts: "pending", tone: "pending" });
+
+function normalize(url: string) {
+  const u = url.trim();
+  return /^https?:\/\//i.test(u) ? u : `https://${u}`;
+}
 
 export function NewCompanyFlow() {
   const t = useTranslations("companies");
-  const tc = useTranslations("common");
+  const te = useTranslations("aiErrors");
   const [url, setUrl] = useState("");
   const [phase, setPhase] = useState<"input" | "extracting" | "preview">("input");
-  const [stepsDone, setStepsDone] = useState(0);
-  const [brand, setBrand] = useState<ExtractedBrand | null>(null);
+  const [steps, setSteps] = useState(idleSteps);
+  const [brand, setBrand] = useState<BrandDraft | null>(null);
+  const [raw, setRaw] = useState<Record<string, unknown> | null>(null);
+  const [cached, setCached] = useState(false);
+  const [errorCode, setErrorCode] = useState<AiErrorCode | null>(null);
   const [urlError, setUrlError] = useState(false);
+  const [editorKey, setEditorKey] = useState(0);
 
-  useEffect(() => {
-    if (phase !== "extracting") return;
-    const id = setInterval(() => setStepsDone((n) => Math.min(n + 1, STEPS.length - 1)), 350);
-    return () => clearInterval(id);
-  }, [phase]);
-
-  async function onExtract(e: FormEvent) {
-    e.preventDefault();
+  async function extract(refresh: boolean) {
     setUrlError(false);
-    setStepsDone(0);
+    setErrorCode(null);
+    setSteps(idleSteps());
     setPhase("extracting");
-    const result = await extractBrandAction(url);
-    if (!result.ok) {
-      setUrlError(true);
-      setPhase("input");
-      return;
+    const target = normalize(url);
+
+    let result: Extract<ExtractEvent, { type: "result" }> | null = null;
+    try {
+      const res = await fetch("/api/brand/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: target, refresh }),
+      });
+      if (res.status === 400) {
+        setUrlError(true);
+        setPhase(brand ? "preview" : "input");
+        return;
+      }
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buffer = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += value;
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line) as ExtractEvent;
+          if (event.type === "step") setSteps((s) => ({ ...s, [event.step]: event.status }));
+          else if (event.type === "error") setErrorCode(event.code);
+          else result = event;
+        }
+      }
+    } catch {
+      setErrorCode("ai_failed");
     }
-    setStepsDone(STEPS.length);
-    setBrand(result.brand);
-    setTimeout(() => setPhase("preview"), 300);
+
+    // Whatever happened, open the editor so the user can finish by hand.
+    setBrand(result?.brand ?? emptyDraft(target));
+    setRaw(result?.raw ?? null);
+    setCached(result?.cached ?? false);
+    if (!result) setSteps({ logo: "failed", colors: "failed", fonts: "failed", tone: "failed" });
+    setEditorKey((k) => k + 1);
+    setPhase("preview");
   }
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    void extract(false);
+  }
+
+  const failed = EXTRACT_STEPS.filter((s) => steps[s] === "failed");
 
   return (
     <div className="space-y-6">
-      <form onSubmit={onExtract} className="panel">
+      <form onSubmit={onSubmit} className="panel">
         <label htmlFor="website" className="label mb-2 block">
           {t("urlLabel")}
         </label>
@@ -75,31 +129,73 @@ export function NewCompanyFlow() {
 
         {phase !== "input" ? (
           <ol className="mt-4 flex flex-wrap gap-2" aria-live="polite">
-            {STEPS.map((step, i) => {
-              const done = i < stepsDone;
-              const active = i === stepsDone && phase === "extracting";
+            {EXTRACT_STEPS.map((step) => {
+              const state = steps[step];
+              const active = state === "pending" && phase === "extracting";
               return (
                 <li
                   key={step}
+                  data-step={step}
+                  data-state={state}
                   className={`inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm ${
-                    done ? "bg-success-bg text-success-ink" : active ? "bg-white text-primary-dark" : "bg-white/60 text-ink-muted"
+                    state === "done"
+                      ? "bg-success-bg text-success-ink"
+                      : state === "failed"
+                        ? "bg-warning-bg text-warning-ink"
+                        : active
+                          ? "bg-white text-primary-dark"
+                          : "bg-white/60 text-ink-muted"
                   }`}
                 >
-                  {done ? <CheckIcon className="size-4" /> : active ? <SpinnerIcon className="size-4" /> : <span className="size-4" />}
-                  {t(step)}
+                  {state === "done" ? (
+                    <CheckIcon className="size-4" />
+                  ) : state === "failed" ? (
+                    <span aria-hidden="true" className="flex size-4 items-center justify-center font-bold">
+                      !
+                    </span>
+                  ) : active ? (
+                    <SpinnerIcon className="size-4" />
+                  ) : (
+                    <span className="size-4" />
+                  )}
+                  {t(STEP_LABEL[step])}
+                  {state === "failed" ? <span className="sr-only">{t("stepFailed")}</span> : null}
                 </li>
               );
             })}
           </ol>
         ) : null}
+
+        {errorCode ? (
+          <p role="alert" className="mt-3 rounded-2xl bg-warning-bg px-4 py-2 text-sm text-warning-ink">
+            {te(errorCode)}
+          </p>
+        ) : null}
       </form>
 
-      {phase === "preview" && brand ? <BrandEditor key={brand.websiteUrl} brand={brand} savingLabel={tc("saving")} /> : null}
+      {phase === "preview" && brand ? (
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            {failed.length ? (
+              <p className="flex-1 text-sm text-warning-ink">
+                {t("fillManually", { steps: failed.map((s) => t(STEP_LABEL[s])).join("، ") })}
+              </p>
+            ) : (
+              <p className="flex-1 text-sm text-ink-muted">{cached ? t("cachedNote") : t("reviewNote")}</p>
+            )}
+            <button type="button" onClick={() => void extract(true)} className="btn btn-soft">
+              <SparkIcon className="size-4" />
+              {t("reread")}
+            </button>
+          </div>
+          <BrandEditor key={editorKey} brand={brand} raw={raw} />
+        </>
+      ) : null}
     </div>
   );
 }
 
-function BrandEditor({ brand, savingLabel }: { brand: ExtractedBrand; savingLabel: string }) {
+function BrandEditor({ brand, raw }: { brand: BrandDraft; raw: Record<string, unknown> | null }) {
   const t = useTranslations("companies");
   const td = useTranslations("dialects");
   const tc = useTranslations("common");
@@ -107,13 +203,17 @@ function BrandEditor({ brand, savingLabel }: { brand: ExtractedBrand; savingLabe
   const [name, setName] = useState(brand.name);
   const [colors, setColors] = useState<BrandColor[]>(brand.colors);
   const [dialect, setDialect] = useState<Dialect>(brand.defaultDialect);
-  const [fontArabic, setFontArabic] = useState(brand.fonts.arabic ?? "");
-  const [fontLatin, setFontLatin] = useState(brand.fonts.latin ?? "");
+  const [fontArabic, setFontArabic] = useState(brand.fonts.arabic);
+  const [fontLatin, setFontLatin] = useState(brand.fonts.latin);
   const [tagline, setTagline] = useState(brand.tagline);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [tone, setTone] = useState(brand.tone);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const logoPreview = uploadPreview ?? brand.logoUrl;
+  const ink = colors.find((c) => c.role === "ink")?.hex ?? colors[1]?.hex ?? "#10184A";
+  const primary = colors.find((c) => c.role === "primary")?.hex ?? colors[0]?.hex ?? "#5558E3";
 
-  useEffect(() => () => void (logoPreview && URL.revokeObjectURL(logoPreview)), [logoPreview]);
+  useEffect(() => () => void (uploadPreview && URL.revokeObjectURL(uploadPreview)), [uploadPreview]);
 
   function setColor(i: number, hex: string) {
     setColors((cs) => cs.map((c, j) => (j === i ? { ...c, hex } : c)));
@@ -124,7 +224,8 @@ function BrandEditor({ brand, savingLabel }: { brand: ExtractedBrand; savingLabe
       <input type="hidden" name="website_url" value={brand.websiteUrl} />
       <input type="hidden" name="colors" value={JSON.stringify(colors)} />
       <input type="hidden" name="default_dialect" value={dialect} />
-      <input type="hidden" name="tone" value={brand.tone} />
+      <input type="hidden" name="logo_url" value={uploadPreview ? "" : (brand.logoUrl ?? "")} />
+      <input type="hidden" name="raw" value={raw ? JSON.stringify(raw) : ""} />
 
       {/* Live brand preview inside a film strip */}
       <div>
@@ -132,7 +233,7 @@ function BrandEditor({ brand, savingLabel }: { brand: ExtractedBrand; savingLabe
           {t.rich("previewTitle", boldTag)}
         </Heading>
         <FilmStrip>
-          <div className="p-6 sm:p-8" style={{ backgroundColor: colors[1]?.hex ?? "#10184A" }}>
+          <div className="p-6 sm:p-8" style={{ backgroundColor: ink }}>
             <div className="flex items-center gap-3">
               <CompanyMark name={name || "?"} logoUrl={logoPreview} colors={colors} size="size-14" />
               <div className="min-w-0">
@@ -144,7 +245,7 @@ function BrandEditor({ brand, savingLabel }: { brand: ExtractedBrand; savingLabe
                 </p>
               </div>
             </div>
-            <p className="mt-8 text-3xl font-bold leading-snug sm:text-4xl" style={{ color: colors[0]?.hex, fontFamily: fontArabic || undefined }}>
+            <p className="mt-8 text-3xl leading-snug font-bold sm:text-4xl" style={{ color: primary, fontFamily: fontArabic || undefined }}>
               {tagline}
             </p>
             <div className="mt-6 flex gap-2">
@@ -152,9 +253,11 @@ function BrandEditor({ brand, savingLabel }: { brand: ExtractedBrand; savingLabe
                 <span key={i} className="h-3 flex-1 rounded-full" style={{ backgroundColor: c.hex }} />
               ))}
             </div>
-            <p className="mt-4 text-xs text-white/60">
-              {t("tone")}: {brand.tone}
-            </p>
+            {tone ? (
+              <p className="mt-4 text-xs text-white/60">
+                {t("tone")}: {tone}
+              </p>
+            ) : null}
           </div>
         </FilmStrip>
       </div>
@@ -181,7 +284,7 @@ function BrandEditor({ brand, savingLabel }: { brand: ExtractedBrand; savingLabe
               className="sr-only"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                setLogoPreview(file ? URL.createObjectURL(file) : null);
+                setUploadPreview(file ? URL.createObjectURL(file) : null);
               }}
             />
           </div>
@@ -201,6 +304,7 @@ function BrandEditor({ brand, savingLabel }: { brand: ExtractedBrand; savingLabe
                 <span className="font-mono text-xs text-ink-2" dir="ltr">
                   {c.hex}
                 </span>
+                {c.role ? <span className="text-xs text-ink-muted">{t(`role_${c.role}` as "role_primary")}</span> : null}
               </label>
             ))}
             {colors.length < 6 ? (
@@ -239,6 +343,10 @@ function BrandEditor({ brand, savingLabel }: { brand: ExtractedBrand; savingLabe
           <input id="tagline" name="tagline" value={tagline} onChange={(e) => setTagline(e.target.value)} className="field bg-white" />
         </Field>
 
+        <Field label={t("tone")} htmlFor="tone">
+          <input id="tone" name="tone" value={tone} onChange={(e) => setTone(e.target.value)} placeholder={t("tonePlaceholder")} className="field bg-white" />
+        </Field>
+
         <div className="divider" />
 
         {state.error ? (
@@ -249,7 +357,7 @@ function BrandEditor({ brand, savingLabel }: { brand: ExtractedBrand; savingLabe
 
         <button type="submit" disabled={pending} className="btn btn-primary w-full">
           {pending ? <SpinnerIcon className="size-4" /> : <CheckIcon className="size-4" />}
-          {pending ? savingLabel : t("confirm")}
+          {pending ? tc("saving") : t("confirm")}
         </button>
       </div>
     </form>

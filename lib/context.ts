@@ -73,3 +73,14 @@ export const getAppContext = cache(async (): Promise<AppContext> => {
     },
   };
 });
+
+/** Route-handler variant: no locale, no bootstrap, no redirects. Null when signed out or without a workspace. */
+export async function getApiContext(): Promise<Pick<AppContext, "supabase" | "userId" | "role" | "workspace"> | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims?.sub;
+  if (!userId) return null;
+  const membership = await loadMembership(supabase, userId);
+  if (!membership) return null;
+  return { supabase, userId, role: membership.role, workspace: membership.workspaces };
+}

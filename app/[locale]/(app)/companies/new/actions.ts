@@ -2,30 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
-import { extractBrand, normalizeUrl, type ExtractedBrand } from "@/lib/brand/extract";
+import { loadLogo, logoFromBytes, type LogoFile } from "@/lib/brand/logo";
 import { redirect } from "@/i18n/navigation";
 import { DIALECTS, type BrandColor, type Dialect } from "@/lib/types";
 
-export async function extractBrandAction(url: string): Promise<{ ok: true; brand: ExtractedBrand } | { ok: false }> {
-  await getAppContext();
-  const normalized = normalizeUrl(url);
-  try {
-    new URL(normalized);
-  } catch {
-    return { ok: false };
-  }
-  return { ok: true, brand: await extractBrand(normalized) };
-}
-
 export type SaveCompanyState = { error?: "nameRequired" | "generic" };
 
-const LOGO_TYPES: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-  "image/svg+xml": "svg",
-};
+function parseJson<T>(value: FormDataEntryValue | null, fallback: T): T {
+  try {
+    return value ? (JSON.parse(String(value)) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
+/** Saves the company + brand profile. Never blocked by failed extraction steps — only a name is required. */
 export async function saveCompany(_prev: SaveCompanyState, formData: FormData): Promise<SaveCompanyState> {
   const ctx = await getAppContext();
   const { supabase, workspace, locale } = ctx;
@@ -36,14 +27,14 @@ export async function saveCompany(_prev: SaveCompanyState, formData: FormData): 
   const dialectInput = String(formData.get("default_dialect") ?? "eg");
   const dialect: Dialect = DIALECTS.includes(dialectInput as Dialect) ? (dialectInput as Dialect) : "eg";
 
-  let colors: BrandColor[] = [];
-  try {
-    colors = (JSON.parse(String(formData.get("colors") ?? "[]")) as BrandColor[])
-      .filter((c) => /^#[0-9a-f]{6}$/i.test(c.hex))
-      .slice(0, 6);
-  } catch {
-    colors = [];
-  }
+  const colors = parseJson<BrandColor[]>(formData.get("colors"), [])
+    .filter((c) => /^#[0-9a-f]{6}$/i.test(c?.hex ?? ""))
+    .map((c) => (c.role ? { hex: c.hex.toUpperCase(), role: c.role } : { hex: c.hex.toUpperCase() }))
+    .slice(0, 6);
+
+  // Raw Firecrawl payload (cached so only "أعد القراءة" re-scrapes); manual entry otherwise.
+  const raw = parseJson<Record<string, unknown> | null>(formData.get("raw"), null);
+  const rawToStore = raw && raw.source === "firecrawl" ? raw : { source: "manual" };
 
   const { data: company, error } = await supabase
     .from("companies")
@@ -56,7 +47,7 @@ export async function saveCompany(_prev: SaveCompanyState, formData: FormData): 
     .select("id")
     .single();
   if (error || !company) {
-    console.error("saveCompany", error?.message);
+    console.error("[saveCompany] insert company failed", { code: error?.code, message: error?.message });
     return { error: "generic" };
   }
 
@@ -69,28 +60,42 @@ export async function saveCompany(_prev: SaveCompanyState, formData: FormData): 
     },
     tone: String(formData.get("tone") ?? "").trim() || null,
     tagline: String(formData.get("tagline") ?? "").trim() || null,
-    raw: { source: "mock-extract" }, // PHASE 2: store the raw extraction payload
+    raw: rawToStore,
   });
   if (brandError) {
-    console.error("saveCompany brand", brandError.message);
+    console.error("[saveCompany] insert brand profile failed", { code: brandError.code, message: brandError.message });
     return { error: "generic" };
   }
 
-  const logo = formData.get("logo");
-  if (logo instanceof File && logo.size > 0 && logo.size <= 2 * 1024 * 1024 && LOGO_TYPES[logo.type]) {
-    const path = `${workspace.id}/${company.id}/logo-${Date.now()}.${LOGO_TYPES[logo.type]}`;
+  // Logo: an uploaded file wins; otherwise download the extracted logo into Storage.
+  let logo: LogoFile | null = null;
+  let source: "upload" | "extracted" = "upload";
+  const file = formData.get("logo");
+  if (file instanceof File && file.size > 0) {
+    logo = logoFromBytes(new Uint8Array(await file.arrayBuffer()), file.type);
+  } else {
+    const logoUrl = String(formData.get("logo_url") ?? "");
+    if (logoUrl) {
+      logo = await loadLogo(logoUrl);
+      source = "extracted";
+    }
+  }
+
+  if (logo) {
+    const path = `${workspace.id}/${company.id}/logo.${logo.ext}`;
     const { error: uploadError } = await supabase.storage
       .from("brand-assets")
-      .upload(path, logo, { contentType: logo.type, upsert: false });
-    if (!uploadError) {
-      await supabase.from("brand_assets").insert({
+      .upload(path, logo.bytes, { contentType: logo.contentType, upsert: true });
+    if (uploadError) {
+      console.error("[saveCompany] logo upload failed", { message: uploadError.message });
+    } else {
+      const { error: assetError } = await supabase.from("brand_assets").insert({
         company_id: company.id,
         kind: "logo",
         storage_path: path,
-        meta: { content_type: logo.type, size: logo.size },
+        meta: { content_type: logo.contentType, size: logo.bytes.byteLength, source },
       });
-    } else {
-      console.error("logo upload", uploadError.message);
+      if (assetError) console.error("[saveCompany] brand_assets insert failed", { code: assetError.code, message: assetError.message });
     }
   }
 
