@@ -124,7 +124,17 @@
     "tone": "Tone",
     "confirm": "Confirm and save company",
     "invalidUrl": "Enter a valid website.",
-    "nameRequired": "Enter the company name."
+    "nameRequired": "Enter the company name.",
+    "stepFailed": "not found",
+    "fillManually": "We couldn't get: {steps}. Fill them in before saving.",
+    "cachedNote": "Using the saved reading of this website.",
+    "reviewNote": "Review the brand and edit anything before saving.",
+    "reread": "Re-read website",
+    "tonePlaceholder": "e.g. friendly, direct, practical",
+    "role_primary": "Primary",
+    "role_ink": "Text",
+    "role_accent": "Accent",
+    "role_background": "Background"
   },
   "videos": {
     "title": "<b>New</b> video",
@@ -168,7 +178,6 @@
     "requestEdit": "Request a change",
     "requestPlaceholder": "e.g. Make scene three faster and the logo bigger.",
     "send": "Send",
-    "requestSaved": "Got it. Automatic edits are coming soon.",
     "timeline": "<b>Timeline</b>",
     "voiceTrack": "Voiceover",
     "noVoice": "This video has no voiceover",
@@ -178,7 +187,12 @@
     "insufficient": "Not enough balance to export. Top up your wallet first.",
     "topUp": "Top up wallet",
     "version": "Version {n}",
-    "playhead": "Playhead"
+    "playhead": "Playhead",
+    "rewriting": "Rewriting…",
+    "rewritten": "Scene rewritten and saved as version {n}.",
+    "editApplied": "Saved as version {n}: {summary}",
+    "editing": "Editing the script…",
+    "visual": "Scene look"
   },
   "wallet": {
     "title": "<b>Wallet</b>",
@@ -215,6 +229,29 @@
     "kindExport": "Export",
     "kindRefund": "Refund",
     "kindAdjustment": "Adjustment"
+  },
+  "aiErrors": {
+    "rate_limited": "You've hit the limit of 30 AI requests per workspace per hour. Try again a bit later.",
+    "not_configured": "AI isn't connected yet. Contact your account admin.",
+    "ai_failed": "The AI didn't respond. Please try again.",
+    "ai_invalid": "The AI returned an invalid result. Please try again.",
+    "scrape_failed": "We couldn't read that website. Fill in the details yourself or try again."
+  },
+  "visual": {
+    "layout_hero": "Big statement",
+    "layout_split": "Split",
+    "layout_list": "List",
+    "layout_stat": "Stat",
+    "layout_logo": "Logo",
+    "layout_cta": "Call to action",
+    "motion_rise": "Rise",
+    "motion_pop": "Pop",
+    "motion_slide": "Slide",
+    "motion_count": "Count up",
+    "role_primary": "Primary color",
+    "role_ink": "Text color",
+    "role_accent": "Accent color",
+    "role_background": "Background color"
   },
   "art": {
     "hero": "Film strip, play button and pen-tool node",

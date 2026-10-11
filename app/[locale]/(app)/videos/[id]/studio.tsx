@@ -7,7 +7,8 @@ import { exportVideoAction, requestEditAction, rewriteSceneAction, saveVersion }
 import { toLocal } from "@/lib/pricing";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { ASPECT, formatKey } from "@/lib/video-labels";
-import type { BrandProfile, Scene, Video } from "@/lib/types";
+import type { BrandProfile, ColorRole, Scene, Video } from "@/lib/types";
+import type { AiErrorCode } from "@/lib/ai/errors";
 import { FilmStrip } from "@/components/film-strip";
 import { Heading, boldTag } from "@/components/heading";
 import { StatusChip } from "@/components/status-chip";
@@ -44,6 +45,8 @@ export function Studio({
   const tf = useTranslations("formats");
   const td = useTranslations("dialects");
   const ta = useTranslations("art");
+  const te = useTranslations("aiErrors");
+  const tl = useTranslations("visual");
   const locale = useLocale();
 
   const [scenes, setScenes] = useState<Scene[]>(initialScenes);
@@ -59,9 +62,12 @@ export function Studio({
   const scriptDir = video.dialect === "en" ? "ltr" : "rtl";
   const scriptLang = video.dialect === "en" ? "en" : "ar";
   const colors = brand?.colors ?? [];
-  const primary = colors[0]?.hex ?? "#5558E3";
-  const ink = colors[1]?.hex ?? "#10184A";
-  const accent = colors[2]?.hex ?? primary;
+  const roleHex = (role: ColorRole) => colors.find((c) => c.role === role)?.hex;
+  const primary = roleHex("primary") ?? colors[0]?.hex ?? "#5558E3";
+  const ink = roleHex("ink") ?? colors[1]?.hex ?? "#10184A";
+  const accent = roleHex("accent") ?? colors[2]?.hex ?? primary;
+  const background = roleHex("background") ?? "#FFFFFF";
+  const ROLE_HEX: Record<ColorRole, string> = { primary, ink, accent, background };
   const total = scenes.reduce((s, x) => s + x.duration_s, 0) || 1;
   const price = formatMoney(toLocal(costUsd, fxRate), currency, locale);
 
@@ -134,19 +140,34 @@ export function Studio({
       setNotice({ tone: "ok", text: t("saved", { n: formatNumber(res.version, locale) }) });
     });
 
+  const aiErrorText = (code: AiErrorCode | "generic") => (code === "generic" ? tc("error") : te(code));
+
   const onRewrite = () =>
     run("rewrite", async () => {
-      const next = await rewriteSceneAction(scenes[selected], video.dialect);
-      updateScene({ on_screen_text: next.on_screen_text, voiceover_line: next.voiceover_line });
+      const res = await rewriteSceneAction(video.id, scenes, selected);
+      if (!res.ok) {
+        setNotice({ tone: "error", text: aiErrorText(res.error) });
+        return;
+      }
+      setScenes(res.scenes);
+      setDirty(false);
+      setNotice({ tone: "ok", text: t("rewritten", { n: formatNumber(res.version, locale) }) });
     });
 
   const onRequest = (e: FormEvent) => {
     e.preventDefault();
     if (!request.trim()) return;
     run("request", async () => {
-      await requestEditAction(video.id, request);
+      const res = await requestEditAction(video.id, scenes, request);
+      if (!res.ok) {
+        setNotice({ tone: "error", text: aiErrorText(res.error) });
+        return;
+      }
+      setScenes(res.scenes);
+      setDirty(false);
+      setSelected((i) => Math.min(i, res.scenes.length - 1));
       setRequest("");
-      setNotice({ tone: "info", text: t("requestSaved") });
+      setNotice({ tone: "ok", text: t("editApplied", { n: formatNumber(res.version, locale), summary: res.summary ?? "" }) });
     });
   };
 
@@ -166,6 +187,10 @@ export function Studio({
         throw new Error();
       }
     });
+
+  // Emphasis color from the scene's brand role; white when it would vanish into the ink background.
+  const roleColor = scene?.visual ? ROLE_HEX[scene.visual.emphasis_color_role] : current % 2 === 0 ? "#FFFFFF" : primary;
+  const emphasisColor = roleColor === ink ? "#FFFFFF" : roleColor;
 
   const markers = starts.slice(1).map((s) => (s / total) * 100);
   const exporting = video.status === "exporting";
@@ -239,7 +264,7 @@ export function Studio({
                   >
                     {formatNumber(i + 1, locale)}
                   </span>
-                  <span className="min-w-0 flex-1 truncate font-medium" lang="ar" dir="rtl">
+                  <span className="min-w-0 flex-1 truncate font-medium" lang={scriptLang} dir={scriptDir}>
                     {s.title}
                   </span>
                   <span className="text-xs text-ink-muted">{tc("seconds", { n: formatNumber(s.duration_s, locale) })}</span>
@@ -269,7 +294,11 @@ export function Studio({
                   <p
                     key={`${current}-${scene?.on_screen_text}`}
                     className="text-[clamp(1.1rem,4.5cqw,2.4rem)] leading-snug font-bold"
-                    style={{ color: current % 2 === 0 ? "#FFFFFF" : primary, fontFamily: brand?.fonts?.arabic }}
+                    style={{
+                      color: emphasisColor,
+                      fontFamily: (video.dialect === "en" ? brand?.fonts?.latin : brand?.fonts?.arabic) || undefined,
+                      whiteSpace: "pre-line",
+                    }}
                   >
                     {scene?.on_screen_text}
                   </p>
@@ -302,8 +331,18 @@ export function Studio({
             {t.rich("properties", boldTag)}
           </Heading>
           <p className="text-sm font-semibold text-primary-dark">
-            {t("sceneN", { n: formatNumber(current + 1, locale) })} · <span lang="ar">{scene?.title}</span>
+            {t("sceneN", { n: formatNumber(current + 1, locale) })} · <span lang={scriptLang}>{scene?.title}</span>
           </p>
+          {scene?.visual ? (
+            <ul className="flex flex-wrap gap-1.5 text-xs" aria-label={t("visual")}>
+              <li className="rounded-full bg-white px-3 py-1 text-ink-2">{tl(`layout_${scene.visual.layout}`)}</li>
+              <li className="rounded-full bg-white px-3 py-1 text-ink-2">{tl(`motion_${scene.visual.motion}`)}</li>
+              <li className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-ink-2">
+                <span className="size-2.5 rounded-full" style={{ backgroundColor: ROLE_HEX[scene.visual.emphasis_color_role] }} aria-hidden="true" />
+                {tl(`role_${scene.visual.emphasis_color_role}`)}
+              </li>
+            </ul>
+          ) : null}
           <div>
             <label htmlFor="ost" className="label mb-2 block">
               {t("onScreenText")}
@@ -314,10 +353,12 @@ export function Studio({
               dir={scriptDir}
               lang={scriptLang}
               value={scene?.on_screen_text ?? ""}
+              disabled={pending}
               onChange={(e) => updateScene({ on_screen_text: e.target.value })}
               className="w-full resize-y rounded-[20px] bg-white p-3 text-sm outline-none focus:shadow-[inset_0_0_0_1.5px_var(--primary)]"
             />
           </div>
+          {video.voiceover ? (
           <div>
             <label htmlFor="vol" className="label mb-2 block">
               {t("voiceoverLine")}
@@ -328,11 +369,14 @@ export function Studio({
               dir={scriptDir}
               lang={scriptLang}
               value={scene?.voiceover_line ?? ""}
+              disabled={pending}
               onChange={(e) => updateScene({ voiceover_line: e.target.value })}
               className="w-full resize-y rounded-[20px] bg-white p-3 text-sm outline-none focus:shadow-[inset_0_0_0_1.5px_var(--primary)]"
             />
           </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
+            {video.voiceover ? (
             <button
               type="button"
               onClick={() => setNotice({ tone: "info", text: t("listenSoon") })}
@@ -341,9 +385,10 @@ export function Studio({
               <SpeakerIcon className="size-4" />
               {t("listen")}
             </button>
+            ) : null}
             <button type="button" onClick={onRewrite} disabled={pending} className="btn btn-white">
               {busy === "rewrite" ? <SpinnerIcon className="size-4" /> : <SparkIcon className="size-4" />}
-              {t("rewrite")}
+              {busy === "rewrite" ? t("rewriting") : t("rewrite")}
             </button>
           </div>
           <button type="button" onClick={onSave} disabled={pending || !dirty} className="btn btn-primary w-full">
@@ -362,6 +407,7 @@ export function Studio({
                 id="req"
                 rows={2}
                 value={request}
+                disabled={pending}
                 onChange={(e) => setRequest(e.target.value)}
                 placeholder={t("requestPlaceholder")}
                 className="min-h-pill flex-1 resize-none bg-transparent px-3 py-2 text-sm outline-none placeholder:text-ink-muted/70"
@@ -370,6 +416,11 @@ export function Studio({
                 {busy === "request" ? <SpinnerIcon className="size-4" /> : <SendIcon className="size-4" />}
               </button>
             </div>
+            {busy === "request" ? (
+              <p role="status" className="mt-2 text-xs text-ink-muted">
+                {t("editing")}
+              </p>
+            ) : null}
           </form>
         </section>
       </div>
