@@ -25,8 +25,16 @@ async function loadMembership(supabase: AppContext["supabase"], userId: string) 
     .order("created_at")
     .limit(1)
     .maybeSingle();
-  if (error) throw error;
-  return data as unknown as { role: Role; workspaces: Workspace } | null;
+  if (error) {
+    console.error("[context] loadMembership failed", { userId, code: error.code, message: error.message, details: error.details, hint: error.hint });
+    throw error;
+  }
+  const row = data as unknown as { role: Role; workspaces: Workspace | null } | null;
+  if (row && !row.workspaces) {
+    console.error("[context] membership found but workspace row not visible (RLS on workspaces?)", { userId });
+    return null;
+  }
+  return row as { role: Role; workspaces: Workspace } | null;
 }
 
 /** Signed-in user + their workspace. Creates the workspace on first login. Cached per request. */
@@ -39,9 +47,12 @@ export const getAppContext = cache(async (): Promise<AppContext> => {
 
   let membership = await loadMembership(supabase, userId!);
   if (!membership) {
-    await bootstrapAccount(locale);
+    const workspaceId = await bootstrapAccount(locale);
     membership = await loadMembership(supabase, userId!);
-    if (!membership) throw new Error("Workspace bootstrap failed");
+    if (!membership) {
+      console.error("[context] bootstrap returned a workspace but membership is still not readable", { userId, workspaceId });
+      throw new Error("Workspace bootstrap failed");
+    }
   }
 
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", userId!).maybeSingle();

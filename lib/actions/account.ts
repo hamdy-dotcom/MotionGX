@@ -8,11 +8,14 @@ import { routing, type Locale } from "@/i18n/routing";
  * First login: create the profile, then a workspace + owner membership.
  * Idempotent — safe to call on every visit until a membership exists.
  */
-export async function bootstrapAccount(locale: Locale) {
+export async function bootstrapAccount(locale: Locale): Promise<string> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  const { data, error: claimsError } = await supabase.auth.getClaims();
   const userId = data?.claims?.sub;
-  if (!userId) throw new Error("Not signed in");
+  if (!userId) {
+    console.error("[bootstrap] no session on server client", { message: claimsError?.message });
+    throw new Error("Not signed in");
+  }
 
   const email = typeof data.claims.email === "string" ? data.claims.email : "";
   const fullName = email.split("@")[0] ?? "";
@@ -20,14 +23,21 @@ export async function bootstrapAccount(locale: Locale) {
   const { error: profileError } = await supabase
     .from("profiles")
     .upsert({ id: userId, full_name: fullName, locale }, { onConflict: "id", ignoreDuplicates: true });
-  if (profileError) throw profileError;
+  if (profileError) {
+    console.error("[bootstrap] profile upsert failed", { userId, code: profileError.code, message: profileError.message, details: profileError.details, hint: profileError.hint });
+    throw profileError;
+  }
 
-  const { error } = await supabase.rpc("bootstrap_workspace", {
+  const { data: workspaceId, error } = await supabase.rpc("bootstrap_workspace", {
     p_name: fullName || "Workspace",
     p_country_code: "EG",
     p_currency_code: "EGP",
   });
-  if (error) throw error;
+  if (error) {
+    console.error("[bootstrap] bootstrap_workspace failed", { userId, code: error.code, message: error.message, details: error.details, hint: error.hint });
+    throw error;
+  }
+  return workspaceId as string;
 }
 
 /** Remember the UI language on the profile (the NEXT_LOCALE cookie covers anonymous visits). */
