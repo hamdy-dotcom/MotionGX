@@ -228,7 +228,7 @@ function BrandEditor({ brand, savingLabel }: { brand: ExtractedBrand; savingLabe
         <Field label={t("defaultDialect")}>
           <div role="radiogroup" aria-label={t("defaultDialect")} className="flex flex-wrap gap-2">
             {DIALECTS.map((d) => (
-              <button key={d} type="button" role="radio" aria-checked={dialect === d} onClick={() => setDialect(d)} className="chip bg-white">
+              <button key={d} type="button" role="radio" aria-checked={dialect === d} onClick={() => setDialect(d)} className="chip chip-white">
                 {td(d)}
               </button>
             ))}

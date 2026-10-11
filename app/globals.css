@@ -70,8 +70,14 @@ body {
   .btn-white {
     @apply bg-white text-primary-dark hover:bg-primary-light;
   }
+
+  /* Chips. Never put a bg-* utility on a chip: utilities beat these rules and hide the selected state.
+     Use .chip-white for chips that sit on a field-colored panel. */
   .chip {
     @apply inline-flex min-h-pill cursor-pointer items-center justify-center gap-2 rounded-full bg-field px-4 text-sm text-ink-2 transition-colors select-none hover:bg-primary-light;
+  }
+  .chip-white {
+    @apply bg-white;
   }
   .chip[aria-pressed="true"],
   .chip[aria-checked="true"] {
@@ -79,8 +85,9 @@ body {
   }
   .chip-solid[aria-pressed="true"],
   .chip-solid[aria-checked="true"] {
-    @apply bg-primary text-white shadow-none;
+    @apply bg-primary text-white shadow-none hover:bg-primary-dark;
   }
+
   .field {
     @apply w-full rounded-full bg-field px-5 min-h-pill text-sm text-navy placeholder:text-ink-muted/70 outline-none focus:shadow-[inset_0_0_0_1.5px_var(--primary)];
   }

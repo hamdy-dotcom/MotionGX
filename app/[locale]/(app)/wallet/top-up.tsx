@@ -43,7 +43,7 @@ export function TopUp({ amounts, fxRate, currency }: { amounts: readonly number[
             role="radio"
             aria-checked={amount === usd}
             onClick={() => setAmount(usd)}
-            className="chip chip-solid h-auto flex-col gap-0 rounded-[22px] bg-white py-3"
+            className="chip chip-solid h-auto flex-col gap-0 rounded-[22px] chip-white py-3"
           >
             <span className="text-base font-bold">{local(usd)}</span>
             <span className="text-xs opacity-75">{formatMoney(usd, "USD", locale)}</span>
@@ -55,7 +55,7 @@ export function TopUp({ amounts, fxRate, currency }: { amounts: readonly number[
         <p className="label mb-2">{t("methods")}</p>
         <div role="radiogroup" aria-label={t("methods")} className="flex flex-wrap gap-2">
           {METHODS.map((m) => (
-            <button key={m.id} type="button" role="radio" aria-checked={method === m.id} onClick={() => setMethod(m.id)} className="chip bg-white">
+            <button key={m.id} type="button" role="radio" aria-checked={method === m.id} onClick={() => setMethod(m.id)} className="chip chip-white">
               {t(m.key)}
             </button>
           ))}

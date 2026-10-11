@@ -101,7 +101,7 @@ export function NewVideoForm({
         <Section label={t("goal")}>
           <ChipGroup label={t("goal")}>
             {GOALS.map((g) => (
-              <button key={g} type="button" role="radio" aria-checked={goal === g} onClick={() => setGoal(g)} className="chip chip-solid bg-white">
+              <button key={g} type="button" role="radio" aria-checked={goal === g} onClick={() => setGoal(g)} className="chip chip-solid chip-white">
                 {tg(g)}
               </button>
             ))}
@@ -112,7 +112,7 @@ export function NewVideoForm({
           <Section label={t("format")}>
             <ChipGroup label={t("format")}>
               {FORMATS.map((f) => (
-                <button key={f} type="button" role="radio" aria-checked={format === f} onClick={() => setFormat(f)} className="chip bg-white">
+                <button key={f} type="button" role="radio" aria-checked={format === f} onClick={() => setFormat(f)} className="chip chip-white">
                   <FormatGlyph format={f} />
                   <span dir="ltr">{f}</span>
                   <span className="sr-only">{tf(formatKey(f))}</span>
@@ -124,7 +124,7 @@ export function NewVideoForm({
           <Section label={t("length")}>
             <ChipGroup label={t("length")}>
               {LENGTHS.map((l) => (
-                <button key={l} type="button" role="radio" aria-checked={length === l} onClick={() => setLength(l)} className="chip bg-white">
+                <button key={l} type="button" role="radio" aria-checked={length === l} onClick={() => setLength(l)} className="chip chip-white">
                   {tc("seconds", { n: formatNumber(l, locale) })}
                 </button>
               ))}
@@ -135,7 +135,7 @@ export function NewVideoForm({
         <Section label={t("pace")}>
           <ChipGroup label={t("pace")}>
             {PACES.map((p) => (
-              <button key={p} type="button" role="radio" aria-checked={pace === p} onClick={() => setPace(p)} className="chip bg-white">
+              <button key={p} type="button" role="radio" aria-checked={pace === p} onClick={() => setPace(p)} className="chip chip-white">
                 {tp(p)}
               </button>
             ))}
@@ -152,7 +152,7 @@ export function NewVideoForm({
                 aria-checked={dialect === d}
                 onClick={() => chooseDialect(d)}
                 lang={d === "en" ? "en" : "ar"}
-                className="chip bg-white"
+                className="chip chip-white"
               >
                 {td(d)}
               </button>
@@ -186,7 +186,7 @@ export function NewVideoForm({
               <p className="label mb-2">{t("voice")}</p>
               <ChipGroup label={t("voice")}>
                 {voicesFor(dialect).map((v) => (
-                  <button key={v.id} type="button" role="radio" aria-checked={voiceId === v.id} onClick={() => setVoiceId(v.id)} className="chip bg-white">
+                  <button key={v.id} type="button" role="radio" aria-checked={voiceId === v.id} onClick={() => setVoiceId(v.id)} className="chip chip-white">
                     <span className="font-semibold">{v.display_name}</span>
                     <span className="text-xs text-ink-muted">{tgen(v.gender)}</span>
                   </button>
