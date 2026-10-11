@@ -3,3 +3,5 @@ allowBuilds:
   unrs-resolver: false
   "@parcel/watcher": false
   "@swc/core": false
+minimumReleaseAgeExclude:
+  - zod@4.6.6
