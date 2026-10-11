@@ -1,0 +1,96 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+:root {
+  --teal-bg: #86cfd3;
+  --teal-band: #a4dee1;
+  --teal-accent: #1ba89b;
+  --teal-ink: #0b7a70;
+  --teal: #1ba89b;
+
+  --primary: #5558e3;
+  --primary-dark: #3b3ec9;
+  --primary-mid: #a7a9f3;
+  --primary-lavender: #dcddfa;
+  --primary-light: #eeeffd;
+  --field: #f5f6fd;
+
+  --navy: #10184a;
+  --ink-2: #3a4166;
+  --ink-muted: #545a7a;
+
+  --dash: #c9caf7;
+
+  --success-bg: #ddf4f1;
+  --success-ink: #0b6b62;
+  --warning-bg: #fff1d6;
+  --warning-ink: #7a4a00;
+  --danger-bg: #fde7e7;
+  --danger-ink: #9b1c1c;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  min-height: 100dvh;
+  color: var(--navy);
+  /* Teal frame with a centered lighter band — hard stops, no wash. */
+  background: linear-gradient(
+    to right,
+    var(--teal-bg) 0 7%,
+    var(--teal-band) 7% 93%,
+    var(--teal-bg) 93% 100%
+  );
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--primary-lavender);
+  color: var(--navy);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-pill items-center justify-center gap-2 rounded-full px-5 text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-dark active:bg-primary-dark;
+  }
+  .btn-soft {
+    @apply bg-primary-light text-primary hover:bg-primary-lavender;
+  }
+  .btn-white {
+    @apply bg-white text-primary-dark hover:bg-primary-light;
+  }
+  .chip {
+    @apply inline-flex min-h-pill cursor-pointer items-center justify-center gap-2 rounded-full bg-field px-4 text-sm text-ink-2 transition-colors select-none hover:bg-primary-light;
+  }
+  .chip[aria-pressed="true"],
+  .chip[aria-checked="true"] {
+    @apply bg-white text-primary-dark shadow-[inset_0_0_0_1.5px_var(--primary)];
+  }
+  .chip-solid[aria-pressed="true"],
+  .chip-solid[aria-checked="true"] {
+    @apply bg-primary text-white shadow-none;
+  }
+  .field {
+    @apply w-full rounded-full bg-field px-5 min-h-pill text-sm text-navy placeholder:text-ink-muted/70 outline-none focus:shadow-[inset_0_0_0_1.5px_var(--primary)];
+  }
+  .panel {
+    @apply rounded-panel bg-field p-5;
+  }
+  .divider {
+    @apply border-t border-dashed border-dash;
+  }
+  .label {
+    @apply text-xs font-medium tracking-wide text-ink-muted;
+  }
+}
