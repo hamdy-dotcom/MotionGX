@@ -35,11 +35,13 @@ export function NewVideoForm({
   const td = useTranslations("dialects");
   const tf = useTranslations("formats");
   const tgen = useTranslations("gender");
+  const te = useTranslations("aiErrors");
   const locale = useLocale();
   const [state, action, pending] = useActionState<CreateVideoState, FormData>(createVideo, {});
 
   const initialCompany = companies.find((c) => c.id === initialCompanyId) ?? companies[0];
   const [companyId, setCompanyId] = useState(initialCompany.id);
+  const [brief, setBrief] = useState("");
   const [goal, setGoal] = useState<Goal>("sell");
   const [format, setFormat] = useState<VideoFormat>("9:16");
   const [length, setLength] = useState<VideoLength>(30);
@@ -91,6 +93,8 @@ export function NewVideoForm({
           <textarea
             id="brief"
             name="brief"
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
             required
             rows={4}
             placeholder={t("briefPlaceholder")}
@@ -228,9 +232,9 @@ export function NewVideoForm({
           {t("priceNote", { seconds: formatNumber(billedSeconds(length), locale) })}
         </p>
 
-        {state.error ? (
+        {state.error || state.aiError ? (
           <p role="alert" className="mt-4 rounded-2xl bg-white px-4 py-2 text-sm text-danger-ink">
-            {state.error === "briefRequired" ? t("briefRequired") : tc("error")}
+            {state.aiError ? te(state.aiError) : state.error === "briefRequired" ? t("briefRequired") : tc("error")}
           </p>
         ) : null}
 

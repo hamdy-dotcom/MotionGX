@@ -5,9 +5,22 @@ import { getTranslations } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
 import { redirect } from "@/i18n/navigation";
 import { generateScript } from "@/lib/script/generate";
-import { DIALECTS, FORMATS, GOALS, LENGTHS, PACES, type Dialect, type Goal, type Pace, type VideoFormat, type VideoLength } from "@/lib/types";
+import { toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
+import {
+  DIALECTS,
+  FORMATS,
+  GOALS,
+  LENGTHS,
+  PACES,
+  type BrandProfile,
+  type Dialect,
+  type Goal,
+  type Pace,
+  type VideoFormat,
+  type VideoLength,
+} from "@/lib/types";
 
-export type CreateVideoState = { error?: "briefRequired" | "generic" };
+export type CreateVideoState = { error?: "briefRequired" | "generic"; aiError?: AiErrorCode };
 
 function pick<T extends string | number>(value: unknown, allowed: readonly T[]): T | null {
   return allowed.find((a) => String(a) === String(value)) ?? null;
@@ -29,6 +42,35 @@ export async function createVideo(_prev: CreateVideoState, formData: FormData): 
   const voiceover = formData.get("voiceover") === "on";
   const voiceId = voiceover ? String(formData.get("voice_id") ?? "") || null : null;
   if (!goal || !format || !length || !pace || !dialect || !companyId || (voiceover && !voiceId)) return { error: "generic" };
+
+  const { data: company } = await supabase
+    .from("companies")
+    .select("name, brand_profiles(colors, fonts, tone, tagline)")
+    .eq("id", companyId)
+    .eq("workspace_id", workspace.id)
+    .maybeSingle();
+  if (!company) return { error: "generic" };
+  const profileRaw = (company as unknown as { brand_profiles: BrandProfile | BrandProfile[] | null }).brand_profiles;
+  const profile = Array.isArray(profileRaw) ? (profileRaw[0] ?? null) : profileRaw;
+
+  // Write the script first so a failed AI call doesn't leave an empty video behind.
+  let generated: Awaited<ReturnType<typeof generateScript>>;
+  try {
+    generated = await generateScript({
+      workspaceId: workspace.id,
+      brief,
+      goal,
+      format,
+      lengthS: length,
+      pace,
+      dialect,
+      voiceover,
+      brand: { name: company.name, profile },
+    });
+  } catch (err) {
+    console.error("[createVideo] script generation failed", { err });
+    return { aiError: toAiErrorCode(err) };
+  }
 
   const t = await getTranslations("videos");
   const tg = await getTranslations("goals");
@@ -54,15 +96,15 @@ export async function createVideo(_prev: CreateVideoState, formData: FormData): 
     .select("id")
     .single();
   if (error || !video) {
-    console.error("createVideo", error?.message);
+    console.error("[createVideo] insert video failed", { code: error?.code, message: error?.message });
     return { error: "generic" };
   }
 
-  // PHASE 2: generateScript is a mock that returns 7 fixed scenes.
-  const { scenes, script } = generateScript(length, dialect);
-  const { error: versionError } = await supabase.from("video_versions").insert({ video_id: video.id, version: 1, scenes, script });
+  const { error: versionError } = await supabase
+    .from("video_versions")
+    .insert({ video_id: video.id, version: 1, scenes: generated.scenes, script: generated.script });
   if (versionError) {
-    console.error("createVideo version", versionError.message);
+    console.error("[createVideo] insert version failed", { code: versionError.code, message: versionError.message });
     return { error: "generic" };
   }
 

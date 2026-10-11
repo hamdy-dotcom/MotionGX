@@ -54,12 +54,26 @@ export type Voice = {
   gender: "female" | "male";
 };
 
+export const LAYOUTS = ["hero", "split", "list", "stat", "logo", "cta"] as const;
+export type SceneLayout = (typeof LAYOUTS)[number];
+
+export const MOTIONS = ["rise", "pop", "slide", "count"] as const;
+export type SceneMotion = (typeof MOTIONS)[number];
+
+export const COLOR_ROLES = ["primary", "ink", "accent", "background"] as const;
+export type ColorRole = (typeof COLOR_ROLES)[number];
+
+export type SceneVisual = { layout: SceneLayout; emphasis_color_role: ColorRole; motion: SceneMotion };
+
 export type Scene = {
   id: string;
   title: string;
   duration_s: number;
   on_screen_text: string;
-  voiceover_line: string;
+  /** null when the video has no voiceover. */
+  voiceover_line: string | null;
+  /** Missing on Phase 1 mock scenes. */
+  visual?: SceneVisual;
 };
 
 export type Video = {
