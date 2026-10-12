@@ -8,6 +8,7 @@ import { AiError } from "@/lib/ai/usage";
 import type { ScriptBeat } from "@motiongx/primitives";
 import type { Treatment } from "./director";
 import type { MotionBrief } from "./types";
+import { projectPath } from "./paths";
 
 export { OPUS, SONNET };
 
@@ -17,7 +18,7 @@ const sfxSchema = z.object({
 export type SfxEvent = z.infer<typeof sfxSchema>["sfx"][number];
 
 let apiDoc: string | null = null;
-const primitivesApi = () => (apiDoc ??= readFileSync(path.join(process.cwd(), "packages/primitives/API.md"), "utf8"));
+const primitivesApi = () => (apiDoc ??= readFileSync(projectPath("packages/primitives/API.md"), "utf8"));
 
 const SYSTEM = () => `You are a senior motion designer who codes bespoke Remotion compositions in React + TypeScript.
 You implement a creative director's treatment for ONE video, from scratch: invent the shapes, layouts, transitions and motion. There are no templates and no stock scenes — only the low-level primitives below.

@@ -24,7 +24,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@remotion/bundler", "@remotion/renderer", "@remotion/vercel", "@vercel/sandbox", "esbuild"],
   // The prebuilt Remotion bundle ships with the studio route (renders run in `after()` of its export action).
   outputFileTracingIncludes: {
-    "/[locale]/videos/*": ["./.remotion-bundle/**/*"],
+    // Runtime files reached through projectPath() (not traced automatically).
+    "/[locale]/videos/*": ["./.remotion-bundle/**/*", "./packages/primitives/**/*", "./scripts/motion/**/*", "./scripts/music/*.py", "./data/motion-refs.json", "./tsconfig*.json"],
   },
 };
 

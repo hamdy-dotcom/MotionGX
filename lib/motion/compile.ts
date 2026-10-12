@@ -112,7 +112,7 @@ let cachedOptions: ts.CompilerOptions | null = null;
 /** The project's own tsconfig (the same options the app compiles with) + the primitives alias. */
 function compilerOptions(root: string): ts.CompilerOptions {
   if (cachedOptions) return cachedOptions;
-  const configPath = path.join(root, "tsconfig.json");
+  const configPath = path.join(/* turbopackIgnore: true */ root, "tsconfig.json");
   const { config } = ts.readConfigFile(configPath, ts.sys.readFile);
   const parsed = ts.parseJsonConfigFileContent(config ?? {}, ts.sys, root);
   cachedOptions = {
@@ -122,7 +122,7 @@ function compilerOptions(root: string): ts.CompilerOptions {
     noImplicitAny: false,
     // No baseUrl: it would resolve the bare name "remotion" to this repo's remotion/ folder.
     baseUrl: undefined,
-    paths: { ...(parsed.options.paths ?? {}), "@motiongx/primitives": [path.join(root, "packages/primitives/src/index.ts")] },
+    paths: { ...(parsed.options.paths ?? {}), "@motiongx/primitives": [path.join(/* turbopackIgnore: true */ root, "packages/primitives/src/index.ts")] },
     plugins: [],
   };
   return cachedOptions;
@@ -136,7 +136,7 @@ const BLOCKING_TS_CODES = new Set([2304, 2305, 2307, 2339, 2349, 2351, 2551, 255
 /** Full TypeScript typecheck of the composition against the real primitives/Remotion types. */
 export function typecheck(code: string, root = process.cwd()): { blocking: string[]; warnings: string[] } {
   const options = compilerOptions(root);
-  const file = path.join(root, ".motion-check", FILE);
+  const file = path.join(/* turbopackIgnore: true */ root, ".motion-check", FILE);
   const host = ts.createCompilerHost(options, true);
   const getSourceFile = host.getSourceFile.bind(host);
   host.getSourceFile = (name, lang, onError, create) => (name === file ? ts.createSourceFile(name, code, lang, true, ts.ScriptKind.TSX) : getSourceFile(name, lang, onError, create));

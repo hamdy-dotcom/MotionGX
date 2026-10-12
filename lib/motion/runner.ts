@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { WorkerJob, WorkerResult } from "@/scripts/motion/worker";
+import { projectPath } from "./paths";
 
 export type { WorkerJob, WorkerResult };
 
@@ -22,7 +23,7 @@ export async function runMotionJob(job: WorkerJob, timeoutMs = 15 * 60_000): Pro
   await new Promise<void>((resolve, reject) => {
     execFile(
       process.execPath,
-      [path.join(process.cwd(), "node_modules/tsx/dist/cli.mjs"), "--tsconfig", "tsconfig.scripts.json", "scripts/motion/worker.ts", jobFile, resultFile],
+      [projectPath("node_modules/tsx/dist/cli.mjs"), "--tsconfig", "tsconfig.scripts.json", "scripts/motion/worker.ts", jobFile, resultFile],
       { cwd: process.cwd(), timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024, env: { ...process.env, NODE_OPTIONS: "" } },
       (err, _stdout, stderr) => (err ? reject(new Error(`motion worker failed: ${err.message}\n${stderr.slice(-2000)}`)) : resolve()),
     );

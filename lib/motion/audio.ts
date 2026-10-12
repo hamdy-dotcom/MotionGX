@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { EnergyMap } from "@motiongx/primitives";
 import type { SfxEvent } from "./coder";
+import { projectPath } from "./paths";
 
 const run = (cmd: string, args: string[], timeout = 5 * 60_000) =>
   new Promise<string>((resolve, reject) =>
@@ -19,7 +20,7 @@ export type ScoredAudio = {
   hits: { kind: string; expected_s: number; measured_s: number; offset_ms: number }[];
 };
 
-const PYTHON = () => (existsSync(path.resolve(".venv/bin/python")) ? path.resolve(".venv/bin/python") : "python3");
+const PYTHON = () => (existsSync(projectPath(".venv", "bin", "python")) ? projectPath(".venv", "bin", "python") : "python3");
 
 /**
  * Renders the per-video score + SFX from the energy map (scripts/music/score.py), encodes MP3s with
@@ -32,7 +33,7 @@ export async function scoreVideo(energy: EnergyMap, sfx: SfxEvent[], mood: strin
   writeFileSync(energyFile, JSON.stringify(energy));
   writeFileSync(sfxFile, JSON.stringify({ sfx }));
   await run(PYTHON(), ["scripts/music/score.py", "--energy", energyFile, "--events", sfxFile, "--mood", mood, "--seed", String(seed), "--out-dir", outDir]);
-  const npx = path.resolve("node_modules/.bin/remotion");
+  const npx = projectPath("node_modules/.bin/remotion");
   for (const name of ["mix", "sfx", "music"]) {
     await run(npx, ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", path.join(outDir, `${name}.wav`), "-codec:a", "libmp3lame", "-b:a", "192k", path.join(outDir, `${name}.mp3`)]);
   }

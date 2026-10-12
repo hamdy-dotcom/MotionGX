@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cosine, embed } from "./embed";
+import { projectPath } from "./paths";
 
 export type MotionRef = {
   id: string;
@@ -41,8 +42,8 @@ export const refText = (r: Pick<MotionRef, "title" | "category" | "tags" | "prom
 /** Local JSON store (scripts, tests, pre-migration). */
 export class FileStore implements MotionStore {
   constructor(
-    private file = path.resolve("out/motion-store.json"),
-    private seed = path.resolve("data/motion-refs.json"),
+    private file = projectPath("out/motion-store.json"),
+    private seed = projectPath("data/motion-refs.json"),
   ) {}
   private load(): { refs: MotionRef[]; treatments: TreatmentRecord[] } {
     if (existsSync(this.file)) return JSON.parse(readFileSync(this.file, "utf8"));
