@@ -32,6 +32,8 @@ export type ValidateCtx = {
   hasLogo: boolean;
   /** treatment text (concept + metaphor + shot visuals): what it promises must be delivered */
   treatment?: string;
+  /** Phase 3F: the video's illustrations (name → its parts); compile + bounds of the drawings themselves are checked in the illustration worker */
+  illustrations?: Record<string, string[]>;
 };
 
 const ARABIC = /[؀-ۿݐ-ݿࢠ-ࣿ]/;
@@ -180,6 +182,22 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
         for (const e of staticCheck(el.tsx)) add(el.id, "custom_code", e);
       }
     }
+  }
+  // illustration elements: a known drawing, known parts, and on the canvas
+  for (const el of spec.elements) {
+    if (el.type !== "illustration") continue;
+    const parts = ctx.illustrations?.[el.name];
+    if (!parts) {
+      add(el.id, "illustration_unknown", `illustration "${el.name}" doesn't exist — use one of: ${Object.keys(ctx.illustrations ?? {}).join(", ") || "(none)"}`);
+      continue;
+    }
+    const bad = [...new Set([...Object.keys(el.init ?? {}), ...(el.anim ?? []).map((a) => a.part)])].filter((x) => !parts.includes(x));
+    if (bad.length) add(el.id, "illustration_part", `"${el.name}" has no part ${bad.join(", ")} — its parts are: ${parts.join(", ")}`);
+    const w = el.w ?? 30;
+    const hPct = (((el.h ?? w) / 100) * ctx.width / ctx.height) * 100;
+    const visW = Math.min(100, el.x + w / 2) - Math.max(0, el.x - w / 2);
+    const visH = Math.min(100, el.y + hPct / 2) - Math.max(0, el.y - hPct / 2);
+    if (!el.parent && !(el.keys?.length) && (visW < w * 0.6 || visH < hPct * 0.6)) add(el.id, "illustration_offscreen", `illustration "${el.name}" is mostly off the canvas — keep it inside (x ${el.x}, y ${el.y}, w ${w})`);
   }
   if (spec.elements.length > 0 && !spec.elements.some((e) => e.type === "image" && e.src === "logo")) add(null, "no_logo", "add the brand logo (image src=logo) around the logo hit");
 

@@ -1,6 +1,7 @@
 import "server-only";
-// The spec writer (Haiku first, Sonnet fallback) + repair: deterministic fixes from the validator,
-// then at most 2 JSON-Patch rounds (Haiku) that only see the failing elements.
+// The spec writer (Sonnet since Phase 3F; MOTIONGX_SPEC_MODEL=haiku for the old writer) + repair:
+// deterministic fixes from the validator, then at most 2 JSON-Patch rounds (Haiku) that only see the
+// failing elements. If issues remain, the best-scoring version ships (marked) — never a loop.
 import { z } from "zod";
 import { callTool, HAIKU, SONNET } from "@/lib/ai/claude";
 import { AiError } from "@/lib/ai/usage";
@@ -12,6 +13,7 @@ import { loadFont, measureLine } from "./fonts-node";
 import { applyPatch, type PatchOp } from "./patch";
 import { dryRunPatch } from "./revision";
 import { refBrief, type Plan } from "./plan";
+import type { IllustrationNeed } from "./illustration-core";
 import type { MotionRef } from "./store";
 import { specSchema, type MotionSpec } from "./spec";
 import type { MotionBrief } from "./types";
@@ -57,6 +59,7 @@ TYPES:
 - chart: { "kind": bar|line|area|donut, "values": [relative numbers, never printed], "colors": [role…], "w", "h" } — animate with "count-up" (bars grow / line draws / donut sweeps)
 - shape "sketch": true → hand-drawn Rough.js look (hachure fill, wobbly outline) — great for underlines, circles around a word, arrows
 - VECTOR TEXT (text elements, Arabic shaped correctly, words never split): "text-stroke-draw" (calligraphy reveal right→left), "particles-to-text" / "text-to-particles", "kashida-stretch" (elongates joins on a hit), "text-morph" (to: another line ref or the brand name)
+- illustration (THE HERO — bespoke line-art/flat/… drawings made for this story, listed under ILLUSTRATIONS in the brief): { "name": one of the listed names, "w" (h = w by default; they're square), "init"?: { part: 0..1 } (starting state, default 0), "anim"?: [ { "part", "at": time (put it ON a hit or shot anchor), "dur"?: seconds (default 0.6), "to": 0..1, "ease"? } ] } — parts are the drawing's own animations (doors open, bars grow, lid closes); a part can go 0→1 and later back. Also give it fx (pop/spring-in entrance, float/breathe loop, shared-morph/move-to between shots) like any element. Never put text inside an illustration's box — labels sit beside/below it.
 - custom (rare escape hatch): { "tsx": a ≤150-line TSX file default-exporting a React component ({ t, frame, width, height, palette, fonts }) importing only react/remotion/@motiongx/primitives, "note": what it does, "w", "h" } — ONLY for an effect no behavior combination can express. Prefer behaviors.
 BEHAVIOR: { "fx": name, "at"?: time (default: element "in"; exits default to just before "out"), "dur"?: seconds, …params } — on a group: "stagger": seconds (+ "order": start|center|end|edges|random) applies it to each child in turn
 ${catalogueText()}
@@ -72,6 +75,8 @@ LAYOUT RULES (the validator enforces these; violations are sent back to you):
 - Make it look custom-made for the brand: layered depth, a consistent motion language, purposeful transitions. Avoid plain "title on gradient" shots.
 
 DESIGN DIRECTION (taste — what separates a promo from a slideshow):
+- TELL THE STORY THROUGH THE ILLUSTRATIONS: they are the heroes, big (w 40–75), one per shot (two when they interact). A continuous visual thread: the same hero carries across shots (move-to / shared-morph / camera push) instead of being swapped for a new layout. One idea per shot. On EVERY hit the hero changes state — a part animation lands exactly on the hit time (the box lid closes on the drop, the truck drives off on the impact, the bars grow on the reveal).
+- Supporting elements (route lines, rings, particles, small icons) connect the illustrations; don't redraw objects that exist as illustrations. Keep the spec lean: about 25–45 elements.
 - BUILD THE METAPHOR LITERALLY. If the concept is a balance scale, draw the scale (beam = line/rect, pans = shapes, pivot = triangle) and animate it tilting and settling; a tower → stacked blocks; a journey → a route with stations. The metaphor is the HERO of most shots (3–8 elements each), not a small icon.
 - Every shot = hero visual + headline (+ support line). Vary composition from shot to shot (left/right, top/bottom, scale, framing); never repeat the same backdrop shape in every shot.
 - Depth: 3 layers (background texture/glow, mid hero, foreground text/particles) and gentle parallax/camera moves.
@@ -80,7 +85,7 @@ DESIGN DIRECTION (taste — what separates a promo from a slideshow):
 - The logo is used as-is: animate it with pop / scale / float / punch / ring reveals — never glow, blur, hue, flicker or glitch it.
 - The logo reveal is a moment: build-up → hit → logo with a ring/ripple/burst; the CTA sits on the final drop, big and clear.
 
-QUALITY REFERENCE — a complete spec for an unrelated fictional brand. It shows the bar (literal metaphor, 3 layers, varied composition per shot, labelled plates, a route, a staged logo reveal, a labelled CTA). NEVER copy its layout, shapes or concept: invent your own from the treatment.
+QUALITY REFERENCE — a complete spec for an unrelated fictional brand. It shows the bar: the hero illustration is ONE element carried across shots with keys (a continuous thread, not a new card per shot), a part animation lands on every hit, the next illustration interacts with it (the bag pours INTO the cup), 3 layers of depth, labels beside the drawings, a route the truck rides, a staged logo reveal and a labelled CTA. NEVER copy its layout, illustrations or concept: invent your own from the treatment and use only YOUR illustrations.
 ${EXAMPLE_PLAN}
 ${EXAMPLE_SPEC}
 
@@ -125,10 +130,15 @@ async function layoutFacts(b: MotionBrief, plan: Plan) {
   return { maxSizes, table, dark: buildTokens(b.brand.colors).dark };
 }
 
-function specPrompt(b: MotionBrief, plan: Plan, facts: Awaited<ReturnType<typeof layoutFacts>>, refs: MotionRef[] = []) {
+/** the illustrations block of the brief: name, what it shows, its parts (the prop schema the spec animates) */
+const illustrationBrief = (illos: IllustrationNeed[], style: string) =>
+  illos.length ? `\nILLUSTRATIONS (style ${style}; place them as { "type": "illustration", "name": … }; parts are 0..1, animated with "anim"):\n${illos.map((n) => `- ${n.name}: ${n.shows} | parts: ${n.parts.map((p) => `${p.name} (0→1: ${p.does})`).join(", ")}`).join("\n")}` : "";
+
+function specPrompt(b: MotionBrief, plan: Plan, facts: Awaited<ReturnType<typeof layoutFacts>>, refs: MotionRef[] = [], illos: IllustrationNeed[] = plan.illustration_assets ?? []) {
   return `Canvas ${b.width}×${b.height} (${b.format}), ${b.lengthS}s @30fps, ${plan.energy.bpm} BPM (beat = ${(60 / plan.energy.bpm).toFixed(3)}s), language ${b.dialect === "en" ? "English (LTR)" : "Arabic (RTL)"}, palette is ${facts.dark ? "dark" : "light"}. Brand: ${b.brand.name} (${b.brand.url}); logo ${b.brand.hasLogo ? "yes" : "no — the logo element renders a wordmark"}; brand images: ${b.brand.imageCount}.
 TREATMENT: ${plan.concept} | motion language: ${plan.motion_language} | music: ${plan.music_mood}${plan.metaphor ? `
 METAPHOR — THE HERO OF THE FILM (build it literally, big, in most shots): "${plan.metaphor.object}" stands for ${plan.metaphor.stands_for}. Its arc: ${plan.metaphor.transformation}. A viewer must be able to say the idea in one sentence after watching.` : ""}
+${illustrationBrief(illos, plan.illustration_style)}
 SHOTS (use every line once, during its shot):
 ${plan.shots.map((s) => `- ${s.id} ${s.start_s}–${s.end_s}s: ${s.visual}${s.hero ? ` | HERO: ${s.hero}` : ""} | lines: ${s.lines.map((l, i) => `${s.id}:${i} "${l}"`).join(", ")}`).join("\n")}
 ENERGY: sections ${plan.energy.sections.map((s) => `${s.kind} ${s.start_s}–${s.end_s}`).join(", ")} | hits ${plan.energy.hits.map((h) => `${h.kind}@${h.t}${(h as { understand?: string }).understand ? ` (viewer gets: ${(h as { understand?: string }).understand})` : ""}`).join(", ")}
@@ -314,15 +324,15 @@ export type SpecRun = {
   model: string;
 };
 
-/** spec writer model: MOTIONGX_SPEC_MODEL=sonnet|haiku (default haiku; Phase 3E A/B) */
-export const specWriterModel = () => (process.env.MOTIONGX_SPEC_MODEL === "sonnet" ? SONNET : HAIKU);
+/** spec writer model: Sonnet (Phase 3F); MOTIONGX_SPEC_MODEL=haiku switches back */
+export const specWriterModel = () => (process.env.MOTIONGX_SPEC_MODEL === "haiku" ? HAIKU : SONNET);
 
 /** Spec call → validate → auto-fix → ≤ 2 JSON-Patch rounds. */
-export async function writeSpec(b: MotionBrief, plan: Plan, vctx: ValidateCtx, refs: MotionRef[] = [], note?: string): Promise<SpecRun> {
+export async function writeSpec(b: MotionBrief, plan: Plan, vctx: ValidateCtx, refs: MotionRef[] = [], note?: string, illos: IllustrationNeed[] = []): Promise<SpecRun> {
   const rounds: SpecRun["rounds"] = [];
   const facts = await layoutFacts(b, plan);
   const system = SPEC_DOC;
-  const prompt = `${specPrompt(b, plan, facts, refs)}${note ? `\nIMPORTANT: ${note}` : ""}`;
+  const prompt = `${specPrompt(b, plan, facts, refs, illos)}${note ? `\nIMPORTANT: ${note}` : ""}`;
   const zodProblems = (raw: unknown) => {
     const r = specSchema.safeParse(raw);
     return r.success ? [] : r.error.issues.slice(0, 20).map((i) => ({ path: `/${i.path.join("/")}`, msg: i.message }));
@@ -383,6 +393,11 @@ export async function repairSpec(b: MotionBrief, system: string, prompt: string,
   let v = await validateSpec(startSpec, vctx);
   if (!v.spec) throw new AiError("ai_invalid", v.issues.map((i) => i.msg).join("; "));
   let spec = v.spec;
+  // the best-scoring version so far (fewest issues; later wins ties): shipped if the repairs don't converge
+  let best = { spec, issues: v.issues };
+  const keepBest = () => {
+    if (v.spec && v.issues.length <= best.issues.length) best = { spec: v.spec, issues: v.issues };
+  };
   // deterministic fixes first (cheap, instant); re-validate until stable (max 3 passes)
   const sig = (is: SpecIssue[]) => is.map((i) => `${i.code}:${i.id}`).sort().join("|");
   for (let pass = 0; pass < 3 && v.issues.some((i) => i.fix); pass++) {
@@ -400,6 +415,7 @@ export async function repairSpec(b: MotionBrief, system: string, prompt: string,
     rounds.push({ stage: `autofix-${pass + 1}`, issues: v.issues.length, autoFixed: fx.applied, ms: Date.now() - t0 });
     t0 = Date.now();
   }
+  keepBest();
   if (!rounds.some((r) => r.stage.startsWith("autofix"))) rounds.push({ stage: "validate", issues: v.issues.length, ms: Date.now() - t0 });
 
   for (let round = 1; round <= MAX_PATCH_ROUNDS && v.issues.length; round++) {
@@ -445,6 +461,7 @@ export async function repairSpec(b: MotionBrief, system: string, prompt: string,
       v = await validateSpec(spec, vctx);
       spec = v.spec ?? spec;
     }
+    keepBest();
     rounds.push({ stage: `patch-${round}`, model: HAIKU, issues: v.issues.length, ms: Date.now() - t0 });
   }
   // deterministic finisher: guarantees a clean layout for what the patches didn't solve
@@ -456,9 +473,12 @@ export async function repairSpec(b: MotionBrief, system: string, prompt: string,
     spec = fin.applied.length ? fin.spec : fx!.spec;
     v = await validateSpec(spec, vctx);
     spec = v.spec ?? spec;
+    keepBest();
     rounds.push({ stage: `finish-${pass + 1}`, issues: v.issues.length, autoFixed: fin.applied.length || fx?.applied || 0, ms: Date.now() - t0 });
   }
-  return { spec, issues: v.issues };
+  keepBest();
+  if (best.issues.length < v.issues.length) rounds.push({ stage: "best-of", issues: best.issues.length, ms: 0 });
+  return best.issues.length < v.issues.length ? best : { spec, issues: v.issues };
 }
 
 /**

@@ -19,6 +19,7 @@ import { lerpPoints, shapePoints, smoothPath, toPath, type ShapeKind } from "./b
 import type { RuntimeInput } from "./runtime-input";
 import { ChartBody, InlineSvg, MapBody, organicBands, PeepBody, sketchPaths, VectorText } from "./elements3e";
 import { runKey, vectorFamily } from "./vector-types";
+import { partValues } from "../lib/motion/illustration-core";
 import { formatHex, interpolate as culoriInterpolate } from "culori";
 
 /** gradient stops interpolated in OKLCH (culori): no muddy grey midpoint between two brand colours */
@@ -776,6 +777,20 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
       body = <MapBody countries={countries} highlight={new Set(el.highlight ?? [])} route={route} w={r.w} h={r.h} fill={color(P, el.fill)} highlightFill={color(P, el.highlightFill)} stroke={color(P, el.stroke)} draw={r.state.draw} routeColor={P.accent} />;
     } else if (el.type === "chart") {
       body = <ChartBody kind={el.kind} values={el.values} colors={el.colors.map((c) => color(P, c))} w={r.w} h={r.h} p={r.state.count ?? r.state.draw ?? 1} track={P.surface2} />;
+    } else if (el.type === "illustration") {
+      const C = customs.get(`illo:${el.name}`) as React.ComponentType<{ p: Record<string, number>; c: Record<string, string>; sw: number; uid: string }> | undefined;
+      const meta = input.illustrations?.[el.name];
+      if (C && meta) {
+        const p = partValues(meta.parts, el.init, (el.anim ?? []).map((a) => ({ ...a, at: sec(a.at, env) })), t);
+        const mirror = meta.directional && input.dir === "rtl";
+        body = (
+          <svg width={r.w} height={r.h} viewBox="0 0 200 200" style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+            <g transform={mirror ? "translate(200 0) scale(-1 1)" : undefined}>
+              <C p={p} c={P as unknown as Record<string, string>} sw={meta.sw} uid={fid("il", el.id)} />
+            </g>
+          </svg>
+        );
+      }
     } else if (el.type === "custom") {
       const C = customs.get(el.id) as React.ComponentType<{ t: number; frame: number; width: number; height: number; palette: BrandTokens; fonts: MotionInput["fonts"] }> | undefined;
       body = C ? <C t={t - sec(el.in, env)} frame={frame} width={r.w} height={r.h} palette={P} fonts={stacks} /> : null;

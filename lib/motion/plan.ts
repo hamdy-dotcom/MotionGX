@@ -9,6 +9,7 @@ import type { EnergyMap, ScriptBeat } from "@motiongx/primitives";
 import { BEHAVIOR_NAMES } from "@/remotion/behaviors";
 import { DISPLAY_FONTS } from "@/remotion/asset-names";
 import { cosine, embed } from "./embed";
+import { ILLUSTRATION_STYLES, STYLE_GUIDE, type IllustrationAsset, type IllustrationStyle } from "./illustration-core";
 import { ARABIC_CREATOR_WEIGHTS, selectRefs, type MotionRef, type MotionStore, type TreatmentRecord } from "./store";
 import type { MotionBrief } from "./types";
 
@@ -36,6 +37,21 @@ export const planSchema = z.object({
       transformation: z.string().min(2).transform((x) => x.trim().slice(0, 240)),
     })
     .optional(),
+  /** ONE illustration style for every hero illustration in this video, chosen to fit the brand */
+  illustration_style: z.enum(ILLUSTRATION_STYLES),
+  /** the 3–6 hero illustrations the story needs (drawn for it, or reused from the library in this style) */
+  illustrations: z
+    .array(
+      z.object({
+        name: z.string().transform((x) => x.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40)).pipe(z.string().min(2)),
+        shows: z.string().min(3).transform((x) => x.trim().slice(0, 200)),
+        parts: z.array(z.object({ name: z.string().transform((x) => x.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 24)).pipe(z.string().min(1)), does: z.string().min(2).transform((x) => x.trim().slice(0, 120)) })).min(1).max(3),
+        directional: z.boolean(),
+      }),
+    )
+    .min(3)
+    .max(6)
+    .transform((list) => list.filter((x, i) => list.findIndex((y) => y.name === x.name) === i)),
   shots: z
     .array(
       z.object({
@@ -57,7 +73,13 @@ export const planSchema = z.object({
   }),
 });
 export type PlanRaw = z.infer<typeof planSchema>;
-export type Plan = Omit<PlanRaw, "energy" | "title"> & { title: string; energy: EnergyMap; beats: ScriptBeat[] };
+export type Plan = Omit<PlanRaw, "energy" | "title"> & {
+  title: string;
+  energy: EnergyMap;
+  beats: ScriptBeat[];
+  /** the illustrations this video actually shows (after library lookup + drawing; set by generateVideo) */
+  illustration_assets?: IllustrationAsset[];
+};
 
 // strict: the API enforces this structure, so a malformed plan (and its costly retry) can't happen
 const obj = (properties: Record<string, unknown>) => ({ type: "object", properties, required: Object.keys(properties), additionalProperties: false });
@@ -72,8 +94,19 @@ const tool = {
       motion_language: { type: "string", description: "2–5 English words, e.g. 'kinetic grid', 'liquid morphs'" },
       music_mood: { type: "string", enum: [...MOODS] },
       display_font: { type: "string", enum: [...DISPLAY_FONTS, "none"], description: "Arabic videos: ONE expressive Google display face for headlines that matches the tone (Lalezar/Rakkas/Blaka bold & loud, Reem Kufi/El Messiri elegant, Aref Ruqaa/Amiri calligraphic, Marhey/Lemonada playful, Changa/Alexandria/Cairo/Tajawal/Almarai clean); body copy keeps the brand font. English videos: \"none\"" },
+      illustration_style: { type: "string", enum: [...ILLUSTRATION_STYLES], description: "ONE illustration style for every hero illustration in this video, chosen to fit the brand's tone and audience" },
+      illustrations: {
+        type: "array",
+        description: "3–6 hero illustrations the story needs (drawn bespoke as animated SVG, in illustration_style)",
+        items: obj({
+          name: { type: "string", description: "snake_case English noun phrase, e.g. warehouse_shelves, phone_sales_chart, parcel_box, delivery_truck, support_headset" },
+          shows: { type: "string", description: "≤ 20 words: exactly what it depicts (no text inside it)" },
+          parts: { type: "array", description: "1–3 animatable parts", items: obj({ name: { type: "string", description: "snake_case prop, e.g. doors, bars, lid" }, does: { type: "string", description: "what moving 0 → 1 does: doors open, bars grow, lid closes" } }) },
+          directional: { type: "boolean", description: "true if it faces a direction (vehicle, arrow, hand)" },
+        }),
+      },
       metaphor: obj({
-        object: { type: "string", description: "the ONE concrete object that stands for the idea, built from engine elements (e.g. 'a glass jar', 'a delivery route with 4 stations', 'a stack of cards')" },
+        object: { type: "string", description: "the ONE concrete object that stands for the idea — usually one of your hero illustrations (e.g. 'a parcel box', 'a delivery route with 4 stations', 'a phone with a sales chart')" },
         stands_for: { type: "string", description: "what that object means for this brand, in plain words" },
         transformation: { type: "string", description: "how the object changes from the first shot to the logo (its arc)" },
       }),
@@ -85,7 +118,7 @@ const tool = {
           start_s: { type: "number" },
           end_s: { type: "number" },
           visual: { type: "string", description: "≤ 10 words: what is on screen and how it moves" },
-          hero: { type: "string", description: "≤ 20 words: what the metaphor object concretely does in this shot (drawable: shapes, paths, morphs, particles, camera)" },
+          hero: { type: "string", description: "≤ 20 words: which illustration is the hero of this shot and which part moves on its hit" },
           lines: { type: "array", items: { type: "string" }, description: "1–3 on-screen lines, ≤ 7 words each, in the video language" },
         }),
       },
@@ -133,10 +166,15 @@ MOTION PATTERN VOCABULARY (name the pattern in each shot's visual; these are wha
 15 tilt card / perspective — (tilt-3d, flip-3d, swing-in, carousel, extrude)
 16 blur / depth transition — (blur-words, focus-rack, puff-in, blur-out, motion blur)
 
+HERO ILLUSTRATIONS (the heart of the film — this is what makes it look hand-made):
+- Pick ONE illustration_style for the whole video that fits the brand (never the default out of habit — a playful snack brand ≠ a bank ≠ a dev tool): ${ILLUSTRATION_STYLES.map((s) => `${s} (${STYLE_GUIDE[s as IllustrationStyle].split(":")[0]})`).join("; ")}.
+- List the 3–6 concrete objects/scenes the story needs as illustrations (a warehouse, a phone with a sales chart, a parcel, a delivery truck, a support headset…), each with 1–3 animatable parts (doors open, bars grow, lid closes, needle turns, route draws). No text inside them — on-screen copy stays in the shots.
+- Tell the story THROUGH them: a continuous visual thread from shot to shot, one idea per shot, and the hero object changes state on each hit (the box closes on the drop, the truck leaves on the impact, the chart grows on the reveal).
+
 CREATIVE RULES
 - Make it unmistakably about THIS brand: its product, audience and tone. A viewer should feel it was hand-made for them.
 - Pick ONE strong visual metaphor and ONE motion language and commit to them across every shot.
-- Make the metaphor buildable and legible: name the ONE object (metaphor.object), what it stands for, and its arc; give every shot a concrete HERO action for that object, and say what the viewer understands at each hit. A viewer must be able to state the idea in one sentence.
+- Make the metaphor buildable and legible: name the ONE object (metaphor.object, usually a hero illustration), what it stands for, and its arc; give every shot a concrete HERO action (which illustration, which part moves), and say what the viewer understands at each hit. A viewer must be able to state the idea in one sentence.
 - Use only the brand palette (by role) and brand fonts. The logo is used as-is, never redrawn.
 - Music: sections intro / build / drop / breakdown / outro, and hits (drop, impact, reveal, logo, cta). A build leads into every drop; a breakdown comes right before the logo reveal; the CTA lands on the final, biggest drop; the video ends cleanly on its last frame.
 - Shots are contiguous from 0 to the video length; sections too. Hits sit on whole beats, after 0 and at least 2 beats before the end. Include exactly one "logo" hit and one "cta" hit (CTA after the logo, in the last third).
@@ -248,12 +286,17 @@ Recent concepts — do NOT repeat these ideas or motion languages: ${avoid.lengt
 
 // lengths are clamped rather than rejected: a retry for an over-long sentence costs a whole Sonnet call
 const clampStr = (min: number, max: number) => z.string().min(min).transform((s) => s.trim().slice(0, max));
-const conceptSchema = z.object({ concept: clampStr(10, 300), summary_en: clampStr(10, 300), motion_language: clampStr(3, 60) });
+const conceptSchema = z.object({ concept: clampStr(10, 300), summary_en: clampStr(10, 300), motion_language: clampStr(3, 60), illustration_style: z.enum(ILLUSTRATION_STYLES) });
 const conceptTool = {
   name: "save_concept",
   description: "Save a new concept for the same plan.",
-  input_schema: { type: "object" as const, properties: { concept: { type: "string", description: "ONE sentence (≤ 300 chars)" }, summary_en: { type: "string", description: "English, ≤ 300 chars" }, motion_language: { type: "string", description: "2–6 words (≤ 60 chars)" } }, required: ["concept", "summary_en", "motion_language"] },
+  input_schema: { type: "object" as const, properties: { concept: { type: "string", description: "ONE sentence (≤ 300 chars)" }, summary_en: { type: "string", description: "English, ≤ 300 chars" }, motion_language: { type: "string", description: "2–6 words (≤ 60 chars)" }, illustration_style: { type: "string", enum: [...ILLUSTRATION_STYLES] } }, required: ["concept", "summary_en", "motion_language", "illustration_style"] },
 };
+
+/** what the novelty check embeds: the illustration style is part of the look, so it's part of the idea */
+export const noveltyText = (p: Pick<Plan, "motion_language" | "summary_en" | "illustration_style">) => `${p.illustration_style} illustrations. ${p.motion_language}. ${p.summary_en}`;
+/** motion language as saved in the treatment history (with the style, so the avoid list shows it) */
+export const treatmentLanguage = (p: Pick<Plan, "motion_language" | "illustration_style">) => `${p.motion_language.trim()} · ${p.illustration_style}`;
 
 export type PlanResult = { plan: Plan; refs: MotionRef[]; embedding: number[]; similarity: number; conceptRedos: number };
 
@@ -282,16 +325,16 @@ export async function makePlan(b: MotionBrief, store: MotionStore, opts: { avoid
       const p = planProblems(snapPlan(raw, b.lengthS, bpm), b);
       return p.length ? p.join("; ") : null;
     },
-    maxTokens: 2500,
+    maxTokens: 3500,
     retries: 1,
   });
   if (!res.value) throw new AiError("ai_invalid", res.problem);
   let plan = snapPlan(res.value, b.lengthS, bpm);
 
   const novelty = async (p: Plan) => {
-    const e = await embed(`${p.motion_language}. ${p.summary_en}`);
+    const e = await embed(noveltyText(p));
     const top = history.map((h) => ({ h, sim: cosine(e, h.embedding) })).sort((x, y) => y.sim - x.sim)[0];
-    const same = history.find((h) => h.motion_language.trim().toLowerCase() === p.motion_language.trim().toLowerCase());
+    const same = history.find((h) => h.motion_language.trim().toLowerCase() === treatmentLanguage(p).toLowerCase());
     return { e, sim: top?.sim ?? 0, repeat: (top ? top.sim >= NOVELTY_THRESHOLD : false) || !!same, near: same ?? top?.h };
   };
   let n = await novelty(plan);
@@ -308,7 +351,7 @@ export async function makePlan(b: MotionBrief, store: MotionStore, opts: { avoid
       effort: "low",
       cache: true,
       system: SYSTEM,
-      prompt: `${userPrompt(b, bpm, refs, avoid)}\n\nYour plan "${plan.motion_language}: ${plan.summary_en}" is too close to an existing video ("${n.near?.motion_language}"). Keep the shots, copy and energy map, but give a clearly different concept and motion language. Respond only by calling save_concept.`,
+      prompt: `${userPrompt(b, bpm, refs, avoid)}\n\nYour plan "${plan.motion_language}: ${plan.summary_en}" is too close to an existing video ("${n.near?.motion_language}"). Keep the shots, copy, illustrations and energy map, but give a clearly different concept, motion language and (if the style is what repeats) illustration style. Respond only by calling save_concept.`,
       tool: conceptTool,
       schema: conceptSchema,
       maxTokens: 800,

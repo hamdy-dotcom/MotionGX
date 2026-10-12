@@ -236,7 +236,19 @@ const chartEl = z.object({
   colors: z.array(role).min(1).max(4).default(["primary"]),
 });
 
-export const elementSchema = z.discriminatedUnion("type", [textEl, shapeEl, pathEl, routeEl, imageEl, particlesEl, groupEl, counterEl, customEl, iconEl, emojiEl, characterEl, mapEl, flagEl, chartEl]);
+/** a hero illustration (Phase 3F): drawn for this story or reused from the library, in the video's style */
+const illustrationEl = z.object({
+  ...base,
+  type: z.literal("illustration"),
+  /** the illustration's name from the plan, e.g. "warehouse_shelves" */
+  name: z.string().regex(/^[a-z0-9_]{2,40}$/),
+  /** starting value (0..1) of each part; default 0 */
+  init: z.record(z.string(), z.number().min(0).max(1)).optional(),
+  /** part animations: the part tweens from its current value to `to` over `dur` seconds from `at` */
+  anim: z.array(z.object({ part: z.string(), at: time, dur: z.number().positive().max(10).default(0.6), to: z.number().min(0).max(1), ease: ease.optional() })).max(16).optional(),
+});
+
+export const elementSchema = z.discriminatedUnion("type", [textEl, shapeEl, pathEl, routeEl, imageEl, particlesEl, groupEl, counterEl, customEl, iconEl, emojiEl, characterEl, mapEl, flagEl, chartEl, illustrationEl]);
 export type SpecElement = z.infer<typeof elementSchema>;
 export type ElementOf<T extends SpecElement["type"]> = Extract<SpecElement, { type: T }>;
 
