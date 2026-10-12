@@ -15,10 +15,10 @@ const CAP_USD = 5;
 const CONCURRENCY = 4;
 
 export const cardSchema = z.object({
-  summary: z.string().min(10).max(200),
+  summary: z.string().min(10).max(260),
   motion_language: z.string().min(3).max(60),
   techniques: z.array(z.string().min(3).max(80)).min(2).max(8),
-  pacing: z.string().min(3).max(160),
+  pacing: z.string().min(3).max(220),
   palette_usage: z.string().min(3).max(200),
   best_for_industries: z.array(z.string().min(2).max(40)).min(1).max(6),
   best_for_goals: z.array(z.enum(GOALS)).min(1).max(4),
@@ -32,7 +32,7 @@ const tool = {
   input_schema: {
     type: "object" as const,
     properties: {
-      summary: { type: "string", description: "One line, ≤ 200 chars: what the video is and what makes its motion distinctive." },
+      summary: { type: "string", description: "One line, ≤ 200 chars (hard limit 260): what the video is and what makes its motion distinctive." },
       motion_language: { type: "string", description: "2–5 word label for the motion style, e.g. 'kinetic grid', 'liquid morphs'." },
       techniques: { type: "array", items: { type: "string" }, description: "2–8 concrete techniques, e.g. 'per-letter stagger', 'SVG stroke draw', 'particle field', '3D extrude', 'mask wipe', 'data count-up'." },
       pacing: { type: "string", description: "Rhythm and cut speed, e.g. 'fast cuts on the beat, slow hold on the logo'." },
@@ -42,6 +42,7 @@ const tool = {
       difficulty: { type: "string", enum: ["easy", "medium", "hard"], description: "How hard to build in code (Remotion/React)." },
     },
     required: ["summary", "motion_language", "techniques", "pacing", "palette_usage", "best_for_industries", "best_for_goals", "difficulty"],
+    additionalProperties: false,
   },
 };
 
@@ -106,7 +107,13 @@ export async function writeCards(entries: RawEntry[]) {
       const queue = [...entries];
       const worker = async () => {
         for (let e = queue.shift(); e; e = queue.shift()) {
-          const card = await cardFor(e);
+          let card: TechniqueCard | null = null;
+          try {
+            card = await cardFor(e);
+          } catch (err) {
+            if (err instanceof CostCapError) throw err;
+            console.warn(`  card error for ${e.slug}: ${err instanceof Error ? err.message : err}`);
+          }
           if (card) cards.set(e.slug, card);
           else failed++;
         }
