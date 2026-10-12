@@ -17,6 +17,7 @@
     "out",
     ".motion-check",
     "public/preview",
-    ".remotion-bundle"
+    ".remotion-bundle",
+    "legacy"
   ]
 }
