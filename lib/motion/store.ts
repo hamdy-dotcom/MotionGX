@@ -141,11 +141,11 @@ export function selectRefs(all: MotionRef[], query: number[], k: number, exclude
     let best = 0;
     let bestScore = -Infinity;
     pool.forEach((r, i) => {
-      // relevance on a 0–1 scale (cosine can be ≤ 0, where a percentage weight would mean nothing),
-      // + a small boost when the card says the ref suits this video's goal, × the creator weight
-      const base = (cosine(query, r.embedding!) + 1) / 2 + (goal && r.card?.best_for_goals?.includes(goal) ? 0.025 : 0);
-      const rel = base * (creatorWeights?.[r.creator] ?? 1);
-      const red = chosen.length ? Math.max(...chosen.map((c) => (cosine(c.embedding!, r.embedding!) + 1) / 2)) : 0;
+      // cosine relevance × the creator weight (positive relevance only: a weight never promotes an
+      // unrelated ref), + a small boost when the card says the ref suits this video's goal
+      const cos = cosine(query, r.embedding!);
+      const rel = (cos > 0 ? cos * (creatorWeights?.[r.creator] ?? 1) : cos) + (goal && r.card?.best_for_goals?.includes(goal) ? 0.05 : 0);
+      const red = chosen.length ? Math.max(...chosen.map((c) => cosine(c.embedding!, r.embedding!))) : 0;
       const score = lambda * rel - (1 - lambda) * red;
       if (score > bestScore) {
         bestScore = score;
