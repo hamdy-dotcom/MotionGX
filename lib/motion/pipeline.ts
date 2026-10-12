@@ -1,5 +1,5 @@
 import "server-only";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { ScriptBeat } from "@motiongx/primitives";
 import { buildTokens } from "@/packages/primitives/src/palette";
@@ -118,9 +118,14 @@ export async function codeWithQa(
     progress?.("validate", `round ${round}`);
     t0 = Date.now();
     const frames = qaFrames(treatment);
-    const res = await runMotionJob({ task: "validate", source: code, input, stills: frames, outDir: path.join(workDir, `r${round}`) });
+    const roundDir = path.join(workDir, `r${round}`);
+    mkdirSync(roundDir, { recursive: true });
+    writeFileSync(path.join(roundDir, "composition.tsx"), code);
+    const res = await runMotionJob({ task: "validate", source: code, input, stills: frames, outDir: roundDir });
+    if (!res.ok) writeFileSync(path.join(roundDir, "errors.txt"), `${res.stage}\n${res.errors.join("\n")}`);
     timings[`validate_r${round}`] = Date.now() - t0;
     if (!res.ok) {
+      console.warn(`[motion] round ${round} ${res.stage} failed: ${res.errors.slice(0, 3).join(" | ").slice(0, 600)}`);
       const report: QaReport = { pass: false, score: 0, treatment_followed: false, issues: res.errors.map((e) => ({ check: "render_error" as const, t: null, detail: `${res.stage}: ${e}` })), summary: `${res.stage} failed`, static_spans: [], round, checked_frames: [] };
       qa.push(report);
       feedback = { previousCode: code, errors: res.errors.map((e) => `${res.stage === "compile" ? "Compile/typecheck" : "Render"} error: ${e}`) };
@@ -132,6 +137,7 @@ export async function codeWithQa(
     const report = await visionQa({ workspaceId: b.workspaceId, stills: res.stills ?? [], treatment, script, palette, staticSpans: res.staticSpans ?? [], round, lang: input.lang });
     timings[`qa_r${round}`] = Date.now() - t0;
     qa.push(report);
+    console.log(`[motion] round ${round} QA ${report.pass ? "PASS" : "fail"} score ${report.score}: ${report.issues.map((i) => `${i.check}${i.t !== null ? `@${i.t}` : ""}`).join(", ") || "no issues"}`);
     if (report.pass) return { code, js: res.js, sfx, qa, timings };
 
     const flagged = new Set(report.issues.map((i) => i.t).filter((t): t is number => t !== null));
@@ -139,7 +145,8 @@ export async function codeWithQa(
       .filter((s) => flagged.size === 0 || [...flagged].some((t) => Math.abs(t - s.t) < 0.6))
       .slice(0, 6)
       .map((s) => ({ t: s.t, label: s.label, jpegBase64: readFileSync(s.path).toString("base64") }));
-    feedback = { previousCode: code, errors: report.issues.map((i) => `[${i.check}${i.t !== null ? ` @${i.t}s` : ""}] ${i.detail}`), stills };
+    const typeNotes = (res.warnings ?? []).slice(0, 8).map((w) => `TypeScript (non-blocking, fix while you're there): ${w}`);
+    feedback = { previousCode: code, errors: [...report.issues.map((i) => `[${i.check}${i.t !== null ? ` @${i.t}s` : ""}] ${i.detail}`), ...typeNotes], stills };
   }
   return { code: null, js: null, sfx: [], qa, timings };
 }

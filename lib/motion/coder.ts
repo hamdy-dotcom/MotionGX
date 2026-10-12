@@ -101,8 +101,10 @@ export async function codeComposition(
     model: opts.model ?? SONNET,
     system: SYSTEM(),
     messages: [{ role: "user", content }],
-    maxTokens: 64000,
-    effort: "high",
+    maxTokens: 48000,
+    // "high" made Sonnet think for 50k+ tokens on a ~15k-token file (8 min/round); medium keeps the craft
+    // and roughly quarters the time. Opus (rounds 3–4) writes the same file in ~14k tokens.
+    effort: (opts.model ?? SONNET) === OPUS ? "high" : "medium",
   });
   if (res.stopReason === "max_tokens") throw new AiError("ai_invalid", "composition too long (max_tokens)");
   return { ...parseOutput(res.text), model: res.model };

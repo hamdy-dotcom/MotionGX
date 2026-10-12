@@ -12,5 +12,11 @@
         "./packages/primitives/src/index.ts"
       ]
     }
-  }
+  },
+  "exclude": [
+    "out",
+    ".motion-check",
+    "public/preview",
+    ".remotion-bundle"
+  ]
 }

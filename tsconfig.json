@@ -40,6 +40,10 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "out",
+    ".motion-check",
+    "public/preview",
+    ".remotion-bundle"
   ]
 }

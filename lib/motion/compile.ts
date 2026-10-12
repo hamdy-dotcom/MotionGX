@@ -71,8 +71,13 @@ function compilerOptions(root: string): ts.CompilerOptions {
   return cachedOptions;
 }
 
+// Type errors that mean the code calls something that doesn't exist (wrong API, missing import,
+// wrong arity) block the round. Strictness complaints (possibly-null, number vs string, …) don't
+// change what renders, so they're passed back to the coder as warnings instead of costing a round.
+const BLOCKING_TS_CODES = new Set([2304, 2305, 2307, 2339, 2349, 2351, 2551, 2552, 2554, 2555, 2556, 2613, 2614, 2724]);
+
 /** Full TypeScript typecheck of the composition against the real primitives/Remotion types. */
-export function typecheck(code: string, root = process.cwd()): string[] {
+export function typecheck(code: string, root = process.cwd()): { blocking: string[]; warnings: string[] } {
   const options = compilerOptions(root);
   const file = path.join(root, ".motion-check", FILE);
   const host = ts.createCompilerHost(options, true);
@@ -84,22 +89,27 @@ export function typecheck(code: string, root = process.cwd()): string[] {
   host.readFile = (name) => (name === file ? code : readFile(name));
   const program = ts.createProgram([file], options, host);
   const sf = program.getSourceFile(file)!;
-  const diags = [...program.getSyntacticDiagnostics(sf), ...program.getSemanticDiagnostics(sf)];
-  return diags.slice(0, 25).map((d) => {
+  const fmt = (d: ts.Diagnostic) => {
     const pos = d.file && d.start !== undefined ? d.file.getLineAndCharacterOfPosition(d.start) : null;
     return `${pos ? `line ${pos.line + 1}: ` : ""}${ts.flattenDiagnosticMessageText(d.messageText, "\n")}`;
-  });
+  };
+  const syntactic = program.getSyntacticDiagnostics(sf);
+  const semantic = program.getSemanticDiagnostics(sf);
+  return {
+    blocking: [...syntactic, ...semantic.filter((d) => BLOCKING_TS_CODES.has(d.code))].slice(0, 25).map(fmt),
+    warnings: semantic.filter((d) => !BLOCKING_TS_CODES.has(d.code)).slice(0, 25).map(fmt),
+  };
 }
 
 /** Static checks → typecheck → esbuild to CommonJS (what the runtime evaluates). */
 export async function compileComposition(code: string, root = process.cwd()): Promise<CompileResult> {
   const errors = staticCheck(code);
   if (errors.length) return { ok: false, errors };
-  const typeErrors = typecheck(code, root);
-  if (typeErrors.length) return { ok: false, errors: typeErrors };
+  const types = typecheck(code, root);
+  if (types.blocking.length) return { ok: false, errors: types.blocking };
   try {
     const out = await transform(code, { loader: "tsx", format: "cjs", jsx: "automatic", target: "es2020", sourcefile: FILE });
-    return { ok: true, js: out.code, warnings: out.warnings.map((w) => w.text) };
+    return { ok: true, js: out.code, warnings: [...types.warnings, ...out.warnings.map((w) => w.text)] };
   } catch (err) {
     return { ok: false, errors: [err instanceof Error ? err.message : String(err)] };
   }

@@ -21,6 +21,8 @@ export type WorkerResult =
   | {
       ok: true;
       js: string;
+      /** non-blocking type errors, passed back to the coder */
+      warnings?: string[];
       stills?: { t: number; label: string; path: string }[];
       staticSpans?: { from_s: number; to_s: number }[];
       output?: string;
@@ -50,11 +52,13 @@ async function main() {
 
   let t0 = Date.now();
   let js = job.task === "render" ? job.js ?? "" : "";
+  let warnings: string[] = [];
   if (job.source) {
     const compiled = await compileComposition(job.source);
     mark("compile", t0);
     if (!compiled.ok) return write({ ok: false, stage: "compile", errors: compiled.errors });
     js = compiled.js;
+    warnings = compiled.warnings;
   }
 
   t0 = Date.now();
@@ -114,7 +118,7 @@ async function main() {
       rmSync(scanDir, { recursive: true, force: true });
       mark("staticScan", t0);
     }
-    return write({ ok: true, js, stills, staticSpans, timings });
+    return write({ ok: true, js, warnings, stills, staticSpans, timings });
   } catch (err) {
     return write({ ok: false, stage: "render", errors: [err instanceof Error ? `${err.message}`.slice(0, 2000) : String(err)] });
   } finally {
