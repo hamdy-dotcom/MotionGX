@@ -1,0 +1,2083 @@
+{
+ "generated": "2026-10-12T15:16:21.016Z",
+ "prompts": 233,
+ "docs": 53,
+ "techniques": [
+  {
+   "name": "per-word kinetic stagger",
+   "description": "Text revealed word by word with staggered start offsets.",
+   "prompts": 125,
+   "docs": 13,
+   "examples": [
+    "stephanlivera-df17a2",
+    "himanshutwtxs-5f4b43",
+    "lexnlin-038035",
+    "thismacapital-dfba20",
+    "samuel-yostt-891f87"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Rieranthony_product-film-skill/README.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/film-prompt.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/engine.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/interview.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/timing-grid.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/copy-and-type.md"
+   ],
+   "how": "The Words primitive offsets each word's entry by a stagger delay and applies entry blur defaulting to 8 px."
+  },
+  {
+   "name": "beat-synced hard cut",
+   "description": "Scene cuts placed on music beats or downbeats with no transition.",
+   "prompts": 111,
+   "docs": 18,
+   "examples": [
+    "stephanlivera-df17a2",
+    "twoclipping-5cba86",
+    "shneural-2abdfa",
+    "ajith-io-b5626e",
+    "twoclipping-221cab"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Rieranthony_product-film-skill/README.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/BRAND.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/ingredients.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/interview.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/story.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/transitions.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/hyperframes-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/timing-grid.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/sound.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/TREATMENT.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/critics/director.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "Visual state changes are placed on the exact frame where their cause lands on the timeline rather than eased in afterward."
+  },
+  {
+   "name": "camera push-in",
+   "description": "Virtual camera scales/moves toward the subject.",
+   "prompts": 91,
+   "docs": 11,
+   "examples": [
+    "stephanlivera-df17a2",
+    "shneural-2abdfa",
+    "himanshutwtxs-5f4b43",
+    "lexnlin-6161a6",
+    "davidmarcus-a28a60"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/docs/evaluation.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/formats.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/camera.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/TREATMENT.md"
+   ],
+   "how": "The camera scales in 2-5x on each interaction carrying the story, with a wide shot of readable UI held for at most about 1.7 s."
+  },
+  {
+   "name": "count-up number",
+   "description": "Numeric value interpolates from start to target with digits updating each frame.",
+   "prompts": 78,
+   "docs": 4,
+   "examples": [
+    "twoclipping-221cab",
+    "notdwd-c2037d",
+    "ajith-io-c52e09",
+    "twoclipping-6dd14e",
+    "samuel-yostt-891f87"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/BRAND.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/interview.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/hyperframes-engine.md"
+   ],
+   "how": "A numeric value is interpolated from a start to an end value across frames and rounded for display at each frame."
+  },
+  {
+   "name": "masked clip reveal",
+   "description": "Content revealed through an animated clip mask.",
+   "prompts": 76,
+   "docs": 4,
+   "examples": [
+    "ajith-io-b5626e",
+    "himanshutwtxs-5f4b43",
+    "ho-ba-f3f0e9",
+    "itisrazak-3ad902",
+    "notdwd-7de38a"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/transitions.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/copy-and-type.md"
+   ],
+   "how": "A second copy of the hero in the opposite tone is clipped to the union of the column rectangles so it flips colour exactly where a column stands behind it."
+  },
+  {
+   "name": "geometric shape morph",
+   "description": "Shape interpolates into another shape.",
+   "prompts": 50,
+   "docs": 3,
+   "examples": [
+    "stephanlivera-df17a2",
+    "twoclipping-5cba86",
+    "shneural-2abdfa",
+    "ajith-io-b5626e",
+    "ultimaxbt-bbebf5"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md"
+   ],
+   "how": "A Morph primitive interpolates between two shape paths frame by frame to transform one form into another."
+  },
+  {
+   "name": "UI capture in device frame",
+   "description": "App screenshots or recordings placed inside a phone/device mockup.",
+   "prompts": 50,
+   "docs": 2,
+   "examples": [
+    "twoclipping-221cab",
+    "gabrielbuzziv-4ff0c6",
+    "ajith-io-c52e09",
+    "twoclipping-6dd14e",
+    "samuel-yostt-891f87"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/story.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md"
+   ],
+   "how": "A 2 to 4 bar scene plays the product's actual UI screens in motion, keyed to the beat grid, preceded by an optional one-line punchline."
+  },
+  {
+   "name": "particle field burst",
+   "description": "Particles explode outward from a point.",
+   "prompts": 43,
+   "docs": 0,
+   "examples": [
+    "stephanlivera-df17a2",
+    "robj3d3-b18fad",
+    "itisrazak-3ad902",
+    "ismailfahmi-557268",
+    "tequilafunks-97f6c9"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "UI capture in browser frame",
+   "description": "Web page captures inside a browser window chrome.",
+   "prompts": 32,
+   "docs": 0,
+   "examples": [
+    "samuel-yostt-891f87",
+    "steventey-0d20e4",
+    "thayto-dev-44b911",
+    "anthonyriera-9b1b2a",
+    "viktoroddy-98c1d8"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "shared-element morph",
+   "description": "An element transforms in position and size between screens or states.",
+   "prompts": 29,
+   "docs": 8,
+   "examples": [
+    "twoclipping-221cab",
+    "ho-ba-f3f0e9",
+    "lukasersil-0ed38e",
+    "arjunsh1607-93005d",
+    "visheshbaghell-3aba37"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/README.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/BRAND.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/film-prompt.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/engine.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/ingredients.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/interview.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/transitions.md"
+   ],
+   "how": "A shared element is interpolated between its position, size, and style in one scene and its counterpart in the next scene."
+  },
+  {
+   "name": "parallax depth layers",
+   "description": "Layers move at different speeds for depth.",
+   "prompts": 24,
+   "docs": 3,
+   "examples": [
+    "gabrielbuzziv-4ff0c6",
+    "ajith-io-c52e09",
+    "itsolelehmann-e47532",
+    "jacksonfall-54b2ac",
+    "ho-ba-f3f0e9"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/camera.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md"
+   ],
+   "how": "The camera translation x = D times prog(f, a, a+N, E.cam) is applied at 0.3x to the background (scaled 1.08), 1.0x to the subject and 1.6x to the foreground layer."
+  },
+  {
+   "name": "animated bar chart",
+   "description": "Bars grow with stagger.",
+   "prompts": 24,
+   "docs": 1,
+   "examples": [
+    "twoclipping-5cba86",
+    "steventey-0d20e4",
+    "jasonzhou1993-8595e0",
+    "ismailfahmi-557268",
+    "eyishazyer-af035b"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md"
+   ],
+   "how": "N equal gutterless columns each rise from the bottom with height H times prog(f, s+d_i, s+d_i+40, E.smooth), where d_i is 2 frames times the column distance from the hero-centre column, forming a stepped pyramid that is then replaced by one flat plate."
+  },
+  {
+   "name": "per-character kinetic stagger",
+   "description": "Text revealed letter by letter with staggered offsets.",
+   "prompts": 22,
+   "docs": 3,
+   "examples": [
+    "ajith-io-b5626e",
+    "majin-appsheet-2d3c1a",
+    "ultimaxbt-bbebf5",
+    "ho-ba-f3f0e9",
+    "melvynx-6cde6c"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/BRAND.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/critics/art-copy-ui.md"
+   ],
+   "how": "Each character or word of a caption is given a staggered frame offset and animated in via opacity and translate springs."
+  },
+  {
+   "name": "elastic overshoot scale",
+   "description": "Scale with elastic oscillating overshoot.",
+   "prompts": 22,
+   "docs": 3,
+   "examples": [
+    "ajith-io-b5626e",
+    "lexnlin-038035",
+    "ho-ba-f3f0e9",
+    "roundtablespace-d3a1be",
+    "1littlecoder-9fef89"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/motion.md"
+   ],
+   "how": "A popover scales from about 5% at its anchor point to full size over 8–12 f."
+  },
+  {
+   "name": "callout annotation pop-in",
+   "description": "Labels and callouts appear on elements.",
+   "prompts": 20,
+   "docs": 0,
+   "examples": [
+    "ror-fly-9950f1",
+    "kloss-xyz-fe0c31",
+    "robj3d3-b18fad",
+    "chatgptastra-0d95c7",
+    "sayan-shanky-f850d8"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "logo lockup",
+   "description": "Closing logo assembly then hold.",
+   "prompts": 18,
+   "docs": 7,
+   "examples": [
+    "stephanlivera-df17a2",
+    "himanshutwtxs-5f4b43",
+    "gabrielbuzziv-4ff0c6",
+    "lexnlin-038035",
+    "thismacapital-dfba20"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/docs/brand/README.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/ingredients.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/formats.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/brand-and-color.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md"
+   ],
+   "how": "Scale the mark to 1.1 times the height of the name's ascenders and position it a distance of one third of the mark's width from the name's edge."
+  },
+  {
+   "name": "character cycle animation",
+   "description": "Walk, pedal or flap loops.",
+   "prompts": 18,
+   "docs": 2,
+   "examples": [
+    "axtonliu-0b861d",
+    "jake11moran-a269c4",
+    "hbcoop-de365c",
+    "hoyoyoda-3a5c08",
+    "0xevinho-3777d8"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/cast.md"
+   ],
+   "how": "A text reveal mask advances in whole-frame steps from glyph edge to glyph edge (or by whole words) so no partial glyph or intermediate wrong word is ever shown."
+  },
+  {
+   "name": "sub-frame motion blur",
+   "description": "Blur by averaging sub-frame samples.",
+   "prompts": 15,
+   "docs": 13,
+   "examples": [
+    "twoclipping-5cba86",
+    "tdinh-me-815acb",
+    "ho-ba-f3f0e9",
+    "axtonliu-0b861d",
+    "blue-clarity-ef56d0"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/README.md",
+    "Leonxlnx_cinetic/docs/setup.md",
+    "Leonxlnx_cinetic/docs/evaluation.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/film-prompt.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/render.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/finishing.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/hyperframes-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md"
+   ],
+   "how": "The final render is produced at a high frame rate (240 fps) and temporally blended down to the output frame rate to create motion blur."
+  },
+  {
+   "name": "UI card stagger reveal",
+   "description": "Cards or tiles enter sequentially with offsets.",
+   "prompts": 13,
+   "docs": 0,
+   "examples": [
+    "gabrielbuzziv-4ff0c6",
+    "ajith-io-c52e09",
+    "0xnfrith-5be616",
+    "ratheejaisal-1f4538",
+    "ezshine-c90d73"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "particle assembly",
+   "description": "Scattered particles converge into a logo, text or form.",
+   "prompts": 12,
+   "docs": 0,
+   "examples": [
+    "shneural-2abdfa",
+    "blue-clarity-ef56d0",
+    "madhav-xo-f97f20",
+    "aschapmann-131210",
+    "allforbigfire-86ff3c"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "diagram node connect",
+   "description": "Nodes pop and connectors draw between them.",
+   "prompts": 12,
+   "docs": 0,
+   "examples": [
+    "himanshutwtxs-5f4b43",
+    "0xnfrith-5be616",
+    "yunn260414-60d996",
+    "prasad-pilla-2c0cba",
+    "imthatcarlos-e04bfe"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "orbiting elements",
+   "description": "Elements circle around a central mark.",
+   "prompts": 11,
+   "docs": 0,
+   "examples": [
+    "ajith-io-b5626e",
+    "samuel-yostt-891f87",
+    "1littlecoder-9fef89",
+    "sayan-shanky-f850d8",
+    "paulo-kombucha-96431c"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "per-line text stagger",
+   "description": "Text lines enter sequentially.",
+   "prompts": 10,
+   "docs": 3,
+   "examples": [
+    "notdwd-c2037d",
+    "lexnlin-6161a6",
+    "ndhabarde11-f155b4",
+    "1stnoel-c20a89",
+    "buildfastwithai-53234e"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/transitions.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "Container x is a sum of SPR.firm springs over successive width targets so the line stays centred as each word drops into its slot."
+  },
+  {
+   "name": "ambient particle drift",
+   "description": "Falling leaves, snow or dust drifting.",
+   "prompts": 10,
+   "docs": 2,
+   "examples": [
+    "itsolelehmann-e47532",
+    "nft-chen-5f8bb0",
+    "hoyoyoda-3a5c08",
+    "manuelogomigo-f33ca9",
+    "ryzoft-4f85bd"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/cast.md"
+   ],
+   "how": "Constant-speed creep computed as a straight linear interpolation over frames, used only for backgrounds and clocks."
+  },
+  {
+   "name": "cursor drag slider",
+   "description": "Cursor drags a control and value updates.",
+   "prompts": 10,
+   "docs": 0,
+   "examples": [
+    "ajith-io-c52e09",
+    "brainextends-e19ac3",
+    "visheshbaghell-3aba37",
+    "daniel-haida-8691d4",
+    "justincooperman-e7bbc4"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "particle dispersal",
+   "description": "Elements break into particles that scatter.",
+   "prompts": 10,
+   "docs": 0,
+   "examples": [
+    "shneural-2abdfa",
+    "himanshutwtxs-5f4b43",
+    "lexnlin-6161a6",
+    "kloss-xyz-fe0c31",
+    "jasonzhou1993-8595e0"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "card slide-in with spring",
+   "description": "Cards slide in and settle with spring motion.",
+   "prompts": 9,
+   "docs": 3,
+   "examples": [
+    "twoclipping-6dd14e",
+    "anthonyriera-9b1b2a",
+    "davidmarcus-a28a60",
+    "kloss-xyz-fe0c31",
+    "dale-vaz-cc612a"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md"
+   ],
+   "how": "A bottom sheet rises over 52 f with its velocity peaking at 42% of the move."
+  },
+  {
+   "name": "typewriter reveal",
+   "description": "Text or code appears character by character with a caret.",
+   "prompts": 8,
+   "docs": 10,
+   "examples": [
+    "twoclipping-6dd14e",
+    "rossaxbt-3085b7",
+    "hqmank-7c61f1",
+    "0xfemyn-e114d3",
+    "justincooperman-e7bbc4"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/product-ui.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/copy-and-type.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/TREATMENT.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "A TypeOn primitive reveals text character by character over time, rendered frame by frame at 60 and 30 fps."
+  },
+  {
+   "name": "beat-synced pulse",
+   "description": "Elements scale or light up on beat.",
+   "prompts": 8,
+   "docs": 8,
+   "examples": [
+    "ultimaxbt-bbebf5",
+    "gorden-sun-041f56",
+    "0xnfrith-5be616",
+    "rames-jusso-589f80",
+    "aschapmann-131210"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/story.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/hyperframes-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "Restrained palettes keep color on a single accent that is used only on key beats while the rest of the frame stays neutral."
+  },
+  {
+   "name": "seamless loop",
+   "description": "Last frame matches first for looping.",
+   "prompts": 8,
+   "docs": 8,
+   "examples": [
+    "emollick-8661a8",
+    "gizakdag-cf4ae6",
+    "monokern-ade5b6",
+    "demonugc-4c5753",
+    "hoyoyoda-3a5c08"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/README.md",
+    "Leonxlnx_cinetic/docs/evaluation.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/SKILL.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/story.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/formats.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/story.md"
+   ],
+   "how": "The timeline is constructed so the final frame matches the first frame, and the output is verified by decoding to confirm loop continuity."
+  },
+  {
+   "name": "camera pan and tilt",
+   "description": "Camera rotates horizontally or vertically.",
+   "prompts": 8,
+   "docs": 6,
+   "examples": [
+    "nft-chen-5f8bb0",
+    "wani-shola-16ca7a",
+    "aschapmann-131210",
+    "reflex-cloud-72ffe5",
+    "elliot-garreffa-f334bc"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/BRAND.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/ingredients.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/interview.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/camera.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md"
+   ],
+   "how": "A virtual camera transform (translate, scale, or pan) is interpolated per frame across the scene composition to move between UI views."
+  },
+  {
+   "name": "3D extrude",
+   "description": "Flat shape or image extruded into depth.",
+   "prompts": 8,
+   "docs": 3,
+   "examples": [
+    "itisrazak-3ad902",
+    "tequilafunks-97f6c9",
+    "lukasersil-0ed38e",
+    "polydao-7a572b",
+    "ayushunleashed-ece3e3"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/camera.md"
+   ],
+   "how": "A product slab with side faces 4–5% of its height is rotated on a 30–35° yaw orbit so its edges become visible."
+  },
+  {
+   "name": "terminal command typing",
+   "description": "Command line typed with prompt and output lines.",
+   "prompts": 8,
+   "docs": 2,
+   "examples": [
+    "davidmarcus-a28a60",
+    "ddryo-loos-300829",
+    "yunn260414-60d996",
+    "jake11moran-a269c4",
+    "madhav-xo-f97f20"
+   ],
+   "doc_sources": [
+    "heygen-com_hyperframes-community-skills/skills/session-story/SKILL.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/story.md"
+   ],
+   "how": "The opening monitor displays a 'Initiating session with <name>' line that appears as the screen powers on after the agent wakes."
+  },
+  {
+   "name": "3D perspective tilt",
+   "description": "Object or screen rotated in perspective.",
+   "prompts": 7,
+   "docs": 5,
+   "examples": [
+    "sudo-kiran-49176d",
+    "sayan-shanky-f850d8",
+    "sudo-kiran-b055de",
+    "bthreeagency-b9b8d9",
+    "mdaman010-e7226a"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/chromium-rendering.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/camera.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md"
+   ],
+   "how": "A flat UI plane is rotated in 3D with rotateX easing from 25° down to 8°, or tilted back 40° with a rack focus."
+  },
+  {
+   "name": "SVG path draw-on",
+   "description": "Stroke progressively drawn along a path.",
+   "prompts": 7,
+   "docs": 4,
+   "examples": [
+    "lexnlin-038035",
+    "kloss-xyz-fe0c31",
+    "math-files-39c9d0",
+    "yunn260414-60d996",
+    "tak3sh8-be5012"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/SKILL.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/film-prompt.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/discovery.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "Dashed outlines are drawn as an SVG stroke with a fixed dash pitch, so the dashes do not crawl while the box resizes."
+  },
+  {
+   "name": "3D camera dolly through scene",
+   "description": "Camera travels through 3D space.",
+   "prompts": 7,
+   "docs": 1,
+   "examples": [
+    "mandelduck-95fd08",
+    "sayan-shanky-f850d8",
+    "mdaman010-e7226a",
+    "web3wesley-7bb108",
+    "ryzoft-4f85bd"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md"
+   ],
+   "how": "The camera scale is k times lmix(1, 4, prog(f, a, a+80, E.smooth)) about the chosen item while sibling rows fade to zero opacity over 20 frames."
+  },
+  {
+   "name": "path travel along route",
+   "description": "Object or line traveling along path.",
+   "prompts": 6,
+   "docs": 8,
+   "examples": [
+    "thismacapital-dfba20",
+    "ultimaxbt-bbebf5",
+    "linearuncle-5d2bae",
+    "nft-chen-5f8bb0",
+    "misbahsy-80eaec"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/transitions.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/motion.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/story.md"
+   ],
+   "how": "Builds a smooth free-form path through timed stops using Hermite interpolation and samples look-at keys from it."
+  },
+  {
+   "name": "word slam scale",
+   "description": "Words hit the screen with large-to-normal fast scale impact.",
+   "prompts": 6,
+   "docs": 4,
+   "examples": [
+    "shneural-2abdfa",
+    "majin-appsheet-2d3c1a",
+    "maxalexweber-67688b",
+    "micheleharmonic-77628e",
+    "jhylee95-e1152f"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/copy-and-type.md"
+   ],
+   "how": "The hook's oversize opening line travels every frame and hands straight to the small line, a signature move in the opening sequence."
+  },
+  {
+   "name": "3D card flip reveal",
+   "description": "Card rotates around an axis to reveal its back face.",
+   "prompts": 6,
+   "docs": 3,
+   "examples": [
+    "thayto-dev-44b911",
+    "jacksonfall-54b2ac",
+    "robj3d3-b18fad",
+    "tankazunori0914-0fc886",
+    "aisongman-71ffac"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/product-ui.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md"
+   ],
+   "how": "Compute before and after row layouts from the data and interpolate each item's y and height on one easing curve per frame, instead of measuring the DOM."
+  },
+  {
+   "name": "hand-drawn stroke reveal",
+   "description": "Sketch or whiteboard strokes drawn on.",
+   "prompts": 6,
+   "docs": 3,
+   "examples": [
+    "lexnlin-038035",
+    "gizakdag-cf4ae6",
+    "nikolajankovic-ce4ff4",
+    "tak3sh8-be5012",
+    "lemomo-ai-0d9cff"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/motion.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/room.md"
+   ],
+   "how": "Reveals an SVG path by evolving its stroke dash offset along its computed length over frames."
+  },
+  {
+   "name": "camera orbit",
+   "description": "Camera circles around a subject.",
+   "prompts": 6,
+   "docs": 1,
+   "examples": [
+    "nft-chen-5f8bb0",
+    "axtonliu-0b861d",
+    "mdaman010-e7226a",
+    "buildfastwithai-ed9447",
+    "chrisjdimarco-f068db"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md"
+   ],
+   "how": "The camera blends between two Shots with yaw about 24 deg, roll about -10 deg and zoom 0.77 on E.whip over 74 frames, while the cursor follows a curved arc led by about 5 frames and the world gets a hinged side face."
+  },
+  {
+   "name": "scrolling page capture",
+   "description": "Long page capture scrolled within a frame.",
+   "prompts": 6,
+   "docs": 0,
+   "examples": [
+    "anthonyriera-9b1b2a",
+    "wani-shola-16ca7a",
+    "andginja-333d32",
+    "wozu-co-242285",
+    "bizibeast-10f264"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "cursor travel with arc",
+   "description": "Simulated cursor moves along curved path to target with dwell.",
+   "prompts": 5,
+   "docs": 10,
+   "examples": [
+    "hqmank-7c61f1",
+    "techyoutbe-945b56",
+    "deifosv-04e4d3",
+    "demitiyageekzen-7770ad",
+    "aisongman-71ffac"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/BRAND.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/engine.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/ingredients.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/product-ui.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/formats.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md"
+   ],
+   "how": "The Cursor primitive moves a pointer along a path over 12-20 frames of travel followed by a 60-frame dwell."
+  },
+  {
+   "name": "masked baseline word rise",
+   "description": "Words rise from behind a clipping mask line.",
+   "prompts": 5,
+   "docs": 7,
+   "examples": [
+    "danilowm-d3720d",
+    "vanshwtfff-db0466",
+    "3xtihor-0f6911",
+    "cansincengiz-me-cf68dd",
+    "safarkhanshuvo-ffd52d"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/TREATMENT.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/critics/art-copy-ui.md"
+   ],
+   "how": "A MaskRise primitive translates text or elements upward inside a clipping mask so they emerge from a hidden edge."
+  },
+  {
+   "name": "cursor click interaction",
+   "description": "Click with press feedback or ripple.",
+   "prompts": 5,
+   "docs": 7,
+   "examples": [
+    "steventey-0d20e4",
+    "thayto-dev-44b911",
+    "melvynx-6cde6c",
+    "ratheejaisal-1f4538",
+    "listudio-820c7b"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/README.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/BRAND.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/interview.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/product-ui.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/sound.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/critics/art-copy-ui.md"
+   ],
+   "how": "A synthetic cursor path is interpolated over time and used to trigger simulated clicks and UI state changes on components."
+  },
+  {
+   "name": "color shift transition",
+   "description": "Palette or hue change between scenes.",
+   "prompts": 5,
+   "docs": 6,
+   "examples": [
+    "deifosv-04e4d3",
+    "wani-shola-16ca7a",
+    "mrtanviir-132457",
+    "reflex-cloud-72ffe5",
+    "devius-maximus-beab45"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/product-ui.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/assets/engine/NOTICE.md"
+   ],
+   "how": "Animated colors are interpolated between hex design tokens with interpolateColors, never color-mix() strings, which it cannot parse."
+  },
+  {
+   "name": "animated subtitle word highlight",
+   "description": "Captions with the active word popped or highlighted in sync with audio.",
+   "prompts": 5,
+   "docs": 3,
+   "examples": [
+    "sab8a-364a5a",
+    "jake11moran-a269c4",
+    "tstfully-0aa6b4",
+    "rebutonepress-810f78",
+    "gautam-mer1-2ae354"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/interview.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/sound.md"
+   ],
+   "how": "Brief caption text is positioned over scene footage and faded or slid in and out on a fixed timeline."
+  },
+  {
+   "name": "linear wipe",
+   "description": "Straight-edge wipe transition.",
+   "prompts": 5,
+   "docs": 3,
+   "examples": [
+    "notdwd-c2037d",
+    "alex-prompter-1ea044",
+    "majin-appsheet-2d3c1a",
+    "web3wesley-7bb108",
+    "blueoctopusai-dd17bd"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/critics/art-copy-ui.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "A foreground object crosses the frame at the camera's peak speed so the cut is hidden during the object's full coverage."
+  },
+  {
+   "name": "crossfade",
+   "description": "Opacity blend between scenes.",
+   "prompts": 5,
+   "docs": 3,
+   "examples": [
+    "alex-prompter-1ea044",
+    "wani-shola-16ca7a",
+    "1stnoel-c20a89",
+    "buildfastwithai-53234e",
+    "rebutonepress-810f78"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md"
+   ],
+   "how": "A 1–2 frame blend mixing 30–70% of the incoming frame is placed on a motion peak so the change reads as a cut without a visible dissolve."
+  },
+  {
+   "name": "photo grid tile stagger",
+   "description": "Grid of images appears tile by tile.",
+   "prompts": 5,
+   "docs": 2,
+   "examples": [
+    "twoclipping-221cab",
+    "twoclipping-6dd14e",
+    "rossaxbt-3085b7",
+    "justincooperman-e7bbc4",
+    "ceowinkz-7c776b"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md"
+   ],
+   "how": "A 2x2 grid of independently looping scene cells, each rendered at full resolution and scaled to half size, with staggered entrances and differing loop periods so that no two cells repeat in sync."
+  },
+  {
+   "name": "paper cutout movement",
+   "description": "Cutout characters moving as flat pieces.",
+   "prompts": 5,
+   "docs": 2,
+   "examples": [
+    "nikolajankovic-ce4ff4",
+    "topi-003-b0e12c",
+    "ik-builds-b8bdcf",
+    "devius-maximus-beab45",
+    "x4b47x-9cc84f"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/SKILL.md"
+   ],
+   "how": "Animate a stack of 412 alert rows collapsing in sequence into a single card, each row's position and rotation interpolated toward the stacked edge."
+  },
+  {
+   "name": "gravity bounce physics",
+   "description": "Dropped object bouncing with collision.",
+   "prompts": 5,
+   "docs": 1,
+   "examples": [
+    "gorden-sun-041f56",
+    "sarut0bisasuke-cefa43",
+    "deifosv-04e4d3",
+    "kamstudiolabs-447565",
+    "kantamk-61f410"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md"
+   ],
+   "how": "Position is driven by the contact curve (or in curve over the last 10 frames) so the object still has velocity on the contact frame."
+  },
+  {
+   "name": "volumetric light sweep",
+   "description": "Soft light band sweeping across.",
+   "prompts": 5,
+   "docs": 1,
+   "examples": [
+    "lukasersil-0ed38e",
+    "bthreeagency-b9b8d9",
+    "marklaunches-3b9492",
+    "x4b47x-9cc84f",
+    "kamstudiolabs-0b0824"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md"
+   ],
+   "how": "A soft-edged bright band about one fifth of frame width is translated across the frame at about 190 px/f for 14 f."
+  },
+  {
+   "name": "shape morph into logo",
+   "description": "Shapes morph to form a logo mark.",
+   "prompts": 5,
+   "docs": 0,
+   "examples": [
+    "tdinh-me-815acb",
+    "jacksonfall-54b2ac",
+    "monokern-ade5b6",
+    "1littlecoder-9fef89",
+    "allforbigfire-86ff3c"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "shape wipe",
+   "description": "Wipe using a geometric shape mask.",
+   "prompts": 5,
+   "docs": 0,
+   "examples": [
+    "utopyaszx-1b2f94",
+    "jazzen-chen-4542ae",
+    "rneayan-474bcf",
+    "shinskinakamoto-20190b",
+    "gonzalomacagno-2de1a9"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "photo drop-in",
+   "description": "Photo prints drop in with settle.",
+   "prompts": 5,
+   "docs": 0,
+   "examples": [
+    "twoclipping-221cab",
+    "ror-fly-9950f1",
+    "melvynx-6cde6c",
+    "tak3sh8-be5012",
+    "lemomo-ai-0d9cff"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "spring settle",
+   "description": "Physical spring motion arrival, critically damped or underdamped.",
+   "prompts": 4,
+   "docs": 16,
+   "examples": [
+    "gabrielbuzziv-4ff0c6",
+    "roundtablespace-d3a1be",
+    "bthreeagency-b9b8d9",
+    "aschapmann-131210"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/README.md",
+    "Rieranthony_product-film-skill/README.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/BRAND.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/film-prompt.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/hyperframes-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/timing-grid.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/copy-and-type.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/motion.md"
+   ],
+   "how": "Spring overshoot of about 1-7% is applied only when an object arrives at a surface or lock, with the pop (14%) and land (about 15%) presets reserved for true landings."
+  },
+  {
+   "name": "squash and stretch",
+   "description": "Deformation on motion and contact.",
+   "prompts": 4,
+   "docs": 11,
+   "examples": [
+    "gorden-sun-041f56",
+    "paulo-kombucha-96431c",
+    "faroukzy-9ff23e",
+    "loicrambo-ad6830"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/formats.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/copy-and-type.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/TREATMENT.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/motion.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/cast.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/story.md"
+   ],
+   "how": "Animates scaleX from 1.08 to 1 and scaleY from 0.9 to 1 over 8 frames, anchored at the contact edge."
+  },
+  {
+   "name": "concentric ring pulse",
+   "description": "Rings pulsing outward or inward.",
+   "prompts": 4,
+   "docs": 3,
+   "examples": [
+    "monokern-ade5b6",
+    "hoyoyoda-3a5c08",
+    "chrisjdimarco-f068db",
+    "apoorvjain25-d24184"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/docs/brand/README.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "Draw an open annulus centred at (42, 50) with outer radius 40 and inner radius 23, opening 84 degrees on the right, and split the remaining arc into a 164-degree body and two 38-degree frame arcs separated by 18-degree gaps."
+  },
+  {
+   "name": "glitch RGB split",
+   "description": "Channel offset and digital distortion.",
+   "prompts": 4,
+   "docs": 1,
+   "examples": [
+    "kloss-xyz-15182a",
+    "maxalexweber-67688b",
+    "micheleharmonic-77628e",
+    "robvjourney-ce3e1a"
+   ],
+   "doc_sources": [
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "Random horizontal bands of the frame buffer are np.roll-shifted along x by a seeded random offset, and one colour channel is rolled separately, applied during glitch beat windows."
+  },
+  {
+   "name": "line chart draw-on",
+   "description": "Chart line traced progressively.",
+   "prompts": 4,
+   "docs": 1,
+   "examples": [
+    "viktoroddy-98c1d8",
+    "tak3sh8-be5012",
+    "triglyceee-bd5b08",
+    "rammanq-f5a90f"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md"
+   ],
+   "how": "Bars or price lines are drawn at a constant rate with bars spaced about 1.6 f apart while containers and camera ease."
+  },
+  {
+   "name": "liquid fill rise",
+   "description": "Liquid level rising in container.",
+   "prompts": 4,
+   "docs": 1,
+   "examples": [
+    "ror-fly-9950f1",
+    "sarut0bisasuke-cefa43",
+    "ibrahimwasim240-809370",
+    "parkerrex-1a54fe"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md"
+   ],
+   "how": "A horizontal line's vertical position is driven by a moisture or value reading and eased in from rest, then used as a progress bar fill rising from the lower edge of a card."
+  },
+  {
+   "name": "stop-motion stepping",
+   "description": "Low frame rate held poses with jitter.",
+   "prompts": 4,
+   "docs": 1,
+   "examples": [
+    "emollick-8661a8",
+    "nikolajankovic-ce4ff4",
+    "kamstudiolabs-c9bb28",
+    "davidshulmanfl-371638"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md"
+   ],
+   "how": "interpolate() is called with the posterize option set to n, holding the input for n frames to produce a stepped look."
+  },
+  {
+   "name": "ken burns pan zoom",
+   "description": "Slow pan and zoom on still photo.",
+   "prompts": 4,
+   "docs": 0,
+   "examples": [
+    "thismacapital-dfba20",
+    "ultimaxbt-2ddf1e",
+    "andginja-333d32",
+    "amitsingha89-150378"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "iris wipe",
+   "description": "Circular mask expanding or contracting.",
+   "prompts": 3,
+   "docs": 8,
+   "examples": [
+    "monokern-ade5b6",
+    "rendesr-86be44",
+    "rebutonepress-810f78"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/transitions.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/story.md"
+   ],
+   "how": "An Iris primitive animates a circular mask radius over frames to open or close the visible region."
+  },
+  {
+   "name": "ribbon trail",
+   "description": "Trail following a moving object.",
+   "prompts": 3,
+   "docs": 4,
+   "examples": [
+    "nft-chen-5f8bb0",
+    "micheleharmonic-77628e",
+    "chrisjdimarco-f068db"
+   ],
+   "doc_sources": [
+    "heygen-com_hyperframes-community-skills/skills/session-story/SKILL.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/motion.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/room.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/story.md"
+   ],
+   "how": "Praise is rendered as a butterfly with wingbeat motion that tows the quoted words along a ribbon path behind it."
+  },
+  {
+   "name": "camera shake on hit",
+   "description": "Impact-driven random jitter of the frame.",
+   "prompts": 3,
+   "docs": 3,
+   "examples": [
+    "maxalexweber-67688b",
+    "micheleharmonic-77628e",
+    "rames-jusso-589f80"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/camera.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/TREATMENT.md"
+   ],
+   "how": "A decaying hitPulse offset (6-10 px along the hit direction, plus about 1.5% zoom push) is added to the camera at the contact frame so the frame jolts and settles within about 25 frames."
+  },
+  {
+   "name": "toggle state transition",
+   "description": "Switch or pill animates between states.",
+   "prompts": 3,
+   "docs": 1,
+   "examples": [
+    "twoclipping-5cba86",
+    "aisongman-71ffac",
+    "kmasiff-cc72cb"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/BRAND.md"
+   ],
+   "how": "A status marker's color and label are switched between pass, warn and fail tones with a frame-timed interpolated color change."
+  },
+  {
+   "name": "audio waveform visualizer",
+   "description": "Graphics driven by audio envelope.",
+   "prompts": 3,
+   "docs": 1,
+   "examples": [
+    "rames-jusso-589f80",
+    "samaote-5e2fc2",
+    "umangratani-57f86a"
+   ],
+   "doc_sources": [
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "Reads loudness at the current frame via env_at(f) and uses it to drive size, brightness or other visual parameters."
+  },
+  {
+   "name": "tap ripple",
+   "description": "Circular ripple at tap location.",
+   "prompts": 3,
+   "docs": 0,
+   "examples": [
+    "gabrielbuzziv-4ff0c6",
+    "hqmank-7c61f1",
+    "mehul4795-4a7007"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "3D scene rendering",
+   "description": "Real-time 3D scene with lighting and shadows.",
+   "prompts": 3,
+   "docs": 0,
+   "examples": [
+    "gorden-sun-041f56",
+    "math-files-39c9d0",
+    "anilraok-eff262"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "function graph trace",
+   "description": "Plotted curve with moving point and tangent.",
+   "prompts": 3,
+   "docs": 0,
+   "examples": [
+    "linearuncle-5d2bae",
+    "math-files-39c9d0",
+    "rneayan-ea6129"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "checklist tick-off",
+   "description": "Checkmarks drawn in sequence.",
+   "prompts": 3,
+   "docs": 0,
+   "examples": [
+    "thismacapital-dfba20",
+    "thayto-dev-44b911",
+    "kmasiff-cc72cb"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "blur-to-focus text",
+   "description": "Text resolves from blurred to sharp on entry.",
+   "prompts": 2,
+   "docs": 7,
+   "examples": [
+    "tdinh-me-815acb",
+    "marklaunches-3b9492"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/ingredients.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/copy-and-type.md"
+   ],
+   "how": "Animates a CSS blur filter from 6–8 px (statements) or 4–6 px (body) down to 0 over the eased move, clearing by 60% of the move through blurIn."
+  },
+  {
+   "name": "zoom punch emphasis",
+   "description": "Quick scale-in on emphasized moments.",
+   "prompts": 2,
+   "docs": 7,
+   "examples": [
+    "sab8a-364a5a",
+    "souravbhar871-61f424"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/transitions.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "An on-axis 2–2.3× scale punch-in cuts in from a wide shot while cursor and hover state stay continuous across the cut."
+  },
+  {
+   "name": "logo self-draw",
+   "description": "Logo outline drawn then filled.",
+   "prompts": 2,
+   "docs": 5,
+   "examples": [
+    "jasonzhou1993-8595e0",
+    "aschapmann-131210"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/BRAND.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/ingredients.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/interview.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/story.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/brand-and-color.md"
+   ],
+   "how": "The logo SVG path's stroke-dashoffset is interpolated from full length to zero across frames so the outline appears to draw itself."
+  },
+  {
+   "name": "back-ease overshoot pop",
+   "description": "Pop entrance with single back-ease overshoot.",
+   "prompts": 2,
+   "docs": 2,
+   "examples": [
+    "alex-prompter-1ea044",
+    "bthreeagency-b9b8d9"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/assets/critics/art-copy-ui.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "An object arriving at a surface or lock eases past its target by a small amount and settles back, applied only to true landings."
+  },
+  {
+   "name": "time-of-day palette interpolation",
+   "description": "Sky and color shift over time.",
+   "prompts": 2,
+   "docs": 2,
+   "examples": [
+    "itsolelehmann-e47532",
+    "monokern-ade5b6"
+   ],
+   "doc_sources": [
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/room.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/story.md"
+   ],
+   "how": "Environment colours and lighting are blended across the scene using the env.tod (0 to 1) and env.night (0 to 1) values."
+  },
+  {
+   "name": "letters fall with gravity bounce",
+   "description": "Letters drop in and bounce on a floor.",
+   "prompts": 2,
+   "docs": 1,
+   "examples": [
+    "sudeepsd-1a3485",
+    "nolkeeg-bf062e"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/ingredients.md"
+   ],
+   "how": "Reveal a wordmark one letter or word at a time, timing each landing to the beat."
+  },
+  {
+   "name": "split-screen comparison",
+   "description": "Two versions side by side or divided by a seam.",
+   "prompts": 2,
+   "docs": 1,
+   "examples": [
+    "notdwd-c2037d",
+    "henkvaness-0e06af"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md"
+   ],
+   "how": "Two versions of the same content are placed side by side and their animation timelines are locked to the same beat so differences in speed or effort read directly."
+  },
+  {
+   "name": "dolly zoom",
+   "description": "Camera moves while zoom counters it, warping perspective.",
+   "prompts": 2,
+   "docs": 1,
+   "examples": [
+    "robj3d3-b18fad",
+    "ajith-io-4c248f"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md"
+   ],
+   "how": "Zoom is lerped from 1 to 3.1 on E.smooth with a late +4% linear creep, and a foreground layer is projected with scale k^1.6 so it sweeps past the frame edge at the push's peak."
+  },
+  {
+   "name": "white impact flash",
+   "description": "Brief white frame on beat or hit.",
+   "prompts": 2,
+   "docs": 1,
+   "examples": [
+    "majin-appsheet-2d3c1a",
+    "allforbigfire-86ff3c"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md"
+   ],
+   "how": "Frame luminance is raised linearly by +6.3 per frame over 26 f until the frame reaches white."
+  },
+  {
+   "name": "data flow lines",
+   "description": "Animated lines flowing along connectors.",
+   "prompts": 2,
+   "docs": 1,
+   "examples": [
+    "sayan-shanky-f850d8",
+    "mdaman010-e7226a"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md"
+   ],
+   "how": "Animate one deposit row falling and splitting its fill so the portion below the baseline pours into a buffer bar in accent red."
+  },
+  {
+   "name": "halftone riso texture",
+   "description": "Halftone or mis-registered ink print look.",
+   "prompts": 2,
+   "docs": 1,
+   "examples": [
+    "davidshulmanfl-371638",
+    "rneayan-474bcf"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md"
+   ],
+   "how": "Ships gradients as pre-dithered PNG images generated by dither-gradient.py instead of CSS gradients to avoid 8-bit banding."
+  },
+  {
+   "name": "shape fracture into shards",
+   "description": "Shape or image breaks into fragments.",
+   "prompts": 2,
+   "docs": 0,
+   "examples": [
+    "pankajkumar-dev-0bee87",
+    "kantamk-61f410"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "formula transform",
+   "description": "Equation terms morph into other forms.",
+   "prompts": 2,
+   "docs": 0,
+   "examples": [
+    "linearuncle-5d2bae",
+    "math-files-39c9d0"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "fluid blob merge",
+   "description": "Metaball liquid shapes merging.",
+   "prompts": 2,
+   "docs": 0,
+   "examples": [
+    "lukasersil-0ed38e",
+    "demonugc-4c5753"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "rolling digit ticker",
+   "description": "Digits roll vertically like an odometer or drum to the final value.",
+   "prompts": 1,
+   "docs": 10,
+   "examples": [
+    "viktoroddy-98c1d8"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/docs/evaluation.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/product-ui.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/copy-and-type.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/story.md"
+   ],
+   "how": "A changed digit is shown as a masked vertical slide from old value to new value, rather than a crossfade."
+  },
+  {
+   "name": "log-space zoom",
+   "description": "Zoom interpolated exponentially for even perceived speed.",
+   "prompts": 1,
+   "docs": 8,
+   "examples": [
+    "dale-vaz-cc612a"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/camera.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/TREATMENT.md"
+   ],
+   "how": "zoomSpeed computes a scale value per frame from a target speed in px/f so zoom velocity stays within a set limit."
+  },
+  {
+   "name": "rack focus depth of field",
+   "description": "Focus shifts between depth planes.",
+   "prompts": 1,
+   "docs": 8,
+   "examples": [
+    "lukasersil-0ed38e"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/chromium-rendering.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/camera.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/remotion-engine.md"
+   ],
+   "how": "The RackFocus primitive shifts blur radius between foreground and background layers over time to move focus."
+  },
+  {
+   "name": "blur swap transition",
+   "description": "Blur out and in to swap content.",
+   "prompts": 1,
+   "docs": 5,
+   "examples": [
+    "demonugc-4c5753"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/engine.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/ingredients.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/product-ui.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md"
+   ],
+   "how": "Cross-fades and blurs an element in or out over time to swap it with another element."
+  },
+  {
+   "name": "anticipation easing",
+   "description": "Pull-back before the main move.",
+   "prompts": 1,
+   "docs": 5,
+   "examples": [
+    "chatgptastra-0d95c7"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/engine.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "arriveK sets a per-frame exponential approach factor so an element closes a fraction of remaining distance each frame."
+  },
+  {
+   "name": "jump cut silence removal",
+   "description": "Cutting out pauses in footage to tighten pacing.",
+   "prompts": 1,
+   "docs": 4,
+   "examples": [
+    "sab8a-364a5a"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/README.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/transitions.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/sound.md"
+   ],
+   "how": "E.exit applies a decaying exit motion whose frame-to-frame factor ranges 0.89-0.94 and then cuts to the next shot."
+  },
+  {
+   "name": "card expand container morph",
+   "description": "A card grows into a full-screen container.",
+   "prompts": 1,
+   "docs": 4,
+   "examples": [
+    "twoclipping-5cba86"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/product-ui.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/formats.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md"
+   ],
+   "how": "The new row's height animates from 0 to full over about 20 frames while siblings shift down by the same amount, and its content fades in only once its slot is half open."
+  },
+  {
+   "name": "camera pull-back",
+   "description": "Virtual camera retreats to reveal context.",
+   "prompts": 1,
+   "docs": 4,
+   "examples": [
+    "dale-vaz-cc612a"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/TREATMENT.md"
+   ],
+   "how": "The camera scales out 0.43–0.81× over 44–108 f on an eased curve."
+  },
+  {
+   "name": "fade to black",
+   "description": "Image fades to black at end.",
+   "prompts": 1,
+   "docs": 4,
+   "examples": [
+    "x4b47x-9cc84f"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/music.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/story.md"
+   ],
+   "how": "Applies a linear amplitude fade over the final fadeOutSeconds of the edited audio to end the track smoothly."
+  },
+  {
+   "name": "logo mask reveal",
+   "description": "Logo revealed through a slow mask.",
+   "prompts": 1,
+   "docs": 4,
+   "examples": [
+    "tdinh-me-815acb"
+   ],
+   "doc_sources": [
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/templates/BRAND.md",
+    "Rieranthony_product-film-skill/plugins/product-film/skills/product-film/reference/interview.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/formats.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/brand-and-color.md"
+   ],
+   "how": "The logo is revealed by interpolating opacity, scale or a mask over frames from its SVG or component."
+  },
+  {
+   "name": "word underline swell",
+   "description": "Underline grows beneath or behind words as emphasis.",
+   "prompts": 1,
+   "docs": 3,
+   "examples": [
+    "henkvaness-0e06af"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/transitions.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/copy-and-type.md"
+   ],
+   "how": "Each word gets an underline drawn left to right over 16 frames on E.out, which swells into a block spanning ascender to descender over 12 frames while glyphs fade, then accelerates into mark pieces over 20 frames on E.contact."
+  },
+  {
+   "name": "recursive frame zoom",
+   "description": "Self-similar nested frame zoom.",
+   "prompts": 1,
+   "docs": 3,
+   "examples": [
+    "emollick-8661a8"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md"
+   ],
+   "how": "zoomHandoff blends the scale and position of one zoom into the next so the camera move passes continuously between shots."
+  },
+  {
+   "name": "shrink-to-point transition",
+   "description": "Scene shrinks into a dot as transition.",
+   "prompts": 1,
+   "docs": 3,
+   "examples": [
+    "dale-vaz-cc612a"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md"
+   ],
+   "how": "The entire scene scales down to a single point over 11 f, and that point is then rendered as the next object."
+  },
+  {
+   "name": "countdown stack",
+   "description": "Counters ticking downward in stacked rows.",
+   "prompts": 1,
+   "docs": 2,
+   "examples": [
+    "danilowm-d3720d"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/critics/art-copy-ui.md"
+   ],
+   "how": "Render a numeric counter on the card's edge that decrements by one as each folding row lands on the stack."
+  },
+  {
+   "name": "image-inside-headline pop",
+   "description": "Image placed within text glyphs popping in.",
+   "prompts": 1,
+   "docs": 2,
+   "examples": [
+    "pankajkumar-dev-0bee87"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/concept-and-story.md"
+   ],
+   "how": "A word gap opens over 12 f, an image pops in over 4–6 f, then the words fly apart accelerating ×1.22 per frame for about 16 f while the image scales up into the next hero."
+  },
+  {
+   "name": "window split on seam",
+   "description": "Interface splits open along a seam.",
+   "prompts": 1,
+   "docs": 2,
+   "examples": [
+    "amol909s-27533e"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/transitions.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md"
+   ],
+   "how": "A split along an existing border is animated over 42 frames on a split curve, with one side widening and the other rotating about a vertical hinge (rotateY -12 deg, perspective 2400), clipped with sub-pixel inset() values, then swung shut on a close curve."
+  },
+  {
+   "name": "camera follow",
+   "description": "Camera tracks a moving subject with lag.",
+   "prompts": 1,
+   "docs": 1,
+   "examples": [
+    "mandelduck-95fd08"
+   ],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md"
+   ],
+   "how": "Camera centre c is updated each frame as c += (lead(i) - target - c) times 0.08 over a loop from the shot start, plus a constant 2 px/f drift, and fed to the anchor camera."
+  },
+  {
+   "name": "paint stroke wipe",
+   "description": "Brush-stroke shaped reveal over image.",
+   "prompts": 1,
+   "docs": 1,
+   "examples": [
+    "lexnlin-038035"
+   ],
+   "doc_sources": [
+    "heygen-com_hyperframes-community-skills/skills/session-story/assets/engine/NOTICE.md"
+   ],
+   "how": "A window.paintAt(t) function paints the complete frame for a given time t, so the scene is rendered deterministically per timestamp."
+  },
+  {
+   "name": "passport stamp impact",
+   "description": "Stamp slams with impact.",
+   "prompts": 1,
+   "docs": 1,
+   "examples": [
+    "thismacapital-dfba20"
+   ],
+   "doc_sources": [
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/sources.md"
+   ],
+   "how": "Composite a DRAFT stamp onto every frame until the story file is marked approved, then omit it from the final render."
+  },
+  {
+   "name": "low-poly scene assembly",
+   "description": "Low-poly objects assembling into a scene.",
+   "prompts": 1,
+   "docs": 0,
+   "examples": [
+    "mandelduck-95fd08"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "particle sphere",
+   "description": "Particles forming a rotating depth-sorted sphere.",
+   "prompts": 1,
+   "docs": 0,
+   "examples": [
+    "blue-clarity-ef56d0"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "distortion displacement warp",
+   "description": "Displacement map warping image.",
+   "prompts": 1,
+   "docs": 0,
+   "examples": [
+    "lukasersil-0ed38e"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "pop-in speech bubble",
+   "description": "Bubbles popping in with scale.",
+   "prompts": 1,
+   "docs": 0,
+   "examples": [
+    "gizakdag-cf4ae6"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "kaleidoscope symmetry",
+   "description": "Radial mirrored patterns.",
+   "prompts": 1,
+   "docs": 0,
+   "examples": [
+    "monokern-ade5b6"
+   ],
+   "doc_sources": [],
+   "how": null
+  },
+  {
+   "name": "overlapped secondary motion",
+   "description": "Offset follow-through of secondary elements.",
+   "prompts": 0,
+   "docs": 7,
+   "examples": [],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/camera.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/taste-and-slop.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/motion.md"
+   ],
+   "how": "Secondary moves begin at 55-75% of the leading move's duration so motion layers overlap rather than start together."
+  },
+  {
+   "name": "momentum scroll decay",
+   "description": "Flick scroll that decays inertially.",
+   "prompts": 0,
+   "docs": 6,
+   "examples": [],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/README.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "Leonxlnx_cinetic/skills/cinetic/assets/TREATMENT.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/references/motion.md"
+   ],
+   "how": "inertia computes a position each frame by decaying velocity with a damping factor, producing a settling motion."
+  },
+  {
+   "name": "character scramble decode reveal",
+   "description": "Random glyphs resolve into final text.",
+   "prompts": 0,
+   "docs": 4,
+   "examples": [],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/motion-tokens.md",
+    "heygen-com_hyperframes-community-skills/skills/session-story/assets/engine/NOTICE.md"
+   ],
+   "how": "A Scramble primitive cycles random glyphs before resolving each character to the target text over frames."
+  },
+  {
+   "name": "breathing zoom hold",
+   "description": "Slow drift or breathing scale during holds.",
+   "prompts": 0,
+   "docs": 4,
+   "examples": [],
+   "doc_sources": [
+    "Leonxlnx_cinetic/CHANGELOG.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/camera.md"
+   ],
+   "how": "A single 60-96 f window per film holds the picture near-still by setting transform velocity close to zero for a designed interval."
+  },
+  {
+   "name": "wide tracking collapse entry",
+   "description": "Text enters with wide letter spacing collapsing to normal.",
+   "prompts": 0,
+   "docs": 3,
+   "examples": [],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/technique-library.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/copy-and-type.md"
+   ],
+   "how": "Letter-spacing starts about 3× wide, halves in 2 f, and settles to normal over 24 f."
+  },
+  {
+   "name": "blinds shutter wipe",
+   "description": "Strips collapsing or opening as a wipe.",
+   "prompts": 0,
+   "docs": 3,
+   "examples": [],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/transitions.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/worked-example.md"
+   ],
+   "how": "Stage theme is flipped in 6 f with the top horizontal bands switching first and the rest following."
+  },
+  {
+   "name": "text drum scroll",
+   "description": "Words scroll vertically like a drum wheel.",
+   "prompts": 0,
+   "docs": 2,
+   "examples": [],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md",
+    "Leonxlnx_cinetic/skills/cinetic/references/copy-and-type.md"
+   ],
+   "how": "The outgoing word rises 15–24 px with 6–8 px blur while fading over 10 f, and the incoming word starts 21–26 px low and settles in 20 f, offset 5–6 f per word."
+  },
+  {
+   "name": "film grain overlay",
+   "description": "Procedural grain over the image.",
+   "prompts": 0,
+   "docs": 2,
+   "examples": [],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/SKILL.md",
+    "buildfastwithai_buildfast-skills/generative-film-skill/SKILL.md"
+   ],
+   "how": "Overlays a single noise layer at 1.5–2% opacity keyed to the output frame."
+  },
+  {
+   "name": "shape morph match cut",
+   "description": "Transition via matching shape between scenes.",
+   "prompts": 0,
+   "docs": 1,
+   "examples": [],
+   "doc_sources": [
+    "Leonxlnx_cinetic/skills/cinetic/references/craft-rules.md"
+   ],
+   "how": "The incoming shot starts oversized (e.g. 1.76× or 8×) and keeps scaling down or pulling back over 18–36 f so the exit's shrink continues across the cut."
+  }
+ ]
+}
