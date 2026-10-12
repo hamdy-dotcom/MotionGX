@@ -20,6 +20,15 @@ async function fetchTtf(family: string, weight: number): Promise<Buffer | null> 
   return res.ok ? Buffer.from(await res.arrayBuffer()) : null;
 }
 
+/** Raw TTF bytes (cached on disk), nearest available weight — for HarfBuzz shaping. */
+export async function fontBytes(family: string, weight: number): Promise<Buffer | null> {
+  mkdirSync(CACHE, { recursive: true });
+  const file = path.join(CACHE, `${key(family, weight)}.ttf`);
+  if (existsSync(file)) return readFileSync(file);
+  await loadFont(family, weight);
+  return existsSync(file) ? readFileSync(file) : null;
+}
+
 /** Loads (and caches) a font; nearest available weight (700 → 600/800/400 …). */
 export async function loadFont(family: string, weight: number): Promise<fontkit.Font | null> {
   const k = key(family, weight);

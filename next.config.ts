@@ -21,11 +21,11 @@ const nextConfig: NextConfig = {
     serverActions: { bodySizeLimit: "4mb" },
   },
   // Server-side rendering of MP4s: keep the renderer / bundler / sandbox SDK out of the server bundle.
-  serverExternalPackages: ["@remotion/bundler", "@remotion/renderer", "@remotion/vercel", "@vercel/sandbox", "esbuild"],
+  serverExternalPackages: ["@remotion/bundler", "@remotion/renderer", "@remotion/vercel", "@vercel/sandbox", "esbuild", "harfbuzzjs"],
   // The prebuilt Remotion bundle ships with the studio route (renders run in `after()` of its export action).
   outputFileTracingIncludes: {
     // Runtime files reached through projectPath() (not traced automatically).
-    "/[locale]/videos/*": ["./.remotion-bundle/**/*", "./packages/primitives/**/*", "./scripts/motion/**/*", "./scripts/music/*.py", "./data/motion-refs.json", "./tsconfig*.json"],
+    "/[locale]/videos/*": ["./.remotion-bundle/**/*", "./packages/primitives/**/*", "./scripts/motion/**/*", "./scripts/music/*.py", "./data/motion-refs.json", "./tsconfig*.json", "./data/assets/**/*", "./node_modules/lucide-static/icons/**/*", "./node_modules/@phosphor-icons/core/assets/**/*", "./node_modules/flag-icons/flags/4x3/**/*", "./node_modules/harfbuzzjs/dist/**/*"],
   },
 };
 

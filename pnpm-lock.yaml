@@ -175,6 +175,9 @@ importers:
       '@huggingface/transformers':
         specifier: 4.3.1
         version: 4.3.1(@types/node@20.19.43)
+      '@opeepsfun/open-peeps':
+        specifier: ^1.0.6
+        version: 1.0.6
       '@phosphor-icons/core':
         specifier: ^2.1.1
         version: 2.1.1
@@ -1186,6 +1189,9 @@ packages:
   '@nolyfill/is-core-module@1.0.39':
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
+
+  '@opeepsfun/open-peeps@1.0.6':
+    resolution: {integrity: sha512-jBdahn/eLW/76lqer37Z8Yk/N97BZP3E6f95J+XlPV9YTZGrD3L8Ujf1qo/IFrRmuJKYoMuzZxHzSPc6atdbBA==}
 
   '@parcel/watcher-android-arm64@2.6.0':
     resolution: {integrity: sha512-trgpLSCKRC/huFjXX/Smh+0sWe4+YtKfktIToiMl59ghz7z+qkH6kMvNnUbLyRs9N11t8l4svSCs1+5B3rOAhA==}
@@ -3810,6 +3816,10 @@ packages:
       react-dom:
         optional: true
 
+  react@18.3.1:
+    resolution: {integrity: sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==}
+    engines: {node: '>=0.10.0'}
+
   react@19.3.0:
     resolution: {integrity: sha512-E8LUcbtBWt20bbl2YoHfx4ZDBdxVTfOKtCZn9cDSJ4l6/nuoApcpIBcj47t2wZoVX8g2ZHuMHbiShgCR1T5Sog==}
     engines: {node: '>=0.10.0'}
@@ -5024,6 +5034,10 @@ snapshots:
       fastq: 1.20.3
 
   '@nolyfill/is-core-module@1.0.39': {}
+
+  '@opeepsfun/open-peeps@1.0.6':
+    dependencies:
+      react: 18.3.1
 
   '@parcel/watcher-android-arm64@2.6.0':
     optional: true
@@ -7887,6 +7901,10 @@ snapshots:
       react: 19.3.0
     optionalDependencies:
       react-dom: 19.3.0(react@19.3.0)
+
+  react@18.3.1:
+    dependencies:
+      loose-envify: 1.4.0
 
   react@19.3.0: {}
 

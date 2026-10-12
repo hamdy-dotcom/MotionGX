@@ -18,6 +18,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",
     "@huggingface/transformers": "4.3.1",
+    "@opeepsfun/open-peeps": "^1.0.6",
     "@phosphor-icons/core": "^2.1.1",
     "@react-three/fiber": "9.3.0",
     "@remotion/bundler": "4.0.534",
