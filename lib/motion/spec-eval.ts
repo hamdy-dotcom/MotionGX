@@ -15,6 +15,8 @@ export type EvalEnv = {
   /** resolved line text for "b2:0" refs */
   lineText: (ref: string) => string | null;
   arabic: (text: string) => boolean;
+  /** shot anchors for "s3" / "s3e" times */
+  shots?: Map<string, { start: number; end: number }>;
 };
 
 export type Resolved = {
@@ -39,7 +41,7 @@ export type Resolved = {
   depth: number;
 };
 
-export const sec = (t: SpecTime | undefined, env: EvalEnv, fallback = 0) => toSeconds(t, env.bpm, fallback);
+export const sec = (t: SpecTime | undefined, env: EvalEnv, fallback = 0) => toSeconds(t, env.bpm, fallback, env.shots);
 
 /** text an element shows (literal or script line) */
 export function elementText(el: SpecElement, env: EvalEnv): string | undefined {

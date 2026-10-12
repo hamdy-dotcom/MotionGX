@@ -9,7 +9,11 @@ import { loadFont, measureLine } from "./fonts-node";
 import { cameraAt, elementText, fxWindow, resolveAt, screenBox, sec, type EvalEnv, type Resolved } from "./spec-eval";
 import { specSchema, type MotionSpec, type SpecElement } from "./spec";
 
-export type SpecIssue = { id: string | null; code: string; t?: number; msg: string };
+/** A deterministic repair the validator can compute itself (applied without AI by autoFix). */
+export type SpecFix = { size?: number; w?: number; h?: number; x?: number; y?: number; color?: string; gradient?: false; z?: number; addFx?: Record<string, unknown>; removeFx?: string; in?: number; out?: number | null };
+/** box in canvas % (x of width, y of height) */
+export type PctBox = { x0: number; y0: number; x1: number; y1: number };
+export type SpecIssue = { id: string | null; code: string; t?: number; msg: string; fix?: SpecFix; box?: PctBox };
 
 export type ValidateCtx = {
   width: number;
@@ -31,6 +35,10 @@ type Box = { x0: number; y0: number; x1: number; y1: number };
 const area = (b: Box) => Math.max(0, b.x1 - b.x0) * Math.max(0, b.y1 - b.y0);
 const inter = (a: Box, b: Box) => area({ x0: Math.max(a.x0, b.x0), y0: Math.max(a.y0, b.y0), x1: Math.min(a.x1, b.x1), y1: Math.min(a.y1, b.y1) });
 
+let pctW = 1080;
+let pctH = 1920;
+/** a box in canvas % (x of width, y of height) — the units the spec is written in */
+const pct = (b: Box) => `x ${((b.x0 / pctW) * 100).toFixed(0)}–${((b.x1 / pctW) * 100).toFixed(0)}%, y ${((b.y0 / pctH) * 100).toFixed(0)}–${((b.y1 / pctH) * 100).toFixed(0)}%`;
 const shrink = (b: Box, k: number): Box => {
   const dx = (b.x1 - b.x0) * k;
   const dy = (b.y1 - b.y0) * k;
@@ -99,6 +107,8 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
   }
   const spec = parsed.data;
   const bpm = ctx.energy.bpm;
+  pctW = ctx.width;
+  pctH = ctx.height;
   const lines = new Map<string, string>(ctx.beats.flatMap((b) => b.lines.map((l, i): [string, string] => [`${b.id}:${i}`, l])));
   const measure = await measurer(ctx, spec);
   const env: EvalEnv = {
@@ -111,10 +121,13 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
     lineText: (ref) => lines.get(ref) ?? null,
     arabic: (s) => ARABIC.test(s),
     measure: (el, text) => measure(el, text),
+    shots: new Map(ctx.beats.map((b) => [b.id, { start: b.start_s, end: b.end_s }])),
   };
-  const add = (id: string | null, code: string, msg: string, t?: number) => {
-    if (!issues.some((i) => i.id === id && i.code === code)) issues.push({ id, code, msg, t: t !== undefined ? Number(t.toFixed(2)) : undefined });
+  let curBox: PctBox | undefined;
+  const add = (id: string | null, code: string, msg: string, t?: number, fix?: SpecFix) => {
+    if (!issues.some((i) => i.id === id && i.code === code)) issues.push({ id, code, msg, t: t !== undefined ? Number(t.toFixed(2)) : undefined, fix, box: curBox && id === curId ? curBox : undefined });
   };
+  let curId: string | null = null;
 
   // ── references & static rules ───────────────────────────────────────────
   const ids = new Set<string>();
@@ -146,14 +159,19 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
       if (fx.fx === "route-follow" && byId.get(String((fx as Record<string, unknown>).route))?.type !== "route") add(el.id, "bad_route", `route-follow needs route = the id of a route element`);
     }
     if (el.type === "text" && /\n/.test(text)) add(el.id, "multiline", "one line per text element — split into several elements");
+    // copy must stay readable: no blinking / flickering on real text
+    for (const f of el.fx ?? []) if ((el.type === "text" || el.type === "counter") && ["blink", "neon-flicker"].includes(f.fx) && text.trim().length > 2) add(el.id, "unreadable_fx", `${f.fx} makes "${text}" unreadable half the time — remove it`, undefined, { removeFx: f.fx });
     if (el.type === "shape" && el.to && !(el.fx ?? []).some((f) => f.fx === "morph")) add(el.id, "unused_morph", "`to` is set but no morph behavior");
     if (el.type === "image" && el.src === "logo" && !ctx.hasLogo) {
       /* fine: the wordmark fallback renders */
     }
     if (el.type === "custom") {
-      const n = el.tsx.split("\n").length;
-      if (n > 150) add(el.id, "custom_too_long", `custom element is ${n} lines (max 150)`);
-      for (const e of staticCheck(el.tsx)) add(el.id, "custom_code", e);
+      if (!el.tsx && !el.use) add(el.id, "custom_empty", "custom element needs tsx or use");
+      if (el.tsx) {
+        const n = el.tsx.split("\n").length;
+        if (n > 150) add(el.id, "custom_too_long", `custom element is ${n} lines (max 150)`);
+        for (const e of staticCheck(el.tsx)) add(el.id, "custom_code", e);
+      }
     }
   }
   if (spec.elements.length > 0 && !spec.elements.some((e) => e.type === "image" && e.src === "logo")) add(null, "no_logo", "add the brand logo (image src=logo) around the logo hit");
@@ -190,7 +208,8 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
 
   const settled = (r: Resolved, t: number) => {
     if (!r.visible || r.opacity < 0.6 || r.state.clip) return false;
-    if (r.state.units || (r.state.typed !== undefined && r.state.typed < 1)) return false;
+    // (per-word/letter behaviors keep a units function after they finish — the fx windows below decide)
+    if (r.state.typed !== undefined && r.state.typed < 1) return false;
     for (const fx of r.el.fx ?? []) {
       const b = BEHAVIORS[fx.fx];
       if (!b || b.kind === "loop" || b.kind === "data" || b.kind === "generative") continue;
@@ -227,6 +246,8 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
 
     for (const r of vis.filter(isText)) {
       const b = boxes.get(r.el.id)!;
+      curId = r.el.id;
+      curBox = { x0: (b.x0 / W) * 100, y0: (b.y0 / H) * 100, x1: (b.x1 / W) * 100, y1: (b.y1 / H) * 100 };
       const textNow = r.text ?? "";
       if (!textNow.trim()) continue;
       const el = r.el as Extract<SpecElement, { type: "text" | "counter" }>;
@@ -234,15 +255,38 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
       const maxW = el.w !== undefined ? (el.w / 100) * W : W * (1 - 2 * SAFE);
       const kash = Math.max(0, ...(el.fx ?? []).filter((f) => f.fx === "kashida-stretch").map((f) => Number((f as Record<string, unknown>).max ?? 4)));
       const m = measure(el, textNow, kash);
-      if (m.w > maxW * 1.12) add(el.id, "text_overflow", `"${textNow}" is ${Math.round(m.w)}px wide at size ${el.size} but only ${Math.round(maxW)}px fit — lower size to ≤ ${((el.size * maxW) / m.w).toFixed(1)} or widen w`, t);
+      if (m.w > maxW * 1.12) add(el.id, "text_overflow", `"${textNow}" is ${Math.round(m.w)}px wide at size ${el.size} but only ${Math.round(maxW)}px fit — lower size to ≤ ${((el.size * maxW) / m.w).toFixed(1)} or widen w`, t, { size: Number(((el.size * maxW * 0.97) / m.w).toFixed(2)) });
       if (!settled(r, t)) continue;
-      if (b.x0 < W * SAFE - 2 || b.x1 > W * (1 - SAFE) + 2 || b.y0 < H * SAFE - 2 || b.y1 > H * (1 - SAFE) + 2) add(el.id, "offscreen", `"${textNow}" leaves the safe area (${Math.round(b.x0)},${Math.round(b.y0)})–(${Math.round(b.x1)},${Math.round(b.y1)}) in a ${W}×${H} frame with 5% margins`, t);
+      const tol = W * 0.01;
+      if (b.x0 < W * SAFE - tol || b.x1 > W * (1 - SAFE) + tol || b.y0 < H * SAFE - tol || b.y1 > H * (1 - SAFE) + tol) {
+        const bw = b.x1 - b.x0;
+        const bh = b.y1 - b.y0;
+        const safeW = W * (1 - 2 * SAFE);
+        const safeH = H * (1 - 2 * SAFE);
+        let fix: SpecFix;
+        if (bw > safeW || bh > safeH) fix = { size: Number((el.size * Math.min(safeW / bw, safeH / bh) * 0.96).toFixed(2)) };
+        else {
+          const dx = b.x0 < W * SAFE ? W * SAFE - b.x0 + 4 : b.x1 > W * (1 - SAFE) ? W * (1 - SAFE) - b.x1 - 4 : 0;
+          const dy = b.y0 < H * SAFE ? H * SAFE - b.y0 + 4 : b.y1 > H * (1 - SAFE) ? H * (1 - SAFE) - b.y1 - 4 : 0;
+          fix = { x: Number((el.x + (dx / W) * 100).toFixed(2)), y: Number((el.y + (dy / H) * 100).toFixed(2)) };
+        }
+        add(el.id, "offscreen", `"${textNow}" leaves the safe area: its box is ${pct(b)} (keep within 5–95%)`, t, fix);
+      }
       // text on text
       for (const o of vis.filter(isText)) {
         if (o === r || o.el.id < r.el.id || !settled(o, t) || !(o.text ?? "").trim()) continue;
         const ob = boxes.get(o.el.id)!;
         const ov = inter(b, ob);
-        if (ov > 0.08 * Math.min(area(b), area(ob))) add(r.el.id, "text_overlap", `overlaps text "${o.el.id}" ("${o.text}") — move one of them`, t);
+        if (ov > 0.08 * Math.min(area(b), area(ob))) {
+          // push the lower line down by the overlap + a gap (or the upper one up if there's no room)
+          const lower = (b.y0 + b.y1) / 2 >= (ob.y0 + ob.y1) / 2 ? r : o;
+          const lb2 = lower === r ? b : ob;
+          const ub = lower === r ? ob : b;
+          const push = ub.y1 - lb2.y0 + H * 0.012;
+          const le = lower.el as Extract<SpecElement, { type: "text" }>;
+          const room = lb2.y1 + push < H * (1 - SAFE);
+          add(lower.el.id, "text_overlap", `overlaps text "${(lower === r ? o : r).el.id}" — move one of them`, t, room ? { y: Number((le.y + (push / H) * 100).toFixed(2)) } : undefined);
+        }
       }
       // shapes over the label
       const myZ = zOf(r, all);
@@ -251,7 +295,7 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
         if (zOf(o, all) <= myZ || o.opacity < 0.5) continue;
         if (r.el.parent === o.el.id) continue;
         const ov = inter(b, boxes.get(o.el.id)!);
-        if (ov > 0.15 * area(b) && (solidBehind(o) || o.el.type === "svgPath")) add(r.el.id, "covered", `"${o.el.id}" (${o.el.type}) is drawn on top of this text — give the text a higher z or move it`, t);
+        if (ov > 0.15 * area(b) && (solidBehind(o) || o.el.type === "svgPath")) add(r.el.id, "covered", `"${o.el.id}" (${o.el.type}, box ${pct(boxes.get(o.el.id)!)}) is drawn on top of this text (box ${pct(b)}) — give the text a higher z or move it`, t, { z: Math.min(100, (o.el.z ?? 0) + 1) });
       }
       // a route/line stroke crossing the label (even underneath) makes it hard to read
       for (const o of vis) {
@@ -269,28 +313,76 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
           const reach = o.el.nodes ? sw * 1.6 : sw / 2;
           const tb = shrink(b, 0.08);
           if (segHitsBox(pts[i - 1], end, { x0: tb.x0 - reach, y0: tb.y0 - reach, x1: tb.x1 + reach, y1: tb.y1 + reach })) {
-            add(r.el.id, "line_through_text", `route "${o.el.id}" runs through this text — move the text or bend the route around it`, t);
+            add(r.el.id, "line_through_text", `route "${o.el.id}" runs through this text (box ${pct(b)}) — move the text or bend the route's points around it`, t);
             break;
           }
           acc += seg;
         }
       }
-      // contrast against what's behind its centre
-      const cx = (b.x0 + b.x1) / 2;
-      const cy = (b.y0 + b.y1) / 2;
-      const behind = vis
-        .filter((o) => o !== r && zOf(o, all) < myZ && solidBehind(o) && o.opacity >= 0.6)
-        .filter((o) => {
-          const ob = boxes.get(o.el.id)!;
-          return cx > ob.x0 && cx < ob.x1 && cy > ob.y0 && cy < ob.y1 && area(ob) >= area(b) * 0.6;
-        })
-        .sort((a, c) => zOf(c, all) - zOf(a, all))[0];
-      const bgs = behind ? fillOf(behind) : bgColors();
+      // what's behind the label: solid shapes below it (by coverage) + the background where they don't reach
+      const below = vis
+        .filter((o) => o !== r && zOf(o, all) < myZ && solidBehind(o) && o.opacity >= 0.6 && r.el.parent !== o.el.id)
+        .map((o) => ({ o, cov: inter(b, boxes.get(o.el.id)!) / Math.max(1, area(b)) }))
+        .filter((x) => x.cov > 0.05)
+        .sort((a, c) => zOf(c.o, all) - zOf(a.o, all));
+      const plate = below[0];
+      // a label on a plate (bubble/pill/card) must sit fully on it
+      if (plate && plate.cov > 0.15 && plate.cov < 0.88 && plate.o.el.type === "shape") {
+        const pe = plate.o.el;
+        const pb = boxes.get(pe.id)!;
+        const tw = b.x1 - b.x0;
+        const th = b.y1 - b.y0;
+        const round = pe.shape === "circle" || pe.shape === "ring" || pe.shape === "blob" || pe.shape === "polygon" || pe.shape === "star";
+        const needW = round ? Math.hypot(tw, th) * 1.08 : tw * 1.14;
+        const shrink = round ? (pb.x1 - pb.x0) / Math.hypot(tw, th) / 1.1 : (pb.x1 - pb.x0) / tw / 1.12;
+        // gentle fixes are automatic (shrink ≤ 20 %, or grow the plate ≤ 30 %); bigger mismatches are a
+        // design decision (move the label off the bubble, use a pill…) left to the patch step
+        const plateW = pb.x1 - pb.x0;
+        const centreOn = (b.x0 + b.x1) / 2 > pb.x0 && (b.x0 + b.x1) / 2 < pb.x1 && (b.y0 + b.y1) / 2 > pb.y0 && (b.y0 + b.y1) / 2 < pb.y1;
+        if (!centreOn) {
+          add(el.id, "text_spills_plate", `"${textNow}" (box ${pct(b)}) half-overlaps shape "${pe.id}" (box ${pct(pb)}, in ${pe.in ?? 0}–${pe.out ?? "end"}) — move the text clear of it, or end the shape earlier (set its "out")`, t);
+        } else if (!round && pe.w !== undefined && !pe.parent) {
+          // cards / floors / pills: fit the plate around every label sitting on it (+ padding)
+          // only labels whose centre sits on this plate belong to it
+          const onPlate = (lbx: Box) => (lbx.x0 + lbx.x1) / 2 > pb.x0 && (lbx.x0 + lbx.x1) / 2 < pb.x1 && (lbx.y0 + lbx.y1) / 2 > pb.y0 && (lbx.y0 + lbx.y1) / 2 < pb.y1;
+          const labels = vis.filter((o) => isText(o) && settled(o, t) && (o.text ?? "").trim()).map((o) => boxes.get(o.el.id)!).filter(onPlate);
+          const u = labels.reduce((acc, lbx) => ({ x0: Math.min(acc.x0, lbx.x0), y0: Math.min(acc.y0, lbx.y0), x1: Math.max(acc.x1, lbx.x1), y1: Math.max(acc.y1, lbx.y1) }), b);
+          const padX = (u.y1 - u.y0) * 0.35 + W * 0.02;
+          const padY = H * 0.012 + (u.y1 - u.y0) * 0.12;
+          const nx0 = Math.max(W * SAFE * 0.5, u.x0 - padX);
+          const nx1 = Math.min(W * (1 - SAFE * 0.5), u.x1 + padX);
+          const ny0 = u.y0 - padY;
+          const ny1 = u.y1 + padY;
+          add(pe.id, "text_spills_plate", `plate "${pe.id}" doesn't contain its label "${textNow}" — fit it around the text`, t, {
+            x: Number((((nx0 + nx1) / 2 / W) * 100).toFixed(2)),
+            y: Number((((ny0 + ny1) / 2 / H) * 100).toFixed(2)),
+            w: Number((((nx1 - nx0) / W) * 100).toFixed(2)),
+            h: Number((((ny1 - ny0) / W) * 100).toFixed(2)),
+          });
+        } else if (needW <= plateW * 1.3 && pe.w !== undefined) add(pe.id, "text_spills_plate", `plate "${pe.id}" is a bit small for "${textNow}"`, t, { w: Number(((pe.w * needW) / plateW).toFixed(1)) });
+        else if (shrink >= 0.6 && el.size * shrink >= 3.5) add(el.id, "text_spills_plate", `"${textNow}" spills over its plate "${pe.id}" (only ${(plate.cov * 100).toFixed(0)}% on it)`, t, { size: Number((el.size * Math.min(1, shrink)).toFixed(2)) });
+        else add(el.id, "text_spills_plate", `"${textNow}" (${((tw / W) * 100).toFixed(0)}% of the width) doesn't fit its plate "${pe.id}" (${((plateW / W) * 100).toFixed(0)}% wide, only ${(plate.cov * 100).toFixed(0)}% of the text on it) — put the label beside/below the plate, use a wide pill/card instead, or shorten the line's size`, t);
+      }
+      const bgs = [...new Set([...below.flatMap((x) => fillOf(x.o)), ...(below.reduce((s2, x) => s2 + x.cov, 0) < 0.92 ? bgColors() : [])])];
       const large = el.size >= 4.5;
       const need = large ? 3 : 4.5;
       let worst = 99;
       for (const fg of textColors(el)) for (const bg of bgs) worst = Math.min(worst, contrast(fg, bg));
-      if (worst < need) add(el.id, "low_contrast", `contrast ${worst.toFixed(2)}:1 on ${behind ? `"${behind.el.id}"` : "the background"} (needs ${need}:1) — change color role`, t);
+      // text over the logo: never readable — move it clear of the logo (below, else above)
+      const logo = vis.find((o) => o.el.type === "image" && o.el.src === "logo" && o !== r);
+      const lb = logo ? boxes.get(logo.el.id)! : null;
+      if (lb && inter(b, lb) > 0.05 * area(b)) {
+        const th = b.y1 - b.y0;
+        const below = lb.y1 + th / 2 + H * 0.02;
+        const above = lb.y0 - th / 2 - H * 0.02;
+        const ny = below + th / 2 < H * (1 - SAFE) ? below : above - th / 2 > H * SAFE ? above : null;
+        add(el.id, "text_on_logo", `"${textNow}" overlaps the logo — move it clear of the logo`, t, ny !== null ? { y: Number(((el.y + ((ny - (b.y0 + b.y1) / 2) / H) * 100)).toFixed(2)) } : undefined);
+      } else if (worst < need) {
+        const ROLES = ["text", "onPrimary", "white", "black", "primary", "accent", "bg", "textMuted"];
+        const best = ROLES.map((role) => ({ role, c: Math.min(...bgs.map((bg) => contrast(P[role], bg))) })).sort((x, y) => y.c - x.c)[0];
+        // only auto-fix when a role actually passes; otherwise it's a layout problem (patch step)
+        add(el.id, "low_contrast", `contrast ${worst.toFixed(2)}:1 behind it (${plate ? `"${plate.o.el.id}"${plate.cov < 0.92 ? " + background" : ""}` : "background"}; needs ${need}:1) — ${best.c >= need ? "change color role" : `no color works on this mixed background: move the text (box ${pct(b)}) fully onto one surface${plate ? ` (shape "${plate.o.el.id}" box ${pct(boxes.get(plate.o.el.id)!)})` : ""}`}`, t, best.c >= need ? { color: best.role, gradient: false } : undefined);
+      }
     }
 
     // stillness: something besides the camera drift must move
@@ -300,15 +392,40 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
       .join("|");
     const moving = sig !== prevSig || vis.some((r) => r.el.type === "particles");
     if (moving) lastMotion = t;
-    else if (t - lastMotion > 0.6) add(null, "static", `nothing moves from ${lastMotion.toFixed(1)}s to ${t.toFixed(1)}s — add a loop behavior (float, breathe, noise-drift…) or particles`, lastMotion);
+    else if (t - lastMotion > 0.6) {
+      // the biggest element on screen through the still stretch gets a gentle loop
+      const host = vis.filter((r) => r.el.type !== "route" && sec(r.el.in, env, 0) <= lastMotion).sort((a, b2) => b2.w * b2.h - a.w * a.h)[0];
+      add(host?.el.id ?? null, "static", `nothing moves from ${lastMotion.toFixed(1)}s to ${t.toFixed(1)}s — add a loop behavior (float, breathe, noise-drift…) or particles`, lastMotion, host ? { addFx: { fx: host.el.type === "text" ? "breathe" : "noise-drift", ...(host.el.type === "text" ? { amount: 0.02 } : { amp: 0.8 }) } } : undefined);
+      lastMotion = t;
+    }
     prevSig = sig;
+  }
+
+  // a button-like pill (filled, wide) must carry a label
+  for (const el of spec.elements) {
+    if (el.type !== "shape" || el.shape !== "pill" || (!el.fill && !el.gradient) || (el.alpha ?? 1) < 0.6 || (el.w ?? 0) < 18) continue;
+    const t = Math.min(ctx.duration - 0.05, sec(el.in, env, 0) + 1.0);
+    const all = resolveAt(spec, env, t);
+    const me = all.find((r) => r.el.id === el.id);
+    if (!me?.visible) continue;
+    const cam = cameraAt(spec, env, t);
+    const pb = screenBox(me, cam, env);
+    const labelled = all.some((r) => r.visible && (r.el.type === "text" || r.el.type === "counter") && (r.el.z ?? 0) >= (el.z ?? 0) && (() => {
+      const b = screenBox(r, cam, env);
+      const cx = (b.x0 + b.x1) / 2;
+      const cy = (b.y0 + b.y1) / 2;
+      return cx > pb.x0 && cx < pb.x1 && cy > pb.y0 && cy < pb.y1;
+    })());
+    if (!labelled) add(el.id, "empty_button", `pill "${el.id}" looks like a button but has no label on it — put a script line on it (higher z) or remove it`, t);
   }
 
   // brand moments
   const logoHit = ctx.energy.hits.find((h) => h.kind === "logo");
   if (logoHit) {
     const at = resolveAt(spec, env, Math.min(ctx.duration - 0.05, logoHit.t + 0.8)).find((r) => r.el.type === "image" && r.el.src === "logo" && r.visible);
-    if (!at) add(null, "logo_missing_at_hit", `the logo isn't on screen 0.8s after the logo hit (${logoHit.t}s)`);
+    // the logo enters ON the hit and stays (fixable when a logo element exists)
+    const logoEl = spec.elements.find((e) => e.type === "image" && e.src === "logo");
+    if (!at) add(logoEl?.id ?? null, "logo_missing_at_hit", `the logo isn't on screen 0.8s after the logo hit (${logoHit.t}s)${logoEl ? ` — "${logoEl.id}" is in ${logoEl.in ?? 0}–${logoEl.out ?? "end"}` : ""}`, logoHit.t, logoEl ? { in: logoHit.t, out: null } : undefined);
   }
   const ctaHit = ctx.energy.hits.find((h) => h.kind === "cta");
   // the CTA beat = the script beat the cta hit falls in

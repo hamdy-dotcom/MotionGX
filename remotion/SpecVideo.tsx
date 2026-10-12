@@ -434,6 +434,7 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
       hits: input.energy.hits,
       lineText: (ref) => lines.get(ref) ?? null,
       arabic: (s) => ARABIC.test(s),
+      shots: new Map(input.script.beats.map((b) => [b.id, { start: b.start_s, end: b.end_s }])),
     }),
     [input, lines],
   );

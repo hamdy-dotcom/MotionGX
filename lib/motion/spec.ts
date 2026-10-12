@@ -1,15 +1,16 @@
 // MotionSpec: the language the AI writes instead of code. A spec places any element anywhere, combines
 // any behaviors and invents its own layout; the engine (remotion/SpecVideo + remotion/behaviors)
 // renders it. Coordinates: x/y are % of canvas width/height (element centre); w/h/size are % of canvas
-// WIDTH (so w = h is square in every format). Times are seconds, or "b<n>" for beat n (0-based).
+// WIDTH (so w = h is square in every format). Times are seconds, "b<n>" for beat n (0-based), or a shot
+// anchor: "s<n>" = start of shot n, "s<n>e" = its end.
 import { z } from "zod";
 
 export const COLOR_ROLES = ["bg", "bg2", "surface", "surface2", "border", "text", "textMuted", "primary", "onPrimary", "accent", "gradA", "gradB", "glowA", "glowB", "white", "black"] as const;
 export type ColorRole = (typeof COLOR_ROLES)[number];
 const role = z.enum(COLOR_ROLES);
 
-/** seconds, or "b12" = beat 12 */
-export const time = z.union([z.number().min(0), z.string().regex(/^b\d+(\.\d+)?$/)]);
+/** seconds; "b12" = beat 12; "s3" = start of shot 3, "s3e" = end of shot 3 */
+export const time = z.union([z.number().min(0), z.string().regex(/^(b\d+(\.\d+)?|s\d+e?)$/)]);
 export type SpecTime = z.infer<typeof time>;
 
 const ease = z.enum(["linear", "in", "out", "inOut", "expoOut", "backOut", "elastic", "bounce", "snap"]);
@@ -40,8 +41,9 @@ const base = {
   id: z.string().min(1).max(40),
   parent: z.string().optional(),
   z: z.number().int().min(-50).max(100).optional(),
-  x: z.number().min(-50).max(150),
-  y: z.number().min(-50).max(150),
+  // default centre: routes (points) and full-frame particles don't need a position
+  x: z.number().min(-50).max(150).default(50),
+  y: z.number().min(-50).max(150).default(50),
   w: z.number().min(0).max(300).optional(),
   h: z.number().min(0).max(300).optional(),
   rot: z.number().optional(),
@@ -170,8 +172,10 @@ const counterEl = z.object({
 const customEl = z.object({
   ...base,
   type: z.literal("custom"),
-  /** escape hatch: a TSX component (≤150 lines) for an effect the catalogue can't express */
-  tsx: z.string().max(12000),
+  /** escape hatch: a TSX component (≤150 lines) for an effect the catalogue can't express … */
+  tsx: z.string().max(12000).optional(),
+  /** … or a promoted effect from the library, by name */
+  use: z.string().max(80).optional(),
   note: z.string().max(200).optional(),
 });
 
@@ -221,9 +225,12 @@ export type MotionSpecInput = z.input<typeof specSchema>;
 
 export type SoundEvent = { t: number; kind: "whoosh" | "pop" | "click" | "riser" | "impact" | "subdrop" };
 
-/** Resolves a spec time ("b12" or seconds) to seconds. */
-export function toSeconds(t: SpecTime | undefined, bpm: number, fallback = 0): number {
+/** Resolves a spec time ("b12", "s3", "s3e" or seconds) to seconds. */
+export function toSeconds(t: SpecTime | undefined, bpm: number, fallback = 0, shots?: Map<string, { start: number; end: number }>): number {
   if (t === undefined) return fallback;
   if (typeof t === "number") return t;
-  return Number(t.slice(1)) * (60 / bpm);
+  if (t.startsWith("b")) return Number(t.slice(1)) * (60 / bpm);
+  const end = t.endsWith("e");
+  const shot = shots?.get(end ? t.slice(0, -1) : t);
+  return shot ? (end ? shot.end : shot.start) : fallback;
 }
