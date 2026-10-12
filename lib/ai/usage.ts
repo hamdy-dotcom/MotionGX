@@ -4,7 +4,7 @@ import type { AiErrorCode } from "./errors";
 
 export const AI_CALLS_PER_HOUR = 30;
 
-export type AiKind = "brand_scrape" | "brand_tone" | "script" | "rewrite_scene" | "request_edit";
+export type AiKind = "brand_scrape" | "brand_tone" | "brand_facts" | "script" | "rewrite_scene" | "request_edit";
 
 export type { AiErrorCode };
 

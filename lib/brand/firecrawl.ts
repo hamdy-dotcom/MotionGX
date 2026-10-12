@@ -4,8 +4,7 @@ import type { FirecrawlScrape } from "./map";
 
 export const FIRECRAWL_MODEL = "firecrawl-v2-scrape";
 
-/** POST /v2/scrape with the branding + markdown formats. */
-export async function scrapeBrand(url: string): Promise<FirecrawlScrape> {
+async function scrape(url: string, formats: string[], timeoutMs: number): Promise<FirecrawlScrape> {
   const key = process.env.FIRECRAWL_API_KEY;
   if (!key) throw new AiError("not_configured", "FIRECRAWL_API_KEY is not set");
 
@@ -14,8 +13,8 @@ export async function scrapeBrand(url: string): Promise<FirecrawlScrape> {
     res = await fetch("https://api.firecrawl.dev/v2/scrape", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ url, formats: ["branding", "markdown"], onlyMainContent: false }),
-      signal: AbortSignal.timeout(90_000),
+      body: JSON.stringify({ url, formats, onlyMainContent: false }),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
     console.error("[firecrawl] request failed", { url, err });
@@ -29,4 +28,14 @@ export async function scrapeBrand(url: string): Promise<FirecrawlScrape> {
     throw new AiError("scrape_failed", body?.error);
   }
   return body.data;
+}
+
+/** Homepage: branding + markdown + links (links feed the brand-facts page picker). */
+export function scrapeBrand(url: string): Promise<FirecrawlScrape> {
+  return scrape(url, ["branding", "markdown", "links"], 90_000);
+}
+
+/** Extra page for brand facts: markdown only. */
+export function scrapePage(url: string): Promise<FirecrawlScrape> {
+  return scrape(url, ["markdown"], 60_000);
 }

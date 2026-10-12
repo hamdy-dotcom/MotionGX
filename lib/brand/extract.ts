@@ -5,12 +5,13 @@ import { loadLogo } from "./logo";
 import { mapColors, mapFonts, pickLogo, pickName, type FirecrawlScrape } from "./map";
 import { EXTRACT_STEPS, emptyDraft, type ExtractEvent } from "./types";
 import { analyzeTone } from "./tone";
+import { pickFactPages, scrapeFactPages, summarizeFacts, type FactPage } from "./facts";
 
 export { normalizeUrl } from "./url";
 export * from "./types";
 
 /** Raw Firecrawl payload we keep in brand_profiles.raw so only "أعد القراءة" re-scrapes. */
-function rawFor(url: string, scrape: FirecrawlScrape) {
+function rawFor(url: string, scrape: FirecrawlScrape, pages: FactPage[] = []) {
   return {
     source: "firecrawl",
     url,
@@ -18,6 +19,8 @@ function rawFor(url: string, scrape: FirecrawlScrape) {
     branding: scrape.branding ?? null,
     metadata: scrape.metadata ?? null,
     markdown: (scrape.markdown ?? "").slice(0, 30_000),
+    links: (scrape.links ?? []).slice(0, 200),
+    pages,
   };
 }
 
@@ -70,5 +73,16 @@ export async function* extractBrand(workspaceId: string, url: string): AsyncGene
     yield { type: "step", step: "tone", status: "failed" };
   }
 
-  yield { type: "result", brand: draft, raw: rawFor(url, scrape), cached: false };
+  // Brand facts: homepage + up to 3 more pages (features / pricing / about), summarized by Haiku.
+  let pages: FactPage[] = [];
+  try {
+    pages = await scrapeFactPages(workspaceId, pickFactPages(scrape.links, url));
+    draft.facts = await summarizeFacts(workspaceId, url, scrape.markdown ?? "", pages);
+    yield { type: "step", step: "facts", status: "done" };
+  } catch (err) {
+    if (err instanceof AiError && err.code !== "ai_invalid") yield { type: "error", code: err.code };
+    yield { type: "step", step: "facts", status: "failed" };
+  }
+
+  yield { type: "result", brand: draft, raw: rawFor(url, scrape, pages), cached: false };
 }

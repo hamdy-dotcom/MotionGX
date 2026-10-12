@@ -17,6 +17,7 @@ export type FirecrawlBranding = {
 
 export type FirecrawlScrape = {
   markdown?: string;
+  links?: string[];
   branding?: FirecrawlBranding;
   metadata?: {
     title?: string;

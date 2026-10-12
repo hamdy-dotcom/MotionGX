@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { getApiContext } from "@/lib/context";
 import { EXTRACT_STEPS, extractBrand, type BrandDraft, type ExtractEvent } from "@/lib/brand/extract";
-import { FALLBACK_FONTS } from "@/lib/brand/map";
+import { EMPTY_FACTS, FALLBACK_FONTS, type BrandFacts } from "@/lib/brand/types";
 import { normalizeUrl, urlKey } from "@/lib/brand/url";
 import type { BrandProfile, Dialect } from "@/lib/types";
 
@@ -11,7 +11,7 @@ type CachedCompany = {
   name: string;
   website_url: string | null;
   default_dialect: Dialect;
-  brand_profiles: (BrandProfile & { raw: Record<string, unknown> | null }) | null;
+  brand_profiles: (BrandProfile & { raw: Record<string, unknown> | null; facts: Partial<BrandFacts> | null }) | null;
   brand_assets: { kind: string; storage_path: string }[];
 };
 
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 async function findCached(ctx: NonNullable<Awaited<ReturnType<typeof getApiContext>>>, key: string) {
   const { data, error } = await ctx.supabase
     .from("companies")
-    .select("name, website_url, default_dialect, brand_profiles(colors, fonts, tone, tagline, raw), brand_assets(kind, storage_path)")
+    .select("name, website_url, default_dialect, brand_profiles(colors, fonts, tone, tagline, facts, raw), brand_assets(kind, storage_path)")
     .eq("workspace_id", ctx.workspace.id)
     .not("website_url", "is", null)
     .order("created_at", { ascending: false });
@@ -90,10 +90,11 @@ async function findCached(ctx: NonNullable<Awaited<ReturnType<typeof getApiConte
     tone: profile.tone ?? "",
     tagline: profile.tagline ?? "",
     defaultDialect: company.default_dialect,
+    facts: { ...EMPTY_FACTS, cta_url: company.website_url!, ...(profile.facts ?? {}) },
   };
   return {
     brand,
     raw: profile.raw,
-    steps: { logo: Boolean(logoUrl), colors: brand.colors.length > 0, fonts: Boolean(profile.fonts?.arabic || profile.fonts?.latin), tone: Boolean(profile.tone) },
+    steps: { logo: Boolean(logoUrl), colors: brand.colors.length > 0, fonts: Boolean(profile.fonts?.arabic || profile.fonts?.latin), tone: Boolean(profile.tone), facts: Boolean(profile.facts?.what_it_does) },
   };
 }

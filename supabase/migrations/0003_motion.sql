@@ -4,6 +4,11 @@
 -- Realtime on renders, and the `music` / `renders` storage buckets.
 -- =====================================================================
 
+-- New AI usage kind: brand facts summary.
+alter table public.ai_usage drop constraint if exists ai_usage_kind_check;
+alter table public.ai_usage add constraint ai_usage_kind_check
+  check (kind in ('brand_scrape', 'brand_tone', 'brand_facts', 'script', 'rewrite_scene', 'request_edit'));
+
 -- Brand facts (summarized from the homepage + up to 3 more pages).
 alter table public.brand_profiles
   add column if not exists facts jsonb not null default '{}'::jsonb;

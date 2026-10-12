@@ -2,10 +2,22 @@
 import type { AiErrorCode } from "@/lib/ai/errors";
 import type { BrandColor, BrandFonts, Dialect } from "@/lib/types";
 
-export const EXTRACT_STEPS = ["logo", "colors", "fonts", "tone"] as const;
+export const EXTRACT_STEPS = ["logo", "colors", "fonts", "tone", "facts"] as const;
 export type ExtractStep = (typeof EXTRACT_STEPS)[number];
 
 export const FALLBACK_FONTS = { arabic: "Readex Pro", latin: "Inter" } as const;
+
+/** Summarized from the homepage + up to 3 more pages. Numbers are only ones found on the site. */
+export type BrandFacts = {
+  what_it_does: string;
+  audience: string;
+  key_features: string[];
+  numbers: { value: number; label: string; prefix: string; suffix: string }[];
+  offers: string[];
+  cta_url: string;
+};
+
+export const EMPTY_FACTS: BrandFacts = { what_it_does: "", audience: "", key_features: [], numbers: [], offers: [], cta_url: "" };
 
 export type BrandDraft = {
   name: string;
@@ -16,6 +28,7 @@ export type BrandDraft = {
   tone: string;
   tagline: string;
   defaultDialect: Dialect;
+  facts: BrandFacts;
 };
 
 export type ExtractEvent =
@@ -29,5 +42,5 @@ export function emptyDraft(url: string): BrandDraft {
   try {
     name = new URL(url).hostname.replace(/^www\./, "").split(".")[0];
   } catch {}
-  return { name, websiteUrl: url, logoUrl: null, colors: [], fonts: { ...FALLBACK_FONTS }, tone: "", tagline: "", defaultDialect: "eg" };
+  return { name, websiteUrl: url, logoUrl: null, colors: [], fonts: { ...FALLBACK_FONTS }, tone: "", tagline: "", defaultDialect: "eg", facts: { ...EMPTY_FACTS, cta_url: url } };
 }
