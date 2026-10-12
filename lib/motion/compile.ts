@@ -48,7 +48,64 @@ export function staticCheck(code: string): string[] {
   };
   visit(sf);
   if (!hasDefault) errors.push("the file must `export default` the composition component");
+  errors.push(...hooksCheck(sf));
   return [...new Set(errors)];
+}
+
+const isHookName = (name: string) => /^use[A-Z0-9]/.test(name);
+const isComponentName = (name: string) => /^[A-Z]/.test(name);
+
+/** Name a function is known by: `function Foo`, `const Foo = () =>`, `const Foo = React.memo(() =>)`. */
+function functionName(fn: ts.SignatureDeclaration): string | null {
+  if ((ts.isFunctionDeclaration(fn) || ts.isFunctionExpression(fn)) && fn.name) return fn.name.text;
+  let p: ts.Node = fn.parent;
+  while (p && (ts.isCallExpression(p) || ts.isParenthesizedExpression(p) || ts.isAsExpression(p))) p = p.parent;
+  if (p && ts.isVariableDeclaration(p) && ts.isIdentifier(p.name)) return p.name.text;
+  if (p && ts.isExportAssignment(p)) return "Default";
+  return null;
+}
+
+/**
+ * Rules of hooks (what made React throw #310 at render time): a hook call must sit directly in a
+ * component or custom hook body — not in a loop, a condition, a nested callback, or after an early return.
+ */
+function hooksCheck(sf: ts.SourceFile): string[] {
+  const errors: string[] = [];
+  const line = (n: ts.Node) => sf.getLineAndCharacterOfPosition(n.getStart()).line + 1;
+  const visit = (n: ts.Node) => {
+    if (ts.isCallExpression(n)) {
+      const callee = n.expression;
+      const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : null;
+      if (name && isHookName(name)) {
+        let p: ts.Node = n.parent;
+        let problem: string | null = null;
+        while (p && !ts.isFunctionLike(p)) {
+          if (ts.isIfStatement(p) || ts.isConditionalExpression(p) || ts.isSwitchStatement(p)) problem = "inside a condition";
+          else if (ts.isForStatement(p) || ts.isForOfStatement(p) || ts.isForInStatement(p) || ts.isWhileStatement(p) || ts.isDoStatement(p)) problem = "inside a loop";
+          else if (ts.isBinaryExpression(p) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(p.operatorToken.kind)) problem = "inside a conditional expression";
+          p = p.parent;
+        }
+        if (!problem && p) {
+          const fnName = functionName(p as ts.SignatureDeclaration);
+          if (!fnName || !(isComponentName(fnName) || isHookName(fnName))) problem = "inside a callback or a function that is not a component";
+          else {
+            // an early `return` before this call in the same body
+            const body = (p as ts.FunctionLikeDeclaration).body;
+            if (body && ts.isBlock(body)) {
+              const stmt = body.statements.find((st) => st.pos <= n.pos && n.end <= st.end);
+              const earlier = body.statements.slice(0, stmt ? body.statements.indexOf(stmt) : 0);
+              const returns = (x: ts.Node): boolean => ts.isReturnStatement(x) || (!ts.isFunctionLike(x) && (ts.forEachChild(x, returns) ?? false));
+              if (earlier.some(returns)) problem = "after an early return";
+            }
+          }
+        }
+        if (problem) errors.push(`line ${line(n)}: ${name}() is called ${problem} — React requires hooks at the top level of a component (move per-item motion into a child component)`);
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return errors;
 }
 
 let cachedOptions: ts.CompilerOptions | null = null;

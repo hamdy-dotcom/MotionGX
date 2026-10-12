@@ -26,6 +26,7 @@ ${primitivesApi()}
 
 Hard rules:
 - Output exactly one TSX file in a \`\`\`tsx fence, then a \`\`\`json fence with {"sfx":[{"t":seconds,"kind":"whoosh|pop|click|riser|impact"}]} listing the sound effects your animation implies (whoosh on transitions, pop/click on element entrances, riser right before reveals, impact on the logo). Nothing else.
+- React rules of hooks: call hooks (useCurrentFrame, useUnit, useBeat, useHit, …) only at the top level of a component — never inside loops, conditions, .map() callbacks or after an early return. For per-item motion, make a small child component and call the hooks there.
 - Default-export the component. Use only the allowed imports. Pure function of the frame. No setTimeout/Date/Math.random (use random(seed)).
 - Copy: every on-screen line comes from props.script.beats[i].lines, shown with <Text> (one per line). Keep each beat's text on screen long enough to read. The brand name and props.brand.url may also appear.
 - Colors: only props.palette (and mix/rgba/shade of palette colors). Text must reach 4.5:1 contrast with what is behind it — use palette.text on dark areas, pickTextColor() on colored areas.
