@@ -9,6 +9,9 @@ import { FoldersIllustration } from "@/components/illustrations";
 import { PlusIcon } from "@/components/icons";
 import { NewVideoForm } from "./new-video-form";
 
+// Generation (director → script → composition + QA → music) runs in `after()` of this route's create action.
+export const maxDuration = 800;
+
 export default async function NewVideoPage({
   params,
   searchParams,

@@ -15,13 +15,13 @@ const sectionKind = z.enum(["intro", "build", "drop", "breakdown", "outro"]);
 const hitKind = z.enum(["drop", "impact", "reveal", "logo", "cta"]);
 
 export const treatmentSchema = z.object({
-  concept: z.string().min(10).max(600),
-  visual_metaphor: z.string().min(5).max(400),
-  motion_language: z.string().min(3).max(60),
-  motion_language_detail: z.string().min(10).max(600),
-  typography: z.string().min(10).max(500),
-  palette_usage: z.string().min(10).max(500),
-  camera: z.string().max(300),
+  concept: z.string().min(10).max(1000),
+  visual_metaphor: z.string().min(5).max(700),
+  motion_language: z.string().min(3).max(80),
+  motion_language_detail: z.string().min(10).max(1200),
+  typography: z.string().min(10).max(900),
+  palette_usage: z.string().min(10).max(900),
+  camera: z.string().max(600),
   beats: z
     .array(
       z.object({
@@ -29,9 +29,9 @@ export const treatmentSchema = z.object({
         name: z.string().max(60),
         start_s: z.number().min(0),
         end_s: z.number().positive(),
-        visual: z.string().min(10).max(700),
-        copy_intent: z.string().max(300),
-        transition_out: z.string().max(200),
+        visual: z.string().min(10).max(1200),
+        copy_intent: z.string().max(500),
+        transition_out: z.string().max(400),
       }),
     )
     .min(3)

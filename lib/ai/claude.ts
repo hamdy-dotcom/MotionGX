@@ -116,20 +116,23 @@ export async function callTool<T>({
       throw new AiError("ai_failed", "refusal");
     }
 
-    const block = (response.content as { type: string }[]).find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use") as
-      | Anthropic.ToolUseBlock
-      | undefined;
-    if (!block) {
+    // The model may call the tool more than once in a turn; take the first call that validates.
+    const blocks = (response.content as { type: string }[]).filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use") as Anthropic.ToolUseBlock[];
+    const block = blocks[0];
+    if (!blocks.length) {
       problem = `No ${tool.name} call (stop_reason: ${response.stop_reason})`;
     } else {
-      lastInput = block.input;
-      const parsed = schema.safeParse(block.input);
-      if (!parsed.success) {
-        problem = parsed.error.issues
-          .slice(0, 12)
-          .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-          .join("; ");
-      } else {
+      for (const b of blocks) {
+        const input = unstringify(b.input);
+        lastInput = input;
+        const parsed = schema.safeParse(input);
+        if (!parsed.success) {
+          problem = parsed.error.issues
+            .slice(0, 12)
+            .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+            .join("; ");
+          continue;
+        }
         const semantic = check?.(parsed.data) ?? null;
         if (!semantic) return { value: parsed.data };
         problem = semantic;
@@ -141,14 +144,33 @@ export async function callTool<T>({
       messages.push({ role: "assistant", content: response.content } as AnyParam);
       messages.push({
         role: "user",
+        // Every tool_use in the turn needs its tool_result, or the API rejects the next request.
         content: block
-          ? [{ type: "tool_result", tool_use_id: block.id, is_error: true, content: `Invalid: ${problem}. Call ${tool.name} again with every problem fixed.` }]
+          ? blocks.map((b) => ({ type: "tool_result", tool_use_id: b.id, is_error: true, content: `Invalid: ${problem}. Call ${tool.name} once, with every problem fixed.` }))
           : `You must call ${tool.name}. ${problem}`,
       });
     }
   }
 
   return { value: null, lastInput, problem };
+}
+
+/** Models sometimes send a nested array/object as a JSON string; parse those top-level fields. */
+function unstringify(input: unknown): unknown {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+    if (typeof v === "string" && /^\s*[[{]/.test(v)) {
+      try {
+        out[k] = JSON.parse(v);
+        continue;
+      } catch {
+        /* keep the string; validation reports it */
+      }
+    }
+    out[k] = v;
+  }
+  return out;
 }
 
 /**
