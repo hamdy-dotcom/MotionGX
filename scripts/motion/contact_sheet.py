@@ -1,8 +1,8 @@
 """Phase 3B contact sheet: one row per video, 6 stills each (mixed formats → fixed row height).
 
-  .venv/bin/python scripts/motion/contact_sheet.py [out/contact-sheet.png]
+  .venv/bin/python scripts/motion/contact_sheet.py [out/contact-sheet.png] [out/3c]
 
-Reads out/five/report.json and out/five/<slug>/sheet/*.{png,jpeg,jpg}.
+Reads <root>/report.json and <root>/<slug>/sheet/*.{png,jpeg,jpg}.
 """
 import glob
 import json
@@ -22,8 +22,8 @@ except ImportError:  # pragma: no cover
     def shaped(s):
         return s
 
-ROOT = "out/five"
 OUT = sys.argv[1] if len(sys.argv) > 1 else "out/contact-sheet.png"
+ROOT = sys.argv[2] if len(sys.argv) > 2 else "out/3c"
 ROW_H = 420
 GAP = 12
 LABEL_H = 64
@@ -48,7 +48,7 @@ def t_of(path):
 
 rows = []
 for slug, r in report.items():
-    if r.get("status") != "passed":
+    if r.get("status") not in ("passed", "ready"):
         continue
     files = sorted(
         [f for f in glob.glob(os.path.join(ROOT, slug, "sheet", "*")) if f.lower().endswith((".png", ".jpg", ".jpeg"))],
@@ -69,7 +69,8 @@ d = ImageDraw.Draw(sheet)
 big, small = font(26), font(18)
 y = GAP
 for slug, r, ims, files in rows:
-    d.text((GAP, y + 4), f"{r['brand']}  ·  {r['format']}  ·  {r['length_s']}s  ·  {r['dialect']}  ·  QA r{len(r['qa_rounds'])} {r['qa_rounds'][-1]['score']}/10  ·  ${r['cost_usd']:.2f}", fill=(255, 255, 255), font=big)
+    extra = f"preview {r['to_preview_s']}s  ·  ${r['cost_usd']:.3f}  ·  taste {r['taste']['score'] if r.get('taste') else '–'}/10" if "to_preview_s" in r else f"QA r{len(r['qa_rounds'])} {r['qa_rounds'][-1]['score']}/10  ·  ${r['cost_usd']:.2f}"
+    d.text((GAP, y + 4), shaped(f"{r['brand']}  ·  {r['format']}  ·  {r['length_s']}s  ·  {r['dialect']}  ·  {extra}"), fill=(255, 255, 255), font=big)
     d.text((GAP, y + 36), shaped(r["motion_language"]), fill=(170, 170, 190), font=small)
     x = GAP
     for im, f in zip(ims, files):

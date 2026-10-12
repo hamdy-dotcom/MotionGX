@@ -249,7 +249,8 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
       curId = r.el.id;
       curBox = { x0: (b.x0 / W) * 100, y0: (b.y0 / H) * 100, x1: (b.x1 / W) * 100, y1: (b.y1 / H) * 100 };
       const textNow = r.text ?? "";
-      if (!textNow.trim()) continue;
+      // readability rules are for copy: a lone symbol (★, →, •) is decoration
+      if (!textNow.trim() || !/[\p{L}\p{N}]/u.test(textNow)) continue;
       const el = r.el as Extract<SpecElement, { type: "text" | "counter" }>;
       // width vs the allowed box (renderer shrinks; > 12 % over = a layout problem)
       const maxW = el.w !== undefined ? (el.w / 100) * W : W * (1 - 2 * SAFE);
@@ -297,10 +298,14 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
         const ov = inter(b, boxes.get(o.el.id)!);
         if (ov > 0.15 * area(b) && (solidBehind(o) || o.el.type === "svgPath")) add(r.el.id, "covered", `"${o.el.id}" (${o.el.type}, box ${pct(boxes.get(o.el.id)!)}) is drawn on top of this text (box ${pct(b)}) — give the text a higher z or move it`, t, { z: Math.min(100, (o.el.z ?? 0) + 1) });
       }
+      // a solid plate (scrim/card) fully under the label hides any stroke drawn below that plate
+      const myZ0 = zOf(r, all);
+      const fullPlates = vis.filter((o) => o !== r && zOf(o, all) < myZ0 && solidBehind(o) && o.opacity >= 0.6 && inter(b, boxes.get(o.el.id)!) >= 0.92 * area(b));
+      const hidden = (o: Resolved) => fullPlates.some((p) => zOf(p, all) > zOf(o, all));
       // outline-only shapes (rings, stroked outlines, lines) crossing the label: the text must sit fully
       // inside the inner area or fully outside the shape
       for (const o of vis) {
-        if (o.el.type !== "shape" || o.opacity < 0.4 || o === r) continue;
+        if (o.el.type !== "shape" || o.opacity < 0.4 || o === r || hidden(o)) continue;
         const se = o.el;
         const outline = se.shape === "ring" || se.shape === "line" || (!se.fill && !se.gradient && !!se.stroke);
         if (!outline) continue;
@@ -319,7 +324,7 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
       }
       // a route/line stroke crossing the label (even underneath) makes it hard to read
       for (const o of vis) {
-        if (o.el.type !== "route" || o.opacity < 0.4) continue;
+        if (o.el.type !== "route" || o.opacity < 0.4 || hidden(o)) continue;
         const draw = o.state.draw ?? 1;
         const pts = routePts(o.el, env);
         const total = pathLen(pts);
@@ -383,7 +388,13 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
         else if (shrink >= 0.6 && el.size * shrink >= 3.5) add(el.id, "text_spills_plate", `"${textNow}" spills over its plate "${pe.id}" (only ${(plate.cov * 100).toFixed(0)}% on it)`, t, { size: Number((el.size * Math.min(1, shrink)).toFixed(2)) });
         else add(el.id, "text_spills_plate", `"${textNow}" (${((tw / W) * 100).toFixed(0)}% of the width) doesn't fit its plate "${pe.id}" (${((plateW / W) * 100).toFixed(0)}% wide, only ${(plate.cov * 100).toFixed(0)}% of the text on it) — put the label beside/below the plate, use a wide pill/card instead, or shorten the line's size`, t);
       }
-      const bgs = [...new Set([...below.flatMap((x) => fillOf(x.o)), ...(below.reduce((s2, x) => s2 + x.cov, 0) < 0.92 ? bgColors() : [])])];
+      // what actually shows behind the text: shapes from the top down, stopping at the first that covers it
+      const visibleBelow: typeof below = [];
+      for (const x of below) {
+        visibleBelow.push(x);
+        if (x.cov >= 0.92) break;
+      }
+      const bgs = [...new Set([...visibleBelow.flatMap((x) => fillOf(x.o)), ...(visibleBelow.some((x) => x.cov >= 0.92) ? [] : bgColors())])];
       const large = el.size >= 4.5;
       const need = large ? 3 : 4.5;
       let worst = 99;

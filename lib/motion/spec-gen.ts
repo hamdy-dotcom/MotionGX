@@ -132,7 +132,10 @@ export function autoFix(spec: MotionSpec, issues: SpecIssue[]): { spec: MotionSp
     if (f.h !== undefined) el.h = f.h;
     if (f.x !== undefined) el.x = f.x;
     if (f.y !== undefined) el.y = f.y;
-    if (f.color !== undefined && "color" in el) el.color = f.color;
+    if (f.color !== undefined && "color" in el) {
+      el.color = f.color;
+      delete el.outline; // an outline overrides the fill colour
+    }
     if (f.gradient === false && "gradient" in el) el.gradient = false;
     if (f.z !== undefined) el.z = f.z;
     if (f.addFx) el.fx = [...((el.fx as unknown[]) ?? []), f.addFx];
