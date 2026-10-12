@@ -48,6 +48,8 @@ export async function callTool<T>({
   strict = true,
   maxTokens = 8000,
   retries = 1,
+  cache = false,
+  effort,
 }: {
   /** null = system job (library seeding): logged, not rate-limited */
   workspaceId: string | null;
@@ -61,6 +63,10 @@ export async function callTool<T>({
   strict?: boolean;
   maxTokens?: number;
   retries?: number;
+  /** prompt-cache the tools + system prompt (long, stable prompts) */
+  cache?: boolean;
+  /** Sonnet/Opus reasoning effort */
+  effort?: "low" | "medium" | "high";
 }): Promise<{ value: T } | { value: null; lastInput: unknown; problem: string }> {
   const anthropic = getClient();
   // Sonnet 5.5 / Opus 5.5 reject forced tool_choice: offer the tool with `auto` and ask for it.
@@ -68,11 +74,14 @@ export async function callTool<T>({
   const ask = `Respond only by calling the ${tool.name} tool.`;
   const content: string | Anthropic.ContentBlockParam[] = !sonnet ? prompt : typeof prompt === "string" ? `${prompt}\n\n${ask}` : [...prompt, { type: "text", text: ask }];
   const messages: AnyParam[] = [{ role: "user", content }];
+  // tools come before system in the cache prefix, so one breakpoint on the system block caches both
+  const sys = cache ? [{ type: "text" as const, text: system, cache_control: { type: "ephemeral" as const } }] : system;
   let lastInput: unknown = null;
   let problem = "no tool call";
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (workspaceId) await assertWithinRateLimit(workspaceId);
+    const started = Date.now();
 
     let response: AnyMessage;
     try {
@@ -80,9 +89,10 @@ export async function callTool<T>({
         ? await anthropic.beta.messages.create({
             model,
             max_tokens: maxTokens,
-            system,
+            system: sys,
             betas: ["server-side-fallback-2026-07-01"],
             fallbacks: "default",
+            ...(effort ? { output_config: { effort } } : {}),
             tools: [{ ...tool, ...(strict ? { strict: true } : {}) }],
             tool_choice: { type: "auto" },
             messages: messages as Anthropic.Beta.BetaMessageParam[],
@@ -90,7 +100,7 @@ export async function callTool<T>({
         : await anthropic.messages.create({
             model,
             max_tokens: maxTokens,
-            system,
+            system: sys,
             tools: [{ ...tool, ...(strict ? { strict: true } : {}) }],
             // Haiku 5.5 accepts a forced tool call (it skips thinking for that turn).
             tool_choice: { type: "tool", name: tool.name },
@@ -110,7 +120,7 @@ export async function callTool<T>({
       throw new AiError("ai_failed");
     }
 
-    await logUsage(workspaceId, kind, response.model ?? model, response.usage);
+    await logUsage(workspaceId, kind, response.model ?? model, response.usage, Date.now() - started);
 
     if (response.stop_reason === "refusal") {
       console.error("[ai] refusal", { kind, model, details: response.stop_details });
