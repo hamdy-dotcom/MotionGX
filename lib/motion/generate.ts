@@ -13,7 +13,9 @@ import { compileComposition } from "./compile";
 import { deriveEvents } from "./events";
 import { encodeMp3, renderMusic, type MusicResult } from "./music";
 import { makePlan, type Plan } from "./plan";
-import { writeSpec, type SpecRun } from "./spec-gen";
+import { editSpec, writeSpec, type SpecRun } from "./spec-gen";
+import { envFor } from "./inspect";
+import { slideshowRisk, type SlideshowRisk } from "./slideshow";
 import { runSpecJob } from "./spec-runner";
 import type { MotionSpec, SoundEvent } from "./spec";
 import type { MotionRef, MotionStore } from "./store";
@@ -26,6 +28,8 @@ export const GENERATION_CAP_USD = 0.05;
 
 export type Generation = {
   status: "ready" | "needs_direction";
+  /** slideshow risk of the delivered spec (+ per-stage log: spec / patch / regenerate) */
+  slideshow: SlideshowRisk & { log: { stage: string; score: number }[] };
   plan: Plan;
   refs: (Pick<MotionRef, "id" | "title" | "creator" | "source_url"> & { label: string })[];
   similarity: number;
@@ -61,6 +65,21 @@ export function runtimeInputFor(b: MotionBrief, plan: Plan): RuntimeInput {
 }
 
 /** numbers a video may show: brand facts + any in the client's brief */
+/** what the treatment promises on screen (concept + metaphor + motion language + shot visuals) */
+export const treatmentText = (plan: Plan) => [plan.concept, plan.summary_en, plan.motion_language, ...plan.shots.map((s) => s.visual)].filter(Boolean).join(" · ");
+
+/** slideshow risk above this → one patch round; still above → regenerate the spec once */
+export const SLIDESHOW_MAX = 40;
+
+/** the risk factors that scored, as an instruction for a patch round */
+export function riskBrief(r: SlideshowRisk) {
+  return r.factors
+    .filter((f) => f.points > 0)
+    .sort((a, b) => b.points - a.points)
+    .map((f) => `${f.detail} → ${f.fix}`)
+    .join("; ");
+}
+
 export const allowedNumbers = (b: MotionBrief) => [...b.facts.numbers.map((n) => n.value), ...(b.brief.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).match(/\d+(?:\.\d+)?/g) ?? []).map(Number)];
 
 export const behaviorsUsed = (spec: MotionSpec) => [...new Set(spec.elements.flatMap((e) => (e.fx ?? []).map((f) => f.fx)).filter((n) => n in BEHAVIORS))].sort();
@@ -99,7 +118,7 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
     opts.progress?.("spec");
     timings.plan = Date.now() - t;
     const { plan } = planned;
-    const vctx: ValidateCtx = { width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: b.brand.fonts, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo, allowedNumbers: allowedNumbers(b) };
+    const vctx: ValidateCtx = { width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: b.brand.fonts, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo, allowedNumbers: allowedNumbers(b), treatment: treatmentText(plan) };
 
     // spec ‖ music bed
     t = Date.now();
@@ -107,11 +126,45 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
       timings.musicBed = Date.now() - t;
       return r;
     });
-    const specP = writeSpec(b, plan, vctx, planned.refs).then((r) => {
+    const env0 = envFor({ width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats });
+    const riskLog: { stage: string; score: number }[] = [];
+    const specP = writeSpec(b, plan, vctx, planned.refs).then(async (first) => {
       timings.spec = Date.now() - t;
-      return r;
+      // slideshow risk: > 40 → one patch round aimed at the worst factors; still > 40 → regenerate once
+      let run = first;
+      let risk = slideshowRisk(run.spec, env0);
+      riskLog.push({ stage: "spec", score: risk.score });
+      if (risk.score > SLIDESHOW_MAX && !run.issues.length) {
+        const t1 = Date.now();
+        const fix = await editSpec(b, plan, run.spec, riskBrief(risk), vctx).catch((err) => {
+          if (err instanceof CostCapError) throw err;
+          return null;
+        });
+        if (fix && !fix.issues.length) {
+          const r2 = slideshowRisk(fix.spec, env0);
+          riskLog.push({ stage: "patch", score: r2.score });
+          if (r2.score < risk.score) [run, risk] = [{ ...fix, rounds: [...run.rounds, ...fix.rounds] }, r2];
+        }
+        timings.slideshowPatch = Date.now() - t1;
+        if (risk.score > SLIDESHOW_MAX) {
+          const t2 = Date.now();
+          const again = await writeSpec(b, plan, vctx, planned.refs, `A previous draft played like a slideshow (risk ${risk.score}/100). Avoid: ${riskBrief(risk)}`).catch((err) => {
+            if (err instanceof CostCapError) throw err;
+            return null;
+          });
+          if (again && !again.issues.length) {
+            const r3 = slideshowRisk(again.spec, env0);
+            riskLog.push({ stage: "regenerate", score: r3.score });
+            if (r3.score < risk.score) [run, risk] = [{ ...again, rounds: [...run.rounds, ...again.rounds] }, r3];
+          }
+          timings.slideshowRegen = Date.now() - t2;
+        }
+      }
+      return { run, risk };
     });
-    const [bed, specRun] = await Promise.all([bedP, specP]);
+    const [bed, specOut] = await Promise.all([bedP, specP]);
+    const specRun = specOut.run;
+    const risk = specOut.risk;
     const compiled = await compileCustom(specRun.spec, opts.customLibrary ?? (async () => []));
     const spec = compiled.spec;
 
@@ -153,6 +206,7 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
       status,
       plan,
       // ids/titles/links only: full reference prompts are internal (AI context), never surfaced
+      slideshow: { score: risk.score, factors: risk.factors, log: riskLog },
       refs: planned.refs.map((r) => ({ id: r.id, title: r.title, creator: r.creator, source_url: r.source_url, label: r.card?.motion_language ?? r.title })),
       similarity: planned.similarity,
       conceptRedos: planned.conceptRedos,

@@ -9,6 +9,7 @@ import { catalogueText } from "./catalogue";
 import { EXAMPLE_PLAN, EXAMPLE_SPEC } from "./spec-example";
 import { loadFont, measureLine } from "./fonts-node";
 import { applyPatch, type PatchOp } from "./patch";
+import { dryRunPatch } from "./revision";
 import { refBrief, type Plan } from "./plan";
 import type { MotionRef } from "./store";
 import { specSchema, type MotionSpec } from "./spec";
@@ -303,11 +304,11 @@ export type SpecRun = {
 };
 
 /** Spec call → validate → auto-fix → ≤ 2 JSON-Patch rounds. */
-export async function writeSpec(b: MotionBrief, plan: Plan, vctx: ValidateCtx, refs: MotionRef[] = []): Promise<SpecRun> {
+export async function writeSpec(b: MotionBrief, plan: Plan, vctx: ValidateCtx, refs: MotionRef[] = [], note?: string): Promise<SpecRun> {
   const rounds: SpecRun["rounds"] = [];
   const facts = await layoutFacts(b, plan);
   const system = SPEC_DOC;
-  const prompt = specPrompt(b, plan, facts, refs);
+  const prompt = `${specPrompt(b, plan, facts, refs)}${note ? `\nIMPORTANT: ${note}` : ""}`;
   const zodProblems = (raw: unknown) => {
     const r = specSchema.safeParse(raw);
     return r.success ? [] : r.error.issues.slice(0, 20).map((i) => ({ path: `/${i.path.join("/")}`, msg: i.message }));
@@ -476,7 +477,12 @@ export async function editSpec(b: MotionBrief, plan: Plan, current: MotionSpec, 
   });
   rounds.push({ stage: "edit", model: HAIKU, issues: res.value ? 0 : 1, ms: Date.now() - t0 });
   if (!res.value) throw new AiError("ai_invalid", `edit failed: ${res.problem}`);
-  const repaired = await repairSpec(b, SPEC_DOC, prompt, applyPatch(current, res.value.ops as PatchOp[]), vctx, rounds);
+  // dry run: apply to a copy, schema-check and validate before anything is saved
+  const t1 = Date.now();
+  const dry = await dryRunPatch(current, res.value.ops as PatchOp[], vctx);
+  rounds.push({ stage: "dry-run", issues: dry.ok ? dry.issues.length : 1, ms: Date.now() - t1 });
+  if (!dry.ok) throw new AiError("ai_invalid", `edit rejected by dry run: ${dry.error}`);
+  const repaired = await repairSpec(b, SPEC_DOC, prompt, dry.spec, vctx, rounds);
   return { ...repaired, rounds, model: HAIKU };
 }
 

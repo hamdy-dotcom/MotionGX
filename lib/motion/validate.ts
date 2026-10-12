@@ -8,6 +8,8 @@ import { staticCheck } from "./compile";
 import { loadFont, measureLine } from "./fonts-node";
 import { cameraAt, elementText, fxWindow, resolveAt, screenBox, sec, type EvalEnv, type Resolved } from "./spec-eval";
 import { specSchema, type MotionSpec, type SpecElement } from "./spec";
+import { loopSeam } from "./inspect";
+import { promiseIssues } from "./slideshow";
 
 /** A deterministic repair the validator can compute itself (applied without AI by autoFix). */
 export type SpecFix = { size?: number; w?: number; h?: number; x?: number; y?: number; color?: string; gradient?: false; z?: number; addFx?: Record<string, unknown>; removeFx?: string; in?: number; out?: number | null };
@@ -28,6 +30,8 @@ export type ValidateCtx = {
   fonts: { arabic: string | null; latin: string | null };
   lang: "ar" | "en";
   hasLogo: boolean;
+  /** treatment text (concept + metaphor + shot visuals): what it promises must be delivered */
+  treatment?: string;
 };
 
 const ARABIC = /[؀-ۿݐ-ݿࢠ-ࣿ]/;
@@ -495,6 +499,13 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
     const vis = resolveAt(spec, env, t).filter((r) => r.visible && r.el.type === "text");
     const ctaLines = new Set(ctaBeat.lines.map((l) => l.trim()));
     if (!vis.some((r) => (r.el as { line?: string }).line?.startsWith(`${ctaBeat.id}:`) || ctaLines.has((r.text ?? "").trim()))) add(null, "cta_missing", `no CTA line (${ctaBeat.id}:…) on screen at ${t.toFixed(1)}s`);
+  }
+  // delivery promise: motion the treatment promises (morphs, particles, camera, 3D, route, cursor, counters)
+  if (ctx.treatment) issues.push(...promiseIssues(spec, ctx.treatment));
+  // seamless loop: the last frame must match the first
+  if (spec.loop) {
+    const seam = loopSeam(spec, env);
+    if (!seam.ok) issues.push({ id: seam.elements[0] ?? null, code: "loop_seam", msg: `the video is marked as a loop but its last frame differs from its first (${seam.elements.slice(0, 4).join(", ")}) — end every element where it started` });
   }
   return { spec, issues };
 }
