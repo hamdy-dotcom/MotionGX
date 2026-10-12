@@ -311,7 +311,12 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
           const push = ub.y1 - lb2.y0 + H * 0.012;
           const le = lower.el as Extract<SpecElement, { type: "text" }>;
           const room = lb2.y1 + push < H * (1 - SAFE);
-          add(lower.el.id, "text_overlap", `overlaps text "${(lower === r ? o : r).el.id}" — move one of them`, t, room ? { y: Number((le.y + (push / H) * 100).toFixed(2)) } : undefined);
+          const upper = lower === r ? o : r;
+          const roomAbove = ub.y0 - push > H * SAFE;
+          if (room) add(lower.el.id, "text_overlap", `overlaps text "${upper.el.id}" — move one of them`, t, { y: Number((le.y + (push / H) * 100).toFixed(2)) });
+          // no room below (lines stacked at the bottom edge): lift the upper line instead of shrinking both
+          else if (roomAbove) add(upper.el.id, "text_overlap", `overlaps text "${lower.el.id}" — move one of them`, t, { y: Number((upper.el.y - (push / H) * 100).toFixed(2)) });
+          else add(lower.el.id, "text_overlap", `overlaps text "${upper.el.id}" — move one of them`, t);
         }
       }
       // shapes over the label

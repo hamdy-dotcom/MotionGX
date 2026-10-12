@@ -42,6 +42,12 @@ export function applyPatch<T>(doc: T, ops: PatchOp[]): T {
       applyRemove(out, path);
       continue;
     }
+    // lenient append: "add …/fx/-" on an element without that list creates it (saves a model retry)
+    if (op.op === "add" && path.length >= 2 && (path[path.length - 1] === "-" || path[path.length - 1] === "0")) {
+      const holder = get(out, `/${path.slice(0, -2).map((k) => k.replace(/~/g, "~0").replace(/\//g, "~1")).join("/")}`);
+      const listKey = path[path.length - 2];
+      if (holder && typeof holder === "object" && !Array.isArray(holder) && (holder as Record<string, unknown>)[listKey] === undefined) (holder as Record<string, unknown>)[listKey] = [];
+    }
     const [parent, key] = parentOf(out, path);
     if (Array.isArray(parent)) {
       const i = key === "-" ? parent.length : Number(key);

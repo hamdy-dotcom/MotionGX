@@ -149,6 +149,10 @@ const PROMISES: { key: string; words: RegExp; delivered: (s: MotionSpec) => bool
   { key: "3d", words: /\b3d\b|three-dimensional|perspective|flip|تلت أبعاد|ثلاثي/i, delivered: (s) => (s.camera?.keys ?? []).some((k) => k.rx || k.ry) || s.elements.some((e) => (e.fx ?? []).some((f) => ["flip-3d", "swing-in", "tilt-3d", "card-flip", "carousel", "extrude", "slit-in", "tilt-in", "flip-out", "swing-out", "flip-in"].includes(f.fx))) },
   { key: "route", words: /\broute|journey|\bpath\b|\btrack(ing)?\b|map\b|رحلة|مسار|طريق/i, delivered: (s) => s.elements.some((e) => e.type === "route" || e.type === "svgPath" || (e.fx ?? []).some((f) => ["route-follow", "gsap-path"].includes(f.fx))) },
   { key: "cursor", words: /cursor|\bclick|\btap\b|\bdrag|pointer|ماوس|يضغط|سحب/i, delivered: (s) => s.elements.some((e) => (e.type === "shape" && e.shape === "cursor") || (e.fx ?? []).some((f) => ["press", "cursor-move"].includes(f.fx))) },
+  { key: "liquid fill", words: /liquid|\bfill(s|ing)? (up|with)|vessel|\bjar\b|\bpours?\b|تملأ|يملأ|سائل|وعاء/i, delivered: (s) => s.elements.some((e) => (e.fx ?? []).some((f) => f.fx === "liquid-fill")) },
+  { key: "text decoding", words: /decod|scrambl|فك الشفرة/i, delivered: (s) => s.elements.some((e) => (e.fx ?? []).some((f) => f.fx === "scramble")) },
+  { key: "typing", words: /\btyp(es|ing|ed)\b|terminal|command line|يكتب|بيكتب/i, delivered: (s) => s.elements.some((e) => (e.fx ?? []).some((f) => f.fx === "typewriter")) },
+  { key: "glitch", words: /glitch|جليتش/i, delivered: (s) => s.elements.some((e) => (e.fx ?? []).some((f) => ["glitch-in", "rgb-split", "slice-shift"].includes(f.fx))) || (s.cuts ?? []).some((c) => c.kind === "glitch") },
   { key: "counter", words: /count(s|ing)? up|counter|ticker|tally|عداد/i, delivered: (s) => s.elements.some((e) => e.type === "counter") },
 ];
 

@@ -21,9 +21,9 @@ const MOODS = ["energetic", "warm", "corporate", "luxury"] as const;
 
 export const planSchema = z.object({
   title: z.string().trim().min(2).max(60).optional(),
-  concept: z.string().min(10).max(300),
-  summary_en: z.string().min(10).max(300),
-  motion_language: z.string().min(3).max(60),
+  concept: z.string().min(10).transform((x) => x.trim().slice(0, 300)),
+  summary_en: z.string().min(10).transform((x) => x.trim().slice(0, 300)),
+  motion_language: z.string().min(3).transform((x) => x.trim().slice(0, 60)),
   music_mood: z.enum(MOODS),
   shots: z
     .array(
@@ -225,11 +225,13 @@ ${refs.map((r, i) => refBrief(r, i)).join("\n")}
 Recent concepts — do NOT repeat these ideas or motion languages: ${avoid.length ? avoid.slice(0, 20).join(" | ") : "none"}`;
 }
 
-const conceptSchema = z.object({ concept: z.string().min(10).max(300), summary_en: z.string().min(10).max(300), motion_language: z.string().min(3).max(60), visual_metaphor: z.string().min(3).max(240) });
+// lengths are clamped rather than rejected: a retry for an over-long sentence costs a whole Sonnet call
+const clampStr = (min: number, max: number) => z.string().min(min).transform((s) => s.trim().slice(0, max));
+const conceptSchema = z.object({ concept: clampStr(10, 300), summary_en: clampStr(10, 300), motion_language: clampStr(3, 60) });
 const conceptTool = {
   name: "save_concept",
   description: "Save a new concept for the same plan.",
-  input_schema: { type: "object" as const, properties: { concept: { type: "string" }, summary_en: { type: "string" }, motion_language: { type: "string" } }, required: ["concept", "summary_en", "motion_language"] },
+  input_schema: { type: "object" as const, properties: { concept: { type: "string", description: "ONE sentence (≤ 300 chars)" }, summary_en: { type: "string", description: "English, ≤ 300 chars" }, motion_language: { type: "string", description: "2–6 words (≤ 60 chars)" } }, required: ["concept", "summary_en", "motion_language"] },
 };
 
 export type PlanResult = { plan: Plan; refs: MotionRef[]; embedding: number[]; similarity: number; conceptRedos: number };
