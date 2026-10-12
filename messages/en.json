@@ -133,6 +133,8 @@
     "reviewNote": "Review the brand and edit anything before saving.",
     "reread": "Re-read website",
     "tonePlaceholder": "e.g. friendly, direct, practical",
+    "nameCheckTitle": "This site may have rebranded",
+    "nameCheckBody": "The logo and the site show different names. Pick the name your videos should use:",
     "role_primary": "Primary",
     "role_ink": "Text",
     "role_accent": "Accent",

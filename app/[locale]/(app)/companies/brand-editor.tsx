@@ -150,6 +150,19 @@ export function BrandEditor({
       <div className="panel h-fit space-y-5">
         <Field label={t("name")} htmlFor="name">
           <input id="name" name="name" value={name} onChange={(e) => setName(e.target.value)} required className="field bg-white" />
+          {brand.nameCheck?.candidates.length ? (
+            <div role="status" className="mt-2 rounded-2xl bg-white p-3 text-sm">
+              <p className="font-semibold">{t("nameCheckTitle")}</p>
+              <p className="mt-1 text-ink-muted">{t("nameCheckBody")}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {brand.nameCheck.candidates.map((c) => (
+                  <button key={c} type="button" onClick={() => setName(c)} aria-pressed={name === c} className={`chip ${name === c ? "chip-solid" : "chip-white"}`}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </Field>
 
         <Field label={t("logo")} htmlFor="logo">

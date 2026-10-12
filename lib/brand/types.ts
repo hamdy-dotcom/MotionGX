@@ -29,6 +29,8 @@ export type BrandDraft = {
   tagline: string;
   defaultDialect: Dialect;
   facts: BrandFacts;
+  /** the site may have rebranded (logo text ≠ name, "X (formerly Y)"): ask the user to confirm */
+  nameCheck?: { reason: "rebrand"; candidates: string[] } | null;
 };
 
 export type ExtractEvent =

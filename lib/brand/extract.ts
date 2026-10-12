@@ -2,7 +2,7 @@ import "server-only";
 import { AiError, assertWithinRateLimit, logUsage, toAiErrorCode } from "@/lib/ai/usage";
 import { FIRECRAWL_MODEL, scrapeBrand } from "./firecrawl";
 import { loadLogo } from "./logo";
-import { mapColors, mapFonts, pickLogo, pickName, type FirecrawlScrape } from "./map";
+import { mapColors, mapFonts, pickLogo, pickBrandName, type FirecrawlScrape } from "./map";
 import { EXTRACT_STEPS, emptyDraft, type ExtractEvent } from "./types";
 import { analyzeTone } from "./tone";
 import { pickFactPages, scrapeFactPages, summarizeFacts, type FactPage } from "./facts";
@@ -46,7 +46,9 @@ export async function* extractBrand(workspaceId: string, url: string): AsyncGene
     return;
   }
 
-  draft.name = pickName(scrape, url) || draft.name;
+  const picked = pickBrandName(scrape, url);
+  draft.name = picked.name || draft.name;
+  draft.nameCheck = picked.check;
   draft.tagline = scrape.metadata?.description?.split("\n")[0]?.slice(0, 120) ?? "";
 
   // Logo — must actually load as an image.

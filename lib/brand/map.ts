@@ -152,16 +152,66 @@ export function pickLogo(branding: FirecrawlBranding | undefined): string | null
   return null;
 }
 
-export function pickName(scrape: FirecrawlScrape, url: string): string {
-  const fromTitle = scrape.metadata?.title?.split(/\s[|–—\-:·]\s/)[0]?.trim();
-  const candidates = [scrape.branding?.brandName, scrape.metadata?.ogSiteName, fromTitle];
-  const name = candidates.find((n) => n && n.trim().length > 0 && n.length <= 60);
-  if (name) return name.trim();
+const domainName = (url: string) => {
   try {
-    return new URL(url).hostname.replace(/^www\./, "").split(".")[0];
+    const host = new URL(url).hostname.replace(/^www\./, "").split(".")[0];
+    return host.charAt(0).toUpperCase() + host.slice(1);
   } catch {
     return "";
   }
+};
+
+/** a page title / tagline rather than a name: long, many words, punctuation or sales words */
+export function looksLikeSlogan(s: string): boolean {
+  const t = s.trim();
+  const words = t.split(/\s+/).filter(Boolean);
+  if (t.length > 32 || words.length > 4) return true;
+  if (/[,!?؟.|]/.test(t.replace(/\.(com|co|io|sa|ae|eg|net|app|ai)$/i, ""))) return true;
+  return words.length > 2 && /\b(the|your|you|best|buy|get|now|with|for|and|in|of|to|pay|shop|free|online|app)\b|(?:^|\s)(من|في|مع|على|اشتري|أفضل)(?:\s|$)/i.test(t);
+}
+
+/** alt text of the first logo image in the page markdown (`![Acme logo](…logo…)`) */
+export function logoAltText(markdown: string | undefined): string | null {
+  const m = markdown?.match(/!\[([^\]]{2,60})\]\(([^)]*logo[^)]*)\)/i);
+  const alt = m?.[1]?.replace(/\b(logo|شعار)\b/gi, "").trim();
+  return alt && alt.length >= 2 ? alt : null;
+}
+
+export type NameCheck = { reason: "rebrand"; candidates: string[] } | null;
+
+const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+
+/**
+ * Brand name: og:site_name, then Firecrawl's brand name, then the logo's alt text, then a short title
+ * prefix — skipping anything that reads like a slogan — then the domain. "X (formerly Y)" and a logo
+ * whose text differs from the name are flagged as a possible rebrand for the user to confirm.
+ */
+export function pickBrandName(scrape: FirecrawlScrape, url: string): { name: string; check: NameCheck } {
+  const fromTitle = scrape.metadata?.title?.split(/\s[|–—\-:·]\s/)[0]?.trim();
+  const alt = logoAltText(scrape.markdown);
+  const raw = [scrape.metadata?.ogSiteName, scrape.branding?.brandName, alt, fromTitle].map((x) => x?.trim()).filter((x): x is string => Boolean(x));
+  let formerly: string | null = null;
+  const cleaned = raw.map((x) => {
+    const m = x.match(/^(.*?)\s*[(\[]?\s*(?:formerly|previously|was|سابقًا|سابقا)\s+([^)\]]+)[)\]]?\s*$/i);
+    if (m && m[1].trim()) {
+      formerly = formerly ?? m[2].trim();
+      return m[1].trim();
+    }
+    return x;
+  });
+  const name = cleaned.find((x) => !looksLikeSlogan(x)) ?? domainName(url);
+  const candidates = new Set<string>();
+  if (formerly) candidates.add(formerly);
+  if (alt && !looksLikeSlogan(alt) && !norm(alt).includes(norm(name)) && !norm(name).includes(norm(alt))) candidates.add(alt);
+  const domain = domainName(url);
+  if (domain && formerly && norm(domain) !== norm(name)) candidates.add(domain);
+  candidates.delete(name);
+  return { name, check: candidates.size ? { reason: "rebrand", candidates: [name, ...candidates] } : null };
+}
+
+/** @deprecated use pickBrandName */
+export function pickName(scrape: FirecrawlScrape, url: string): string {
+  return pickBrandName(scrape, url).name;
 }
 
 /** Markdown for the tone prompt — images and bare links stripped, trimmed to ~6k chars. */
