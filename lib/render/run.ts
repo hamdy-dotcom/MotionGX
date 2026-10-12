@@ -6,6 +6,7 @@ import path from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { briefFor, runtimeInputFor } from "@/lib/motion/app";
 import { runSpecJob } from "@/lib/motion/spec-runner";
+import { verifyMp4 } from "@/lib/motion/verify-mp4";
 import type { Plan } from "@/lib/motion/plan";
 import type { MotionSpec } from "@/lib/motion/spec";
 import type { SpecVideoProps } from "@/remotion/SpecVideo";
@@ -56,6 +57,11 @@ export async function runRender(renderId: string, opts: { forceFailure?: boolean
     const res = await runSpecJob({ task: "render", props, output: out, audioFile });
     if (audioFile) await rm(audioFile, { force: true });
     if (!res.ok) throw new Error(`render: ${res.errors.join("; ")}`);
+    // post-encode verification: a broken file (wrong length/fps/size, no or silent audio, black or frozen
+    // stretches) is never delivered — the export fails and the wallet is refunded
+    const check = await verifyMp4(out, { duration: brief.lengthS, fps: 30, width: brief.width, height: brief.height, audio: Boolean(audioFile) });
+    if (check.warnings.length) console.warn("[render] verification warnings", { renderId, warnings: check.warnings });
+    if (!check.ok) throw new Error(`export verification failed: ${check.problems.join("; ")}`);
     await admin.from("renders").update({ progress: 0.95, updated_at: new Date().toISOString() }).eq("id", renderId);
 
     const outputPath = `${v.workspace_id}/${renderId}.mp4`;
