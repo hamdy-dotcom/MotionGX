@@ -28,24 +28,25 @@ FONTS: font = head | body | latin.
 {
  "version": 1,
  "canvas": { "bg": [ { "kind": "solid|gradient|radial|grid|dots|noise|stripes|stars|pattern", "colors": [role…], "angle"?, "alpha"?, "drift"?, "scale"?, "in"?, "out"? } ] },
- "camera"?: { "keys"?: [ { "t", "zoom"?, "x"?, "y"?, "rot"?, "ease"? } ], "shake"?: 0–1 (on hits), "drift"?: 0–1 },
- "cuts"?: [ { "t", "kind": "hard|flash|whip|wipe|zoom|glitch|iris", "dir"?: "left|right|up|down", "color"?: role } ],
+ "camera"?: { "keys"?: [ { "t", "zoom"?, "x"?, "y"?, "rot"?, "rx"?, "ry"? (3D camera tilt/orbit, ±40°), "ease"? } ], "shake"?: 0–1 (on hits), "drift"?: 0–1 },
+ "cuts"?: [ { "t", "kind": "hard|flash|whip|wipe|zoom|glitch|iris|blinds|pixels|layers|diagonal|slice", "dir"?: "left|right|up|down", "color"?: role } ],
+ "motionBlur"?: 0–1 (shutter blur on fast movers; default 0.5),
  "elements": [ … ]
 }
 
-ELEMENT (common): { "id", "type", "x", "y", "w"?, "h"?, "rot"?, "opacity"?, "z"?, "in"?, "out"?, "parent"?: groupId, "depth"?: 0–3 (parallax), "fx"?: [behavior…], "keys"?: [ { "t", "x"?, "y"?, "scale"?, "rot"?, "opacity"?, "ease"? } ] }
+ELEMENT (common): { "id", "type", "x", "y", "w"?, "h"?, "rot"?, "opacity"?, "z"?, "in"?, "out"?, "parent"?: groupId, "depth"?: 0–3 (parallax), "steps"?: 6–12 (stop-motion: motion sampled at that fps), "fx"?: [behavior…], "keys"?: [ { "t", "x"?, "y"?, "scale"?, "rot"?, "opacity"?, "ease"? } ] }
 TYPES:
 - text: { "line": "s3:0" (shot 3, line 0 — ALWAYS use this for script copy) | "text": "literal" (brand name / URL only), "size", "font", "weight", "color": role, "gradient"?: bool, "outline"?: role, "align"?: center|start|end, "highlight"?: { "word": n, "color": role }, "w"?: max width }
   One line per text element (never \\n). Never exceed the max size given for that line.
-- shape: { "shape": rect|circle|pill|ring|star|polygon|triangle|blob|line, "w", "h"?, "fill"?: role, "gradient"?: bool, "stroke"?: role, "strokeW"?, "radius"?, "sides"?, "points"?, "alpha"?, "glow"?: role, "to"?: shape (morph target; needs the "morph" behavior) }
-- svgPath: { "d": SVG path in a 0–100 box, "w", "h", "stroke": role, "strokeW", "fill"? } — draw-on with "stroke-draw"
+- shape: { "shape": rect|circle|pill|ring|star|polygon|triangle|blob|line|cursor (a mouse pointer — tip at its top-left), "w", "h"?, "fill"?: role, "gradient"?: bool, "stroke"?: role, "strokeW"?, "radius"?, "sides"?, "points"?, "alpha"?, "glow"?: role, "to"?: shape (morph target; needs the "morph" behavior) }
+- svgPath: { "d": SVG path in a 0–100 box, "w", "h", "stroke": role, "strokeW", "fill"?, "to"?: a second path (gsap-morph target) } — draw with "stroke-draw" / "gsap-draw"; morph with "gsap-morph"; others travel it with "gsap-path" (path: id)
 - route: { "points": [[x,y],…] in canvas %, "stroke": role, "strokeW", "nodes"?: role (station dots), "dashed"?, "smooth"? } — draw with "stroke-draw"; others ride it with "route-follow" (route: id)
 - image: { "src": "logo" | "image:0", "w", "fit"?, "frame"?: phone|browser|laptop|tablet, "radius"? }
 - particles: { "kind": dots|squares|sparks|confetti|rain|bubbles|stars|dust, "count", "colors": [role…], "w", "h", "speed"?, "dir"?, "size"? }
 - group: { "w", "h", "clip"?: rect|circle|pill (mask), "fill"?: role, "radius"?, "stroke"?, "shadow"? } — children set "parent"; children use canvas coordinates
 - counter: { "from", "to", "decimals"?, "prefix"?, "suffix"?, "size", "font", "weight", "color" } — animate with "count-up"
 - custom (rare escape hatch): { "tsx": a ≤150-line TSX file default-exporting a React component ({ t, frame, width, height, palette, fonts }) importing only react/remotion/@motiongx/primitives, "note": what it does, "w", "h" } — ONLY for an effect no behavior combination can express. Prefer behaviors.
-BEHAVIOR: { "fx": name, "at"?: time (default: element "in"; exits default to just before "out"), "dur"?: seconds, …params }
+BEHAVIOR: { "fx": name, "at"?: time (default: element "in"; exits default to just before "out"), "dur"?: seconds, …params } — on a group: "stagger": seconds (+ "order": start|center|end|edges|random) applies it to each child in turn
 ${catalogueText()}
 
 LAYOUT RULES (the validator enforces these; violations are sent back to you):
