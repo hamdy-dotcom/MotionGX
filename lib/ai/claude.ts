@@ -7,6 +7,9 @@ import { AiError, assertWithinRateLimit, logUsage, type AiKind } from "./usage";
 export const HAIKU = "claude-haiku-5-5";
 /** Script generation and request-edit. */
 export const SONNET = "claude-sonnet-5-5";
+/** Escalation for the motion coder when Sonnet can't pass QA. */
+export const OPUS = "claude-opus-5-5";
+export type ClaudeModel = typeof HAIKU | typeof SONNET | typeof OPUS;
 
 let client: Anthropic | null = null;
 
@@ -49,18 +52,21 @@ export async function callTool<T>({
   workspaceId: string;
   kind: AiKind;
   system: string;
-  prompt: string;
+  prompt: string | Anthropic.ContentBlockParam[];
   tool: ToolSpec;
   schema: z.ZodType<T>;
   check?: (value: T) => string | null;
-  model?: typeof HAIKU | typeof SONNET;
+  model?: ClaudeModel;
   strict?: boolean;
   maxTokens?: number;
   retries?: number;
 }): Promise<{ value: T } | { value: null; lastInput: unknown; problem: string }> {
   const anthropic = getClient();
-  const sonnet = model === SONNET;
-  const messages: AnyParam[] = [{ role: "user", content: sonnet ? `${prompt}\n\nRespond only by calling the ${tool.name} tool.` : prompt }];
+  // Sonnet 5.5 / Opus 5.5 reject forced tool_choice: offer the tool with `auto` and ask for it.
+  const sonnet = model !== HAIKU;
+  const ask = `Respond only by calling the ${tool.name} tool.`;
+  const content: string | Anthropic.ContentBlockParam[] = !sonnet ? prompt : typeof prompt === "string" ? `${prompt}\n\n${ask}` : [...prompt, { type: "text", text: ask }];
+  const messages: AnyParam[] = [{ role: "user", content }];
   let lastInput: unknown = null;
   let problem = "no tool call";
 
@@ -143,4 +149,50 @@ export async function callTool<T>({
   }
 
   return { value: null, lastInput, problem };
+}
+
+/**
+ * Streaming free-text call (for long outputs like a whole composition file). Returns the final text.
+ * Logged to ai_usage and counted toward the hourly limit like every other call.
+ */
+export async function streamText({
+  workspaceId,
+  kind,
+  model,
+  system,
+  messages,
+  maxTokens = 32000,
+  effort,
+}: {
+  workspaceId: string;
+  kind: AiKind;
+  model: ClaudeModel;
+  system: string;
+  messages: Anthropic.Beta.BetaMessageParam[];
+  maxTokens?: number;
+  effort?: "low" | "medium" | "high" | "xhigh" | "max";
+}): Promise<{ text: string; stopReason: string | null; model: string }> {
+  const anthropic = getClient();
+  await assertWithinRateLimit(workspaceId);
+  let final: Anthropic.Beta.BetaMessage;
+  try {
+    const stream = anthropic.beta.messages.stream({
+      model,
+      max_tokens: maxTokens,
+      system,
+      messages,
+      ...(model !== HAIKU ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
+      ...(effort ? { output_config: { effort } } : {}),
+    });
+    final = await stream.finalMessage();
+  } catch (err) {
+    await logUsage(workspaceId, kind, model, null);
+    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) throw new AiError("not_configured", err.message);
+    console.error("[ai] stream failed", { kind, model, status: err instanceof Anthropic.APIError ? err.status : undefined, message: err instanceof Error ? err.message : String(err) });
+    throw new AiError("ai_failed");
+  }
+  await logUsage(workspaceId, kind, final.model ?? model, final.usage);
+  if (final.stop_reason === "refusal") throw new AiError("ai_failed", "refusal");
+  const text = final.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+  return { text, stopReason: final.stop_reason, model: final.model ?? model };
 }

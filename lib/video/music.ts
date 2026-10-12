@@ -1,7 +1,11 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { MUSIC_MOODS, PACE_BPM, type MusicMood } from "./kit";
 import type { Pace } from "@/lib/types";
+
+// The pre-generated 24-track library: the fallback when a per-video score can't be produced.
+export const MUSIC_MOODS = ["energetic", "warm", "corporate", "luxury"] as const;
+export type MusicMood = (typeof MUSIC_MOODS)[number];
+const PACE_BPM = { calm: 90, medium: 110, fast: 128 } as const;
 
 export type MusicTrack = { id: string; bpm: number; mood: MusicMood; pace: Pace; variation: number; duration_s: number; storage_path: string };
 

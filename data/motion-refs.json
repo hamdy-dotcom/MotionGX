@@ -1,0 +1,592 @@
+[
+ {
+  "id": "liquid-morph-type",
+  "title": "Liquid morph typography",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "morph",
+  "tags": [
+   "liquid",
+   "blob",
+   "morph",
+   "fluid"
+  ],
+  "prompt_text": "Brand-colored blobs flow and merge like ink in water, then pinch into the shape behind each headline. Words surface out of the liquid with a per-word rise, and every drop in the music makes the blob ripple outward.",
+  "code_snippet": "morphPath(blobA, blobB, progress(f, s, 30)); noise2D for wobble; Text reveal word from below",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "kinetic-grid",
+  "title": "Kinetic grid",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "grid",
+  "tags": [
+   "grid",
+   "swiss",
+   "modular",
+   "snap"
+  ],
+  "prompt_text": "A strict modular grid draws itself, then cells flip, slide and swap on every beat like a Swiss poster in motion. Copy snaps into cells; the grid re-flows at each section change.",
+  "code_snippet": "cells = 6x10; translate by beatIndex; clip.wipe per cell; StrokeDraw grid lines",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "paper-cutouts",
+  "title": "Paper cut-outs",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "craft",
+  "tags": [
+   "paper",
+   "collage",
+   "stop-motion",
+   "texture"
+  ],
+  "prompt_text": "Layered paper shapes with soft drop shadows and slightly jittery stop-motion timing (step the frame by 2). Shapes tear in from the edges; type sits on torn paper strips.",
+  "code_snippet": "const stepped = Math.floor(frame/2)*2; random(seed) rotation jitter; box-shadow layers",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "3d-extrude",
+  "title": "3D extrude",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "3d",
+  "tags": [
+   "3d",
+   "extrude",
+   "depth",
+   "three"
+  ],
+  "prompt_text": "Logo-inspired solid shapes extruded in three.js orbit slowly; on hits the camera punches in and the shapes split apart to reveal text planes.",
+  "code_snippet": "<ThreeStage><mesh rotation={[0, frame/60, 0]}><torusKnotGeometry/><meshStandardMaterial color={palette.primary}/></mesh></ThreeStage>",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "data-viz-story",
+  "title": "Data-viz storytelling",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "data",
+  "tags": [
+   "chart",
+   "data",
+   "numbers",
+   "growth"
+  ],
+  "prompt_text": "The brand's real numbers become the protagonist: bars grow on the beat, a line chart draws itself, and the key number counts up and lands on the drop.",
+  "code_snippet": "CountUp value start duration; StrokeDraw for line chart; bars height = spring",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "hand-drawn-strokes",
+  "title": "Hand-drawn strokes",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "illustration",
+  "tags": [
+   "hand-drawn",
+   "marker",
+   "doodle",
+   "stroke"
+  ],
+  "prompt_text": "Marker-style strokes draw underlines, circles and arrows around key words as if annotated live. Wobbly paths (noise on control points) keep it human.",
+  "code_snippet": "StrokeDraw d=wobbly path progress; noise2D on points; strokeLinecap round",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "split-screen-collage",
+  "title": "Split-screen collage",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "editorial",
+  "tags": [
+   "split",
+   "collage",
+   "panels",
+   "editorial"
+  ],
+  "prompt_text": "The frame splits into 2–4 panels that slide and resize; each panel carries a fragment of the story and they rejoin for the logo.",
+  "code_snippet": "clip.polygon for panels; panel widths animated with springs; Sequence per panel",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "ui-assembly",
+  "title": "UI assembly",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "product",
+  "tags": [
+   "ui",
+   "product",
+   "cards",
+   "dashboard"
+  ],
+  "prompt_text": "An invented product UI assembles piece by piece inside a device frame: cards drop in, toggles flip, a cursor clicks the CTA. Each UI event is a sound cue.",
+  "code_snippet": "DeviceFrame kind=phone; cards springAt staggered; cursor path with interpolate",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "typographic-wall",
+  "title": "Typographic wall",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "type",
+  "tags": [
+   "type",
+   "wall",
+   "repeat",
+   "marquee"
+  ],
+  "prompt_text": "Huge repeated words scroll in opposite directions as a texture wall; the real headline cuts through it in the brand gradient.",
+  "code_snippet": "rows of repeated text translateX(±frame*speed); gradientText headline on top",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "particle-swarm",
+  "title": "Particle swarm",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "particles",
+  "tags": [
+   "particles",
+   "swarm",
+   "flock",
+   "form"
+  ],
+  "prompt_text": "Thousands-of-dots feel (use a few hundred) swarming with noise, then converging into the logo silhouette or a word on the drop.",
+  "code_snippet": "particle(i, frame) + lerp toward target points on hit; noise3D flow field",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "light-sweep",
+  "title": "Light sweeps",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "light",
+  "tags": [
+   "light",
+   "glow",
+   "sweep",
+   "premium"
+  ],
+  "prompt_text": "Dark premium canvas; narrow beams of brand light sweep across glossy type and the logo, with lens bloom on hits.",
+  "code_snippet": "linear-gradient beam translateX; mix-blend screen; blurIn on reveal",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "geometric-pop",
+  "title": "Geometric pop",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "shapes",
+  "tags": [
+   "shapes",
+   "bold",
+   "pop",
+   "primary"
+  ],
+  "prompt_text": "Big flat geometric shapes (circles, triangles, half-moons) pop and bounce on beats, framing short bold words. Bauhaus energy in brand colors.",
+  "code_snippet": "@remotion/shapes Circle/Triangle; springs.bouncy; rotate on beat pulse",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "mask-reveal-cinema",
+  "title": "Cinematic mask reveals",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "cinematic",
+  "tags": [
+   "mask",
+   "reveal",
+   "cinematic",
+   "letterbox"
+  ],
+  "prompt_text": "Letterboxed frame; every scene is revealed through a moving shape mask (iris, diagonal, text-shaped). Slow push-ins, motion blur on cuts.",
+  "code_snippet": "clip.circle / clip.diagonal; Camera zoom slow; CameraMotionBlur on transitions",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "isometric-world",
+  "title": "Isometric world",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "3d",
+  "tags": [
+   "isometric",
+   "city",
+   "blocks",
+   "map"
+  ],
+  "prompt_text": "A tiny isometric world (blocks, roads, parcels) built from CSS 2.5D; the camera glides across it as the story progresses.",
+  "code_snippet": "transform: rotateX(60deg) rotateZ(45deg); blocks pop with springs; ParallaxLayer",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "neon-lines",
+  "title": "Neon line art",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "line",
+  "tags": [
+   "neon",
+   "line",
+   "glow",
+   "night"
+  ],
+  "prompt_text": "Single continuous neon lines draw icons and arrows that lead the eye from line to line of copy; glow pulses with the beat.",
+  "code_snippet": "StrokeDraw + filter drop-shadow glow; pulse from useBeat",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "brutalist-type",
+  "title": "Brutalist type",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "type",
+  "tags": [
+   "brutalist",
+   "raw",
+   "oversized",
+   "contrast"
+  ],
+  "prompt_text": "Oversized raw type, hard cuts on every beat, inverted color flashes on hits, no easing on some moves for punch.",
+  "code_snippet": "hard cut via Sequence; invert bg/text on hit.pulse > 0.5",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "morphing-icons",
+  "title": "Morphing icons",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "icons",
+  "tags": [
+   "icons",
+   "morph",
+   "shapes",
+   "explainer"
+  ],
+  "prompt_text": "One icon morphs into the next to tell the product story (cart → box → truck → smile), each morph on a downbeat.",
+  "code_snippet": "morphPath between icon paths; Text label under each",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "orbit-system",
+  "title": "Orbit system",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "space",
+  "tags": [
+   "orbit",
+   "planets",
+   "system",
+   "network"
+  ],
+  "prompt_text": "The brand at the center, benefits orbit as satellites with trails; on the drop, orbits collapse into the logo.",
+  "code_snippet": "positions = cos/sin(frame*speed + i*phase); Trail from motion-blur",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "glass-layers",
+  "title": "Glass layers",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "ui",
+  "tags": [
+   "glass",
+   "blur",
+   "layers",
+   "depth"
+  ],
+  "prompt_text": "Frosted glass panels float in parallax over moving brand gradients; copy sits on glass with soft reflections.",
+  "code_snippet": "backdropFilter blur; ParallaxLayer depth; gradient background moving",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "ribbon-flow",
+  "title": "Ribbon flow",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "flow",
+  "tags": [
+   "ribbon",
+   "wave",
+   "flow",
+   "curves"
+  ],
+  "prompt_text": "Long ribbons in brand colors wave through the frame (sine + noise), carrying words along their path.",
+  "code_snippet": "SVG path generated from sin + noise2D per x; text placed along curve points",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "counting-machine",
+  "title": "Counting machine",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "data",
+  "tags": [
+   "counter",
+   "odometer",
+   "mechanical",
+   "numbers"
+  ],
+  "prompt_text": "Mechanical counters, ticking dials and progress rings visualize real numbers with satisfying ratchet motion on each beat.",
+  "code_snippet": "CountUp; ring StrokeDraw circle path; tick rotate on beatIndex",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "pixel-mosaic",
+  "title": "Pixel mosaic",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "digital",
+  "tags": [
+   "pixel",
+   "mosaic",
+   "digital",
+   "glitch"
+  ],
+  "prompt_text": "The frame resolves from a coarse brand-colored mosaic into crisp type; glitch slices on transitions.",
+  "code_snippet": "grid of squares opacity by noise; clip slices with translateX jitter on cut",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "stamp-and-seal",
+  "title": "Stamp & seal",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "craft",
+  "tags": [
+   "stamp",
+   "badge",
+   "seal",
+   "offer"
+  ],
+  "prompt_text": "Offers and claims slam in as rubber stamps and wax-seal badges with ink spread and a thud on the hit.",
+  "code_snippet": "scale from 2 → 1 with springs.punch at hit frame; rotate -6deg; ink ring expands",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "liquid-fill",
+  "title": "Liquid fill",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "fill",
+  "tags": [
+   "fill",
+   "liquid",
+   "level",
+   "progress"
+  ],
+  "prompt_text": "Type and shapes fill with brand liquid from the bottom like glasses filling; waves on the surface move with the beat.",
+  "code_snippet": "clip-path inset from bottom; wave via SVG path from sin",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "constellation",
+  "title": "Constellation",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "network",
+  "tags": [
+   "dots",
+   "network",
+   "connect",
+   "stars"
+  ],
+  "prompt_text": "Dots appear like stars and connect with drawn lines into a constellation of features; the final constellation becomes the logo mark.",
+  "code_snippet": "points + StrokeDraw lines between them, staggered",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "tape-and-labels",
+  "title": "Tape & labels",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "packaging",
+  "tags": [
+   "tape",
+   "labels",
+   "packaging",
+   "delivery"
+  ],
+  "prompt_text": "Packaging language: tape strips slap across the frame carrying copy, shipping labels flip in, boxes fold.",
+  "code_snippet": "rotate -3deg strips sliding in; label cards flipY with perspective",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "spotlight-stage",
+  "title": "Spotlight stage",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "stage",
+  "tags": [
+   "spotlight",
+   "stage",
+   "theatre",
+   "dark"
+  ],
+  "prompt_text": "A dark stage; a spotlight finds each line of copy in turn, then floods the stage on the logo reveal.",
+  "code_snippet": "radial-gradient mask following target x/y; flood on logo hit",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "cards-shuffle",
+  "title": "Card shuffle",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "cards",
+  "tags": [
+   "cards",
+   "stack",
+   "shuffle",
+   "deck"
+  ],
+  "prompt_text": "A deck of cards shuffles and deals benefits one per beat; the last card flips to the logo.",
+  "code_snippet": "cards with rotate/translate springs; rotateY flip with perspective",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "sound-wave",
+  "title": "Sound-wave reactive",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "music",
+  "tags": [
+   "waveform",
+   "bars",
+   "audio",
+   "reactive"
+  ],
+  "prompt_text": "Equalizer bars and waveforms driven by the beat pulse and energy level frame the copy; the drop maxes them out.",
+  "code_snippet": "bars height = level * pulse * noise; useBeat/useEnergy",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "calligraphic-ink",
+  "title": "Calligraphic ink",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "arabic",
+  "tags": [
+   "calligraphy",
+   "ink",
+   "arabic",
+   "brush"
+  ],
+  "prompt_text": "Arabic-first: brush/ink strokes sweep and pool behind words; Kufi-like geometric pattern lines draw in the background.",
+  "code_snippet": "StrokeDraw thick strokes with round caps; blurred ink pools scale in",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "map-journey",
+  "title": "Map journey",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "map",
+  "tags": [
+   "map",
+   "route",
+   "journey",
+   "delivery"
+  ],
+  "prompt_text": "An abstract map draws a route between pins; the moving marker tells the delivery story city by city.",
+  "code_snippet": "StrokeDraw route; marker at getPointAtLength(progress)",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "zoom-through",
+  "title": "Infinite zoom-through",
+  "source_url": null,
+  "creator": "MotionGX",
+  "category": "zoom",
+  "tags": [
+   "zoom",
+   "infinite",
+   "tunnel",
+   "depth"
+  ],
+  "prompt_text": "Each scene is nested inside the previous one; the camera zooms through windows/letters into the next scene seamlessly.",
+  "code_snippet": "nested AbsoluteFill scaled by exp(progress); next scene inside the counter of a letter",
+  "license_note": "MotionGX original"
+ },
+ {
+  "id": "pm-tequilafunks-showreel",
+  "title": "Energetic music-synced showreel",
+  "source_url": "https://prompt-motion.com/tequilafunks-97f6c9",
+  "creator": "@tequilafunks",
+  "category": "music",
+  "tags": [
+   "kinetic type",
+   "shapes",
+   "particles",
+   "music"
+  ],
+  "prompt_text": "A short all-out showreel where type, shapes and particles cut hard on a music grid; the technique is rhythm-locked layering of many small elements.",
+  "code_snippet": null,
+  "license_note": "Prompt and video belong to the creator (no license stated on prompt-motion.com). Stored as a link and our own one-line paraphrase only — do not copy the original prompt or video."
+ },
+ {
+  "id": "pm-linearuncle-explainer",
+  "title": "Step-by-step drawn explainer",
+  "source_url": "https://prompt-motion.com/linearuncle-5d2bae",
+  "creator": "@LinearUncle",
+  "category": "diagrams",
+  "tags": [
+   "diagram",
+   "draw-on",
+   "explainer",
+   "graph"
+  ],
+  "prompt_text": "Diagrams and graphs are drawn and transformed step by step to explain one idea; the technique is progressive construction with narration-paced reveals.",
+  "code_snippet": null,
+  "license_note": "Prompt and video belong to the creator (no license stated on prompt-motion.com). Stored as a link and our own one-line paraphrase only — do not copy the original prompt or video."
+ },
+ {
+  "id": "pm-lexnlin-cinetic",
+  "title": "Concept + brand + score → launch film",
+  "source_url": "https://prompt-motion.com/lexnlin-6161a6",
+  "creator": "@LexnLin",
+  "category": "product ui",
+  "tags": [
+   "launch film",
+   "brand",
+   "score",
+   "code-driven"
+  ],
+  "prompt_text": "A code-driven launch film where the concept, brand identity and music score drive every cut; the technique is treatment-first planning before any animation.",
+  "code_snippet": null,
+  "license_note": "Prompt and video belong to the creator (no license stated on prompt-motion.com). Stored as a link and our own one-line paraphrase only — do not copy the original prompt or video."
+ },
+ {
+  "id": "pm-stephanlivera",
+  "title": "High-effort generated motion piece",
+  "source_url": "https://prompt-motion.com/stephanlivera-df17a2",
+  "creator": "@stephanlivera",
+  "category": "kinetic type",
+  "tags": [
+   "kinetic type",
+   "max effort",
+   "polish"
+  ],
+  "prompt_text": "A motion piece generated with a model on maximum effort; the takeaway is to describe motion intent and pacing precisely rather than layouts.",
+  "code_snippet": null,
+  "license_note": "Prompt and video belong to the creator (no license stated on prompt-motion.com). Stored as a link and our own one-line paraphrase only — do not copy the original prompt or video."
+ },
+ {
+  "id": "pm-twoclipping",
+  "title": "Bold generated motion experiment",
+  "source_url": "https://prompt-motion.com/twoclipping-5cba86",
+  "creator": "@twoclipping",
+  "category": "shapes",
+  "tags": [
+   "experimental",
+   "bold",
+   "shapes"
+  ],
+  "prompt_text": "An experimental piece pushing bold shapes and fast motion; the takeaway is committing fully to one visual idea.",
+  "code_snippet": null,
+  "license_note": "Prompt and video belong to the creator (no license stated on prompt-motion.com). Stored as a link and our own one-line paraphrase only — do not copy the original prompt or video."
+ }
+]

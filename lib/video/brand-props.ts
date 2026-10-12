@@ -1,10 +1,9 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildTokens, luminance } from "./tokens";
+import { buildTokens, luminance } from "@/packages/primitives/src/palette";
 import { decodeSvgDataUri, normalizeHex, svgFills } from "@/lib/brand/map";
 import type { BrandFacts } from "@/lib/brand/types";
 import type { BrandColor, BrandProfile, Dialect } from "@/lib/types";
-import type { VideoBrand } from "./kit";
 
 const SIGNED_TTL = 60 * 60 * 24; // long enough for a render to start and finish
 
@@ -15,7 +14,16 @@ export type CompanyBrand = {
   websiteUrl: string | null;
   defaultDialect: Dialect;
   profile: (BrandProfile & { facts?: BrandFacts | null; raw?: Record<string, unknown> | null }) | null;
-  video: VideoBrand;
+  video: {
+    name: string;
+    logoUrl: string | null;
+    logoPlate: boolean;
+    colors: BrandColor[];
+    fonts: { arabic: string | null; latin: string | null };
+    fontFiles: { family: string; url: string }[];
+    url: string | null;
+    imageUrls: string[];
+  };
 };
 
 /** Dark logo on a dark canvas → put it on a light plate. SVGs are checked by their fills; rasters always get the plate. */
@@ -26,6 +34,12 @@ export function logoNeedsPlate(svgText: string | null, canvasDark: boolean) {
   if (!fills.length) return true;
   const darkShare = fills.filter((f) => luminance(f) < 0.12).length / fills.length;
   return darkShare >= 0.25;
+}
+
+/** The site's Open Graph image from the cached scrape (a real brand image when the site has one). */
+function ogImage(profile: CompanyBrand["profile"]): string[] {
+  const og = (profile?.raw as { branding?: { images?: { ogImage?: string } } } | null)?.branding?.images?.ogImage;
+  return og && /^https:\/\//.test(og) ? [og] : [];
 }
 
 /** Loads a company's brand profile and assets and builds the engine's brand props (signed asset URLs). */
@@ -97,7 +111,7 @@ export async function loadCompanyBrand(supabase: SupabaseClient, companyId: stri
       fonts: { arabic: profile?.fonts?.arabic ?? null, latin: profile?.fonts?.latin ?? null },
       fontFiles: fontFiles.filter((f) => f.family && f.url),
       url: (profile?.facts?.cta_url || row.website_url || "").replace(/^https?:\/\//, "").replace(/\/$/, "") || null,
-      imageUrl: image ? await sign(image.storage_path) : null,
+      imageUrls: [...(image ? [await sign(image.storage_path)] : []), ...ogImage(profile)].filter((u): u is string => Boolean(u)),
     },
   };
 }

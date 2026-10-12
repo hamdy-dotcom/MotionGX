@@ -1,0 +1,199 @@
+import "server-only";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import type { ScriptBeat } from "@motiongx/primitives";
+import { buildTokens } from "@/packages/primitives/src/palette";
+import { AiError, withRun, type RunContext, type UsageEntry } from "@/lib/ai/usage";
+import type { RuntimeInput } from "@/remotion/MotionVideo";
+import { codeComposition, OPUS, SONNET, type CoderFeedback, type SfxEvent } from "./coder";
+import { direct, type Treatment } from "./director";
+import { visionQa, type QaReport } from "./qa";
+import { runMotionJob } from "./runner";
+import { writeScript } from "./script";
+import { scoreVideo, type ScoredAudio } from "./audio";
+import type { MotionStore } from "./store";
+import type { MotionBrief } from "./types";
+
+export const MAX_ROUNDS = 4;
+
+/** Price per million tokens (input, output) — Claude API list prices. */
+export const PRICES: Record<string, [number, number]> = {
+  "claude-haiku-5-5": [0.1, 0.5],
+  "claude-sonnet-5-5": [2, 10],
+  "claude-opus-5-5": [4, 20],
+};
+
+export function costOf(usage: UsageEntry[]) {
+  let usd = 0;
+  const byKind: Record<string, { calls: number; input: number; output: number; usd: number }> = {};
+  for (const u of usage) {
+    const [pi, po] = PRICES[u.model] ?? PRICES[Object.keys(PRICES).find((k) => u.model.startsWith(k)) ?? ""] ?? [0, 0];
+    const c = (u.input_tokens * pi + u.output_tokens * po) / 1_000_000;
+    usd += c;
+    const k = (byKind[`${u.kind}:${u.model}`] ??= { calls: 0, input: 0, output: 0, usd: 0 });
+    k.calls++;
+    k.input += u.input_tokens;
+    k.output += u.output_tokens;
+    k.usd += c;
+  }
+  return { usd, byKind };
+}
+
+export type PipelineProgress = (stage: "director" | "script" | "code" | "validate" | "qa" | "music" | "done", detail?: string) => void;
+
+export type PipelineResult = {
+  status: "passed" | "needs_direction";
+  treatment: Treatment;
+  refIds: string[];
+  similarity: number;
+  script: { title: string; beats: ScriptBeat[] };
+  code: string | null;
+  js: string | null;
+  sfx: SfxEvent[];
+  qa: QaReport[];
+  audio: ScoredAudio | null;
+  input: RuntimeInput;
+  usage: UsageEntry[];
+  timings: Record<string, number>;
+};
+
+export function runtimeInput(b: MotionBrief, energy: Treatment["energy"], script: { title: string; beats: ScriptBeat[] }): RuntimeInput {
+  return {
+    brand: { name: b.brand.name, url: b.brand.url, logoUrl: b.brand.logoUrl, logoPlate: b.brand.logoPlate, imageUrls: b.brand.imageUrls, colors: b.brand.colors },
+    fontFamilies: { arabic: b.brand.fonts.arabic, latin: b.brand.fonts.latin },
+    lang: b.dialect === "en" ? "en" : "ar",
+    dir: b.dialect === "en" ? "ltr" : "rtl",
+    width: b.width,
+    height: b.height,
+    fps: 30,
+    durationInFrames: Math.round(b.lengthS * 30),
+    energy,
+    script,
+  };
+}
+
+/** QA frames: every hit plus 8 evenly spaced frames. */
+export function qaFrames(t: Treatment) {
+  const L = t.energy.length_s;
+  const even = Array.from({ length: 8 }, (_, i) => ({ t: Number((((i + 0.5) / 8) * L).toFixed(2)), label: `even ${i + 1}/8` }));
+  const hits = t.energy.hits.map((h) => ({ t: Math.min(L - 0.05, h.t + 0.25), label: `hit: ${h.kind}${h.label ? ` (${h.label})` : ""} +0.25s` }));
+  return [...hits, ...even].sort((a, b) => a.t - b.t);
+}
+
+/**
+ * Code → validate → vision QA loop (max 4 rounds; rounds 3–4 escalate to Opus).
+ * Returns the passing code, or null with every QA report when no round passed.
+ */
+export async function codeWithQa(
+  b: MotionBrief,
+  treatment: Treatment,
+  script: { title: string; beats: ScriptBeat[] },
+  input: RuntimeInput,
+  workDir: string,
+  progress?: PipelineProgress,
+  opts: { instruction?: string; baseCode?: string } = {},
+): Promise<{ code: string | null; js: string | null; sfx: SfxEvent[]; qa: QaReport[]; timings: Record<string, number> }> {
+  const palette = buildTokens(b.brand.colors);
+  const qa: QaReport[] = [];
+  const timings: Record<string, number> = {};
+  let feedback: CoderFeedback | undefined = opts.baseCode ? { previousCode: opts.baseCode, errors: [] } : undefined;
+  for (let round = 1; round <= MAX_ROUNDS; round++) {
+    progress?.("code", `round ${round}`);
+    let t0 = Date.now();
+    const model = round >= 3 ? OPUS : SONNET;
+    const { code, sfx } = await codeComposition(b, treatment, script, { model, feedback, instruction: round === 1 ? opts.instruction : undefined });
+    timings[`code_r${round}`] = Date.now() - t0;
+
+    progress?.("validate", `round ${round}`);
+    t0 = Date.now();
+    const frames = qaFrames(treatment);
+    const res = await runMotionJob({ task: "validate", source: code, input, stills: frames, outDir: path.join(workDir, `r${round}`) });
+    timings[`validate_r${round}`] = Date.now() - t0;
+    if (!res.ok) {
+      const report: QaReport = { pass: false, score: 0, treatment_followed: false, issues: res.errors.map((e) => ({ check: "render_error" as const, t: null, detail: `${res.stage}: ${e}` })), summary: `${res.stage} failed`, static_spans: [], round, checked_frames: [] };
+      qa.push(report);
+      feedback = { previousCode: code, errors: res.errors.map((e) => `${res.stage === "compile" ? "Compile/typecheck" : "Render"} error: ${e}`) };
+      continue;
+    }
+
+    progress?.("qa", `round ${round}`);
+    t0 = Date.now();
+    const report = await visionQa({ workspaceId: b.workspaceId, stills: res.stills ?? [], treatment, script, palette, staticSpans: res.staticSpans ?? [], round, lang: input.lang });
+    timings[`qa_r${round}`] = Date.now() - t0;
+    qa.push(report);
+    if (report.pass) return { code, js: res.js, sfx, qa, timings };
+
+    const flagged = new Set(report.issues.map((i) => i.t).filter((t): t is number => t !== null));
+    const stills = (res.stills ?? [])
+      .filter((s) => flagged.size === 0 || [...flagged].some((t) => Math.abs(t - s.t) < 0.6))
+      .slice(0, 6)
+      .map((s) => ({ t: s.t, label: s.label, jpegBase64: readFileSync(s.path).toString("base64") }));
+    feedback = { previousCode: code, errors: report.issues.map((i) => `[${i.check}${i.t !== null ? ` @${i.t}s` : ""}] ${i.detail}`), stills };
+  }
+  return { code: null, js: null, sfx: [], qa, timings };
+}
+
+/** Full generation for one video: director → script → coder/QA loop → per-video music. */
+export async function generateMotion(
+  b: MotionBrief,
+  store: MotionStore,
+  workDir: string,
+  opts: { progress?: PipelineProgress; avoidMotionLanguages?: string[]; seed?: number } = {},
+): Promise<PipelineResult> {
+  const ctx: RunContext = { videoId: b.videoId, usage: [] };
+  return withRun(ctx, async () => {
+    const timings: Record<string, number> = {};
+    let t0 = Date.now();
+    opts.progress?.("director");
+    const dir = await direct(b, store, { avoidMotionLanguages: opts.avoidMotionLanguages });
+    timings.director = Date.now() - t0;
+
+    t0 = Date.now();
+    opts.progress?.("script");
+    const script = await writeScript(b, dir.treatment);
+    timings.script = Date.now() - t0;
+
+    const input = runtimeInput(b, dir.treatment.energy, script);
+    const coded = await codeWithQa(b, dir.treatment, script, input, workDir, opts.progress);
+    Object.assign(timings, coded.timings);
+
+    let audio: ScoredAudio | null = null;
+    if (coded.code) {
+      t0 = Date.now();
+      opts.progress?.("music");
+      try {
+        audio = await scoreVideo(dir.treatment.energy, coded.sfx, dir.treatment.music.mood, opts.seed ?? 7, path.join(workDir, "audio"));
+      } catch (err) {
+        // The caller falls back to the 24-track library.
+        console.error("[motion] scoring failed", err instanceof Error ? err.message : err);
+      }
+      timings.music = Date.now() - t0;
+      await store.saveTreatment({
+        workspace_id: b.workspaceId,
+        video_id: b.videoId ?? null,
+        concept: dir.treatment.concept,
+        motion_language: dir.treatment.motion_language,
+        ref_ids: dir.refs.map((r) => r.id),
+        embedding: dir.embedding,
+        created_at: new Date().toISOString(),
+      });
+    }
+    opts.progress?.("done");
+    if (!coded.code && !coded.qa.length) throw new AiError("ai_failed", "no code produced");
+    return {
+      status: coded.code ? "passed" : "needs_direction",
+      treatment: dir.treatment,
+      refIds: dir.refs.map((r) => r.id),
+      similarity: dir.similarity,
+      script,
+      code: coded.code,
+      js: coded.js,
+      sfx: coded.sfx,
+      qa: coded.qa,
+      audio,
+      input,
+      usage: ctx.usage,
+      timings,
+    };
+  });
+}

@@ -1,10 +1,26 @@
 import "server-only";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AiErrorCode } from "./errors";
 
 export const AI_CALLS_PER_HOUR = 30;
 
-export type AiKind = "brand_scrape" | "brand_tone" | "brand_facts" | "script" | "rewrite_scene" | "request_edit";
+export type AiKind =
+  | "brand_scrape"
+  | "brand_tone"
+  | "brand_facts"
+  | "script"
+  | "rewrite_scene"
+  | "request_edit"
+  | "director"
+  | "motion_code"
+  | "vision_qa";
+
+/** Per-run ledger: every logged call in a run (one video generation) lands here too, for cost reports. */
+export type UsageEntry = { kind: AiKind; model: string; input_tokens: number; output_tokens: number; at: number };
+export type RunContext = { videoId?: string; usage: UsageEntry[] };
+export const runContext = new AsyncLocalStorage<RunContext>();
+export const withRun = <T>(ctx: RunContext, fn: () => Promise<T>) => runContext.run(ctx, fn);
 
 export type { AiErrorCode };
 
@@ -38,15 +54,17 @@ export async function logUsage(
   model: string,
   usage?: { input_tokens?: number | null; output_tokens?: number | null } | null,
 ) {
-  const { error } = await createAdminClient()
-    .from("ai_usage")
-    .insert({
-      workspace_id: workspaceId,
-      kind,
-      model,
-      input_tokens: usage?.input_tokens ?? 0,
-      output_tokens: usage?.output_tokens ?? 0,
-    });
+  const run = runContext.getStore();
+  run?.usage.push({ kind, model, input_tokens: usage?.input_tokens ?? 0, output_tokens: usage?.output_tokens ?? 0, at: Date.now() });
+  const row: Record<string, unknown> = {
+    workspace_id: workspaceId,
+    kind,
+    model,
+    input_tokens: usage?.input_tokens ?? 0,
+    output_tokens: usage?.output_tokens ?? 0,
+  };
+  if (run?.videoId) row.video_id = run.videoId;
+  const { error } = await createAdminClient().from("ai_usage").insert(row);
   if (error) console.error("[ai] usage log failed", { workspaceId, kind, code: error.code, message: error.message });
 }
 
