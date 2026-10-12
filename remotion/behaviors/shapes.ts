@@ -2,7 +2,7 @@
 // sampled to the same number of points.
 import { noise1 } from "./core";
 
-export type ShapeKind = "rect" | "circle" | "polygon" | "star" | "blob" | "ring" | "pill" | "triangle" | "line";
+export type ShapeKind = "rect" | "circle" | "polygon" | "star" | "blob" | "ring" | "pill" | "triangle" | "line" | "cursor";
 const N = 96;
 
 function resample(pts: [number, number][], n = N): [number, number][] {
@@ -58,6 +58,11 @@ export function shapePoints(kind: ShapeKind, w: number, h: number, o: { radius?:
         return [cx + Math.cos(a) * r * (w / 2), cy + Math.sin(a) * r * (h / 2)];
       });
       return resample(corners);
+    }
+    case "cursor": {
+      // classic arrow pointer; tip at the top-left of the box
+      const c: [number, number][] = [[0, 0], [0, 0.78], [0.22, 0.6], [0.38, 0.98], [0.52, 0.92], [0.36, 0.55], [0.64, 0.55]];
+      return resample(c.map(([x, y]) => [x * w, y * h]));
     }
     case "pill":
     case "rect":

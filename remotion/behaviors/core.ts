@@ -1,4 +1,6 @@
 // Pure motion math shared by the renderer (SpecVideo) and the validator (Node). No React, no DOM.
+// Easings and springs come from Motion (motion.dev, MIT) sampled as pure functions of time — never animate().
+import { anticipate, backIn, backInOut, circIn, circInOut, circOut, spring as motionSpring } from "motion";
 
 export type Overlay =
   | { kind: "burst"; p: number; count: number; spread: number; shape: "dot" | "square" | "spark" | "confetti"; seed: number }
@@ -7,10 +9,14 @@ export type Overlay =
   | { kind: "highlight"; p: number }
   | { kind: "dissolve"; p: number; count: number; seed: number }
   | { kind: "glitch"; amount: number; seed: number }
-  | { kind: "shine"; p: number };
+  | { kind: "shine"; p: number }
+  /** accent bar riding the edge of a wipe (editorial wipe) */
+  | { kind: "wipebar"; p: number; dir: "left" | "right" | "up" | "down" }
+  /** scanline at the reveal edge */
+  | { kind: "scan"; p: number };
 
 /** Per-letter/word motion (text). Arabic never splits by letter (it breaks joins); the renderer falls back to words. */
-export type Units = { split: "letter" | "word"; fn: (i: number, n: number) => Partial<BState> };
+export type Units = { split: "letter" | "word"; fn: (i: number, n: number) => Partial<BState> & { tint?: number; glyph?: number } };
 
 export type BState = {
   /** px offsets in canvas pixels */
@@ -37,10 +43,40 @@ export type BState = {
   kashida?: number;
   /** visible characters (typewriter), fraction 0–1 */
   typed?: number;
-  /** follow a route: progress 0–1 along route `route` */
-  follow?: { route: string; p: number };
+  /** follow a route / svgPath: progress 0–1 along element `route`; align = turn with the path */
+  follow?: { route: string; p: number; align?: boolean };
   units?: Units;
   overlays?: Overlay[];
+  // ── Phase 3D engine features ──
+  /** 3D rotation (deg) around X / Y, rendered with perspective */
+  rx?: number;
+  ry?: number;
+  /** transform-origin, e.g. "50% 100%" (Animista-style origins) */
+  origin?: string;
+  /** extra letter-spacing in em (tracking in/out) */
+  track?: number;
+  /** chromatic (RGB) split offset in px */
+  rgb?: number;
+  /** wave displacement 0–1 (SVG turbulence) */
+  distort?: number;
+  /** horizontal band slices shifting sideways */
+  slices?: { n: number; amount: number; seed: number };
+  /** echo trail: n ghost copies spaced `gap` seconds back */
+  trail?: { n: number; gap: number };
+  /** content scroll 0–1 (images: a long page scrolls inside its frame) */
+  scroll?: number;
+  /** liquid fill level 0–1 (shapes) */
+  fill?: number;
+  /** typewriter caret */
+  caret?: boolean;
+  /** text decode progress 0–1 (scramble → final text) */
+  scramble?: number;
+  /** 3D extrusion depth in px (stacked shadow layers) */
+  extrude?: number;
+  /** shared-element morph: move/resize toward another element's box */
+  toward?: { id: string; p: number };
+  /** svgPath: GSAP DrawSVG window [start, end] in 0–1 */
+  segment?: [number, number];
 };
 
 export const IDENTITY: BState = { dx: 0, dy: 0, scale: 1, sx: 1, sy: 1, rot: 0, skewX: 0, opacity: 1, blur: 0, brightness: 1, hue: 0, glow: 0 };
@@ -68,6 +104,21 @@ export function combine(a: BState, b: Partial<BState>): BState {
     follow: b.follow ?? a.follow,
     units: b.units ?? a.units,
     overlays: b.overlays ? [...(a.overlays ?? []), ...b.overlays] : a.overlays,
+    rx: b.rx !== undefined || a.rx !== undefined ? (a.rx ?? 0) + (b.rx ?? 0) : undefined,
+    ry: b.ry !== undefined || a.ry !== undefined ? (a.ry ?? 0) + (b.ry ?? 0) : undefined,
+    origin: b.origin ?? a.origin,
+    track: b.track !== undefined || a.track !== undefined ? (a.track ?? 0) + (b.track ?? 0) : undefined,
+    rgb: b.rgb !== undefined || a.rgb !== undefined ? Math.max(a.rgb ?? 0, b.rgb ?? 0) : undefined,
+    distort: b.distort !== undefined || a.distort !== undefined ? Math.max(a.distort ?? 0, b.distort ?? 0) : undefined,
+    slices: b.slices ?? a.slices,
+    trail: b.trail ?? a.trail,
+    scroll: b.scroll ?? a.scroll,
+    fill: b.fill ?? a.fill,
+    caret: b.caret ?? a.caret,
+    scramble: b.scramble ?? a.scramble,
+    extrude: b.extrude !== undefined || a.extrude !== undefined ? Math.max(a.extrude ?? 0, b.extrude ?? 0) : undefined,
+    toward: b.toward ?? a.toward,
+    segment: b.segment ?? a.segment,
   };
 }
 
@@ -96,6 +147,15 @@ export const EASE = {
     return n1 * (t -= 2.625 / d1) * t + 0.984375;
   },
   snap: (t: number) => (t >= 1 ? 1 : 1 - (1 - t) ** 5),
+  // Motion (motion.dev) easings
+  anticipate: (t: number) => anticipate(clamp01(t)),
+  backIn: (t: number) => backIn(clamp01(t)),
+  backInOut: (t: number) => backInOut(clamp01(t)),
+  circIn: (t: number) => circIn(clamp01(t)),
+  circOut: (t: number) => circOut(clamp01(t)),
+  circInOut: (t: number) => circInOut(clamp01(t)),
+  /** a Motion spring (bounce 0.3) normalised to 0→1 over the behavior's duration */
+  spring: (t: number) => springAt(clamp01(t) * 1, 0.55, 0.3),
 };
 export type EaseName = keyof typeof EASE;
 
@@ -107,6 +167,23 @@ export function spring(t: number, stiffness = 170, damping = 14) {
   if (zeta >= 1) return 1 - Math.exp(-w0 * t) * (1 + w0 * t);
   const wd = w0 * Math.sqrt(1 - zeta * zeta);
   return 1 - Math.exp(-zeta * w0 * t) * (Math.cos(wd * t) + ((zeta * w0) / wd) * Math.sin(wd * t));
+}
+
+/**
+ * Motion's closed-form spring sampled at `t` seconds: `visualDuration` = time to (visually) arrive,
+ * `bounce` 0–1. Same inputs → same value (generators are cached, `next(ms)` is a pure function of time).
+ */
+const springCache = new Map<string, ReturnType<typeof motionSpring>>();
+export function springAt(t: number, visualDuration = 0.5, bounce = 0.25, from = 0, to = 1, velocity = 0) {
+  if (t <= 0) return from;
+  const key = `${visualDuration}|${bounce}|${from}|${to}|${velocity}`;
+  let g = springCache.get(key);
+  if (!g) {
+    g = motionSpring({ keyframes: [from, to], visualDuration, bounce, velocity });
+    if (springCache.size > 500) springCache.clear();
+    springCache.set(key, g);
+  }
+  return g.next(t * 1000).value as number;
 }
 
 // ── deterministic randomness + noise ────────────────────────────────────────

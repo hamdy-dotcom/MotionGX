@@ -2,100 +2,12 @@
 // time used by both the renderer and the validator. The catalogue text the AI sees is generated from
 // the `desc` + params here (lib/motion/catalogue.ts), so adding a behavior = adding an entry.
 import { z } from "zod";
-import { clamp01, EASE, lerp, noise1, rand, spring, type BState, type EaseName, type Overlay } from "./core";
+import { clamp01, EASE, lerp, noise1, rand, spring, type EaseName, type Overlay } from "./core";
+import { beatPhase, dir8, easeParam, ENTER_DUR, ev, g, hitPulse, none, P, vec, wipeClip, type Behavior } from "./helpers";
+import { PRESETS } from "./presets";
 
 export * from "./core";
-
-export type BehaviorKind = "enter" | "exit" | "loop" | "emphasis" | "morph" | "physics" | "generative" | "data" | "camera";
-
-export type BCtx = {
-  t: number;
-  start: number;
-  dur: number;
-  /** clamp01((t - start) / dur) */
-  p: number;
-  /** seconds since start (may be negative) */
-  local: number;
-  w: number;
-  h: number;
-  /** element box in px */
-  bw: number;
-  bh: number;
-  /** seconds per beat */
-  beat: number;
-  hits: { t: number; kind: string }[];
-  seed: number;
-  params: Record<string, unknown>;
-  /** child index / count when a group staggers its children */
-  i: number;
-  n: number;
-  /** element is Arabic text */
-  arabic: boolean;
-};
-
-export type Behavior = {
-  kind: BehaviorKind;
-  desc: string;
-  /** default duration in seconds (loops: Infinity = until the element leaves) */
-  dur: number;
-  params: z.ZodObject<z.ZodRawShape>;
-  /** text only (splits into letters/words) */
-  textOnly?: boolean;
-  /** splits by letter — forbidden for Arabic (breaks letter joins) */
-  perLetter?: boolean;
-  apply: (c: BCtx) => Partial<BState>;
-};
-
-const easeParam = z.enum(Object.keys(EASE) as [EaseName, ...EaseName[]]);
-const DIRS = ["left", "right", "up", "down", "upLeft", "upRight", "downLeft", "downRight"] as const;
-const dir8 = z.enum(DIRS);
-type Dir = (typeof DIRS)[number];
-const P = <T extends z.ZodRawShape>(shape: T) => z.object(shape);
-const none = P({});
-
-const ev = (c: BCtx, name: EaseName = "expoOut") => EASE[name](c.p);
-const g = <T>(c: BCtx, k: string, d: T): T => (c.params[k] ?? d) as T;
-
-/** unit vector for a direction ("from" side) */
-const vec = (d: Dir): [number, number] =>
-  ({ left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1], upLeft: [-0.7, -0.7], upRight: [0.7, -0.7], downLeft: [-0.7, 0.7], downRight: [0.7, 0.7] })[d] as [number, number];
-
-/** clip-path that reveals toward `d` as p goes 0→1 */
-function wipeClip(d: Dir, p: number) {
-  const r = (1 - p) * 100;
-  switch (d) {
-    case "right":
-      return `inset(0 ${r}% 0 0)`;
-    case "left":
-      return `inset(0 0 0 ${r}%)`;
-    case "down":
-      return `inset(0 0 ${r}% 0)`;
-    case "up":
-      return `inset(${r}% 0 0 0)`;
-    case "downRight":
-      return `polygon(0 0, ${p * 200}% 0, 0 ${p * 200}%)`;
-    case "downLeft":
-      return `polygon(100% 0, ${100 - p * 200}% 0, 100% ${p * 200}%)`;
-    case "upRight":
-      return `polygon(0 100%, ${p * 200}% 100%, 0 ${100 - p * 200}%)`;
-    case "upLeft":
-      return `polygon(100% 100%, ${100 - p * 200}% 100%, 100% ${100 - p * 200}%)`;
-  }
-}
-
-/** hit pulse: 1 at a hit, decaying over `decay` s */
-function hitPulse(c: BCtx, decay = 0.35, kind?: string) {
-  let v = 0;
-  for (const h of c.hits) {
-    if (kind && h.kind !== kind) continue;
-    const d = c.t - h.t;
-    if (d >= 0 && d < decay) v = Math.max(v, 1 - d / decay);
-  }
-  return v;
-}
-const beatPhase = (c: BCtx) => ((c.t / c.beat) % 1 + 1) % 1;
-
-const ENTER_DUR = 0.6;
+export type { BCtx, Behavior, BehaviorKind } from "./helpers";
 
 export const BEHAVIORS: Record<string, Behavior> = {
   // ── entrances ─────────────────────────────────────────────────────────────
@@ -111,7 +23,7 @@ export const BEHAVIORS: Record<string, Behavior> = {
   "split-reveal": { kind: "enter", desc: "two halves part like doors to reveal", dur: 0.7, params: P({ vertical: z.boolean().default(false) }), apply: (c) => { const r = (1 - ev(c, "inOut")) * 50; return { clip: g(c, "vertical", false) ? `inset(${r}% 0 ${r}% 0)` : `inset(0 ${r}% 0 ${r}%)` }; } },
   "per-letter": { kind: "enter", desc: "letters rise in one by one (Latin only; Arabic auto-falls back to words)", dur: 0.9, textOnly: true, perLetter: true, params: P({ dist: z.number().min(0).max(40).default(10), step: z.number().min(0.005).max(0.2).default(0.03) }), apply: (c) => ({ units: { split: "letter", fn: (i) => { const p = clamp01((c.local - i * g(c, "step", 0.03)) / 0.5); return { dy: (1 - EASE.expoOut(p)) * g(c, "dist", 10) * c.w / 100 * 0.3, opacity: clamp01(p * 3) }; } } }) },
   "per-word": { kind: "enter", desc: "words rise in one by one from a mask", dur: 0.9, textOnly: true, params: P({ step: z.number().min(0.02).max(0.5).default(0.09), from: z.enum(["below", "above", "side"]).default("below") }), apply: (c) => ({ units: { split: "word", fn: (i) => { const p = clamp01((c.local - i * g(c, "step", 0.09)) / 0.55); const o = (1 - EASE.expoOut(p)); const from = g<string>(c, "from", "below"); return { dy: from === "below" ? o * 0.9 * c.bh : from === "above" ? -o * 0.9 * c.bh : 0, dx: from === "side" ? o * c.bh * (c.arabic ? -1 : 1) : 0, opacity: clamp01(p * 2.5) }; } } }) },
-  typewriter: { kind: "enter", desc: "characters appear one by one (cursor-like)", dur: 1.2, textOnly: true, params: none, apply: (c) => ({ typed: c.p }) },
+  typewriter: { kind: "enter", desc: "characters appear one by one; caret = blinking terminal cursor", dur: 1.2, textOnly: true, params: P({ caret: z.boolean().default(false) }), apply: (c) => ({ typed: c.p, caret: g(c, "caret", false) || undefined }) },
   "stroke-draw": { kind: "enter", desc: "draw a path/route/ring/line/outlined text along its length", dur: 1.0, params: P({ ease: easeParam.default("inOut") }), apply: (c) => ({ draw: EASE[g(c, "ease", "inOut") as EaseName](c.p) }) },
   "ink-bloom": { kind: "enter", desc: "blooms out of a blurred ink drop", dur: 0.9, params: none, apply: (c) => { const e = ev(c); return { clip: `circle(${e * 80}% at 50% 55%)`, blur: (1 - e) * 14, scale: lerp(0.85, 1, e) }; } },
   "scatter-in": { kind: "enter", desc: "letters/words fly in from random directions and assemble", dur: 0.9, textOnly: true, params: P({ spread: z.number().min(0).max(60).default(18) }), apply: (c) => ({ units: { split: c.arabic ? "word" : "letter", fn: (i) => { const e = EASE.expoOut(c.p); const a = rand(c.seed, i) * Math.PI * 2; const r = (1 - e) * g(c, "spread", 18) * c.w / 100; return { dx: Math.cos(a) * r, dy: Math.sin(a) * r, rot: (1 - e) * (rand(c.seed, i + 99) * 80 - 40), opacity: clamp01(c.p * 2) }; } } }) },
@@ -184,6 +96,9 @@ export const BEHAVIORS: Record<string, Behavior> = {
   "count-up": { kind: "data", desc: "counter rolls from `from` to `to`", dur: 1.4, params: P({ ease: easeParam.default("expoOut") }), apply: (c) => ({ count: EASE[g(c, "ease", "expoOut") as EaseName](c.p) }) },
   "bar-grow": { kind: "data", desc: "bar grows from its base (stagger a group of bars for a bar race)", dur: 0.8, params: P({ axis: z.enum(["x", "y"]).default("y"), ease: easeParam.default("backOut") }), apply: (c) => { const e = Math.max(0.001, EASE[g(c, "ease", "backOut") as EaseName](c.p)); return g(c, "axis", "y") === "y" ? { sy: e, dy: (1 - e) * c.bh / 2 } : { sx: e, dx: -(1 - e) * c.bw / 2 }; } },
   "route-follow": { kind: "data", desc: "moves along a route element (params: route = its id)", dur: 2, params: P({ route: z.string(), ease: easeParam.default("inOut") }), apply: (c) => ({ follow: { route: g(c, "route", ""), p: EASE[g(c, "ease", "inOut") as EaseName](c.p) } }) },
+
+  // ── Phase 3D: Animista / genmotion / Motion / Codrops / GSAP / mined techniques ──
+  ...PRESETS,
 };
 
 /** camera behaviors (spec.camera.keys handles explicit moves; these are the reusable gestures) */
