@@ -201,6 +201,14 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
     for (const f of el.fx ?? []) if (["glow-pulse", "hue-cycle", "neon-flicker", "glitch-in", "blur-in", "blur-out", "color-flash", "dissolve", "assemble", "scatter-in"].includes(f.fx)) add(el.id, "logo_fx", `${f.fx} distorts the logo — use pop/scale/float/punch instead`, undefined, { removeFx: f.fx });
   }
 
+  // one logo on screen at a time: an earlier logo that is still visible when a later one enters ends there
+  const logos = spec.elements.filter((e) => e.type === "image" && e.src === "logo").map((e) => ({ e, in: sec(e.in, env, 0), out: sec(e.out, env, ctx.duration) })).sort((a, b) => a.in - b.in);
+  for (let i = 1; i < logos.length; i++) {
+    for (const prev of logos.slice(0, i)) {
+      if (prev.out > logos[i].in + 0.05 && prev.in < logos[i].in) add(prev.e.id, "logo_duplicate", `two logos on screen at once ("${prev.e.id}" and "${logos[i].e.id}") — the earlier one ends when the later one enters`, logos[i].in, { out: Number(logos[i].in.toFixed(3)) });
+    }
+  }
+
   // script coverage: every line is on screen somewhere
   const used = new Set(spec.elements.flatMap((e) => (e.type === "text" ? [e.line ?? ""] : [])));
   const literal = new Set(spec.elements.flatMap((e) => (e.type === "text" && e.text ? [e.text.trim()] : [])));
