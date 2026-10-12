@@ -1,8 +1,11 @@
 import "server-only";
-// Phase 3C pipeline: brief → playable preview in under a minute, ≤ $0.05 of AI.
-//   1. plan (director + script, one Sonnet call, cached system) + novelty on the English summary
-//   2. in parallel: spec (Haiku, cached system; Sonnet fallback) ‖ music bed from the energy map
-//   3. deterministic validation → auto-fixes → ≤ 2 JSON-Patch rounds
+// Phase 3F pipeline (hybrid): brief → playable preview in ≤ 90 s, ≤ $0.15 of AI (≤ $0.06 when every
+// illustration comes from the library).
+//   1. plan (director + script, one Sonnet call, cached system) + novelty on summary + illustration style
+//   2. hero illustrations: library lookup in the video's style (cooldown: not in this workspace's last 5 videos)
+//   3. in parallel: spec (Sonnet, gets every illustration's prop schema) ‖ missing illustrations (one Sonnet
+//      call each, checked in the isolated worker) ‖ music bed from the energy map
+//   4. deterministic validation → auto-fixes → ≤ 2 JSON-Patch rounds; still failing → ship the best, flagged
 //   4. SFX from the finished timeline on the bed → PREVIEW READY
 //   5. background: taste QA (Haiku, 4 frames), MP3 encodes, treatment saved to the novelty history
 import path from "node:path";
@@ -12,23 +15,32 @@ import type { RuntimeInput } from "@/remotion/runtime-input";
 import { compileComposition } from "./compile";
 import { deriveEvents } from "./events";
 import { encodeMp3, renderMusic, type MusicResult } from "./music";
-import { makePlan, type Plan, type PlanResult } from "./plan";
+import { makePlan, treatmentLanguage, type Plan, type PlanResult } from "./plan";
 import { editSpec, writeSpec, type SpecRun } from "./spec-gen";
 import { envFor } from "./inspect";
 import { slideshowRisk, type SlideshowRisk } from "./slideshow";
 import { runSpecJob } from "./spec-runner";
 import { prepareAssets } from "./assets";
+import { STYLE_STROKE, type IllustrationMeta, type IllustrationNeed, type ReadyIllustration } from "./illustration-core";
+import { drawAll, IllustrationLibrary, resolveIllustrations, type Resolution } from "./illustrations";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { projectPath } from "./paths";
 import type { MotionSpec, SoundEvent } from "./spec";
 import type { MotionRef, MotionStore } from "./store";
 import { TASTE_FRAMES, tasteQa, type Taste } from "./taste";
 import type { MotionBrief } from "./types";
 import type { ValidateCtx } from "./validate";
 
-/** Hard cap per generation (the user-facing budget is $0.03; this is the safety net). */
-export const GENERATION_CAP_USD = 0.05;
+/** Hard cap per generation (budget: $0.15 cold library, $0.06 warm; this is the safety net). */
+export const GENERATION_CAP_USD = 0.25;
 
 export type Generation = {
   status: "ready" | "needs_direction";
+  /** validation still failed after the repair rounds: the best-scoring version shipped, marked for review */
+  flagged: boolean;
+  /** hero illustrations: the ones shown, the library lookup log and the drawing outcomes */
+  illustrations: { shown: ReadyIllustration[]; lookup: Resolution["log"]; drawn: { name: string; ok: boolean; ms: number; rounds: number; problems: string[] }[]; dropped: string[]; reuseRate: number };
   /** slideshow risk of the delivered spec (+ per-stage log: spec / patch / regenerate) */
   slideshow: SlideshowRisk & { log: { stage: string; score: number }[] };
   plan: Plan;
@@ -59,8 +71,12 @@ export async function runtimeInputWithAssets(b: MotionBrief, plan: Plan, spec: M
   return { ...input, ...(await prepareAssets(spec, input)) };
 }
 
+/** renderer metadata for the plan's illustrations (parts, mirroring, the style's stroke width) */
+export const illustrationMeta = (plan: Plan): Record<string, IllustrationMeta> => Object.fromEntries((plan.illustration_assets ?? []).map((a) => [a.name, { directional: a.directional, parts: a.parts.map((p) => p.name), sw: STYLE_STROKE[a.style] }]));
+
 export function runtimeInputFor(b: MotionBrief, plan: Plan): RuntimeInput {
   return {
+    illustrations: illustrationMeta(plan),
     brand: { name: b.brand.name, url: b.brand.url, logoUrl: b.brand.logoUrl, logoPlate: b.brand.logoPlate, imageUrls: b.brand.imageUrls, colors: b.brand.colors },
     fontFamilies: { arabic: b.brand.fonts.arabic, latin: b.brand.fonts.latin, display: displayFont(b, plan) },
     lang: b.dialect === "en" ? "en" : "ar",
@@ -115,9 +131,21 @@ async function compileCustom(spec: MotionSpec, library: () => Promise<{ name: st
   return { custom, spec: dropped.length ? { ...spec, elements: spec.elements.filter((e) => !dropped.includes(e.id)) } : spec, dropped };
 }
 
+/** a video that shipped with validation issues: logged for later (never retried in a loop) */
+function logValidationFailure(b: MotionBrief, plan: Plan, run: SpecRun) {
+  const line = { at: new Date().toISOString(), workspace: b.workspaceId, video: b.videoId ?? null, brand: b.brand.name, concept: plan.motion_language, issues: run.issues.map((i) => ({ code: i.code, id: i.id, msg: i.msg.slice(0, 200) })), rounds: run.rounds.map((r) => `${r.stage}:${r.issues}`) };
+  console.warn("[motion] shipped flagged (validation issues remain)", { brand: line.brand, issues: line.issues.map((i) => i.code) });
+  try {
+    mkdirSync(projectPath("out"), { recursive: true });
+    appendFileSync(projectPath("out/validation-failures.jsonl"), `${JSON.stringify(line)}\n`);
+  } catch {
+    /* read-only filesystem (serverless): the console line is the log */
+  }
+}
+
 export type GenerationStage = "plan" | "spec" | "music" | "ready";
 
-export async function generateVideo(b: MotionBrief, store: MotionStore, workDir: string, opts: { avoid?: string[]; capUsd?: number; printCost?: boolean; tasteQa?: boolean; progress?: (stage: GenerationStage) => void; planned?: { result: PlanResult; ms: number }; customLibrary?: () => Promise<{ name: string; js: string }[]> } = {}): Promise<Generation> {
+export async function generateVideo(b: MotionBrief, store: MotionStore, workDir: string, opts: { avoid?: string[]; capUsd?: number; printCost?: boolean; tasteQa?: boolean; progress?: (stage: GenerationStage) => void; planned?: { result: PlanResult; ms: number }; customLibrary?: () => Promise<{ name: string; js: string }[]>; illustrations?: IllustrationLibrary } = {}): Promise<Generation> {
   const ctx: RunContext = { videoId: b.videoId, usage: [], capUsd: opts.capUsd ?? GENERATION_CAP_USD, printCost: opts.printCost };
   return withRun(ctx, async () => {
     const T0 = Date.now();
@@ -129,9 +157,20 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
     opts.progress?.("spec");
     timings.plan = opts.planned ? opts.planned.ms : Date.now() - t;
     const { plan } = planned;
-    const vctx: ValidateCtx = { width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: { ...b.brand.fonts, display: displayFont(b, plan) }, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo, allowedNumbers: allowedNumbers(b), treatment: treatmentText(plan) };
+    // hero illustrations: library first (style + cooldown), the rest drawn in parallel with the spec
+    t = Date.now();
+    const lib = opts.illustrations ?? new IllustrationLibrary(null);
+    const resolution = await resolveIllustrations(lib, plan.illustrations ?? [], plan.illustration_style, b.workspaceId);
+    timings.illustrationLookup = Date.now() - t;
+    const schemas: IllustrationNeed[] = [...resolution.reused, ...resolution.fresh];
+    const tDraw = Date.now();
+    const drawP = drawAll(b.workspaceId, resolution.fresh, plan.illustration_style, `${b.brand.name} — ${b.facts.what_it_does}`).then((r) => {
+      timings.illustrations = Date.now() - tDraw;
+      return r;
+    });
+    const vctx: ValidateCtx = { width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: { ...b.brand.fonts, display: displayFont(b, plan) }, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo, allowedNumbers: allowedNumbers(b), treatment: treatmentText(plan), illustrations: Object.fromEntries(schemas.map((n) => [n.name, n.parts.map((p) => p.name)])) };
 
-    // spec ‖ music bed
+    // spec ‖ illustrations ‖ music bed
     t = Date.now();
     const bedP = renderMusic({ energy: plan.energy, mood: plan.music_mood, events: [], outDir: path.join(workDir, "bed") }).then((r) => {
       timings.musicBed = Date.now() - t;
@@ -139,7 +178,7 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
     });
     const env0 = envFor({ width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats });
     const riskLog: { stage: string; score: number }[] = [];
-    const specP = writeSpec(b, plan, vctx, planned.refs).then(async (first) => {
+    const specP = writeSpec(b, plan, vctx, planned.refs, undefined, schemas).then(async (first) => {
       timings.spec = Date.now() - t;
       // slideshow risk: > 40 → one patch round aimed at the worst factors; still > 40 → regenerate once
       let run = first;
@@ -173,11 +212,21 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
       }
       return { run, risk };
     });
-    const [bed, specOut] = await Promise.all([bedP, specP]);
+    const [bed, specOut, drawn] = await Promise.all([bedP, specP, drawP]);
     const specRun = specOut.run;
     const risk = specOut.risk;
     const compiled = await compileCustom(specRun.spec, opts.customLibrary ?? (async () => []));
-    const spec = compiled.spec;
+    // illustrations that failed their checks are dropped with the elements that show them (never fatal)
+    const shown: ReadyIllustration[] = [...resolution.reused, ...drawn.flatMap((d) => (d.ready ? [d.ready] : []))];
+    const ok = new Set(shown.map((x) => x.name));
+    const dropped = [...new Set(compiled.spec.elements.filter((e) => e.type === "illustration" && !ok.has(e.name)).map((e) => (e as { name: string }).name))];
+    const spec = dropped.length ? { ...compiled.spec, elements: compiled.spec.elements.filter((e) => !(e.type === "illustration" && !ok.has(e.name))) } : compiled.spec;
+    const usedNames = new Set(spec.elements.flatMap((e) => (e.type === "illustration" ? [e.name] : [])));
+    const used = shown.filter((x) => usedNames.has(x.name));
+    for (const x of used) compiled.custom[`illo:${x.name}`] = x.js;
+    plan.illustration_assets = used.map(({ js: _js, ...rest }) => (void _js, rest));
+    const videoRef = b.videoId ?? `gen-${randomUUID()}`;
+    await lib.recordUses(b.workspaceId, videoRef, used.map((x) => x.hash)).catch((err) => console.error("[illustrations] recordUses failed", err));
 
     // SFX from the finished timeline on top of the bed
     t = Date.now();
@@ -189,7 +238,10 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
     const toPreviewMs = Date.now() - T0 + (opts.planned?.ms ?? 0);
     opts.progress?.("ready");
     timings.toPreview = toPreviewMs;
-    const status = specRun.issues.length ? "needs_direction" : "ready";
+    // never loop: if validation still fails, the best-scoring version ships, marked, and the failure is logged
+    const flagged = specRun.issues.length > 0;
+    const status = "ready" as const;
+    if (flagged) logValidationFailure(b, plan, specRun);
     const input = await runtimeInputWithAssets(b, plan, spec);
 
     // background: never blocks the preview
@@ -209,12 +261,20 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
           });
         }
       }
-      await store.saveTreatment({ workspace_id: b.workspaceId, video_id: b.videoId ?? null, concept: plan.summary_en, motion_language: plan.motion_language, ref_ids: planned.refs.map((r) => r.id), embedding: planned.embedding, created_at: new Date().toISOString() });
+      await store.saveTreatment({ workspace_id: b.workspaceId, video_id: b.videoId ?? null, concept: plan.summary_en, motion_language: treatmentLanguage(plan), ref_ids: planned.refs.map((r) => r.id), embedding: planned.embedding, created_at: new Date().toISOString() });
       return { taste, mixMp3, sfxMp3, stills, usage: bgCtx.usage, costUsd: costOf(bgCtx.usage).usd };
     });
 
     return {
       status,
+      flagged,
+      illustrations: {
+        shown: used,
+        lookup: resolution.log,
+        drawn: drawn.map((d) => ({ name: d.need.name, ok: !!d.ready, ms: d.ms, rounds: d.rounds, problems: d.problems })),
+        dropped,
+        reuseRate: used.length ? Number((used.filter((x) => x.source === "library").length / used.length).toFixed(2)) : 0,
+      },
       plan,
       // ids/titles/links only: full reference prompts are internal (AI context), never surfaced
       slideshow: { score: risk.score, factors: risk.factors, log: riskLog },

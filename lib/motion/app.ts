@@ -15,6 +15,7 @@ import type { Plan } from "./plan";
 import { editSpec } from "./spec-gen";
 import type { MotionSpec } from "./spec";
 import { customLibrary } from "./promote";
+import { IllustrationLibrary } from "./illustrations";
 import { DbStore } from "./store";
 import { dimensionsFor, type MotionBrief } from "./types";
 import { historyFor, specRevision, undoSpec, type VersionHistory } from "./revision";
@@ -174,7 +175,7 @@ async function finishInBackground(video: Video, version: number, bg: Generation[
   }
 }
 
-const vctxFor = (b: MotionBrief, plan: Plan): ValidateCtx => ({ width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: { ...b.brand.fonts, display: displayFont(b, plan) }, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo, allowedNumbers: allowedNumbers(b), treatment: treatmentText(plan) });
+const vctxFor = (b: MotionBrief, plan: Plan): ValidateCtx => ({ width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: { ...b.brand.fonts, display: displayFont(b, plan) }, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo, allowedNumbers: allowedNumbers(b), treatment: treatmentText(plan), illustrations: Object.fromEntries((plan.illustration_assets ?? []).map((a) => [a.name, a.parts.map((p) => p.name)])) });
 
 /**
  * Background generation (runs in `after()`): a new video, "another direction" (fresh plan + spec), or
@@ -222,13 +223,10 @@ export async function runGeneration(videoId: string, mode: GenerationMode) {
       const p = v?.plan as Plan | null;
       if (p) avoid.push(`${p.motion_language}: ${p.summary_en}`);
     }
-    const g = await generateVideo(brief, new DbStore(admin), workDir, { avoid, customLibrary, progress: (stage) => void setGeneration(videoId, { stage, mode: mode.kind }) });
-    if (g.status !== "ready") {
-      return setGeneration(videoId, { stage: "needs_direction", mode: mode.kind, issues: g.specRun.issues.slice(0, 5) }, (await hasVersion()) ? "ready" : "needs_direction");
-    }
+    const g = await generateVideo(brief, new DbStore(admin), workDir, { avoid, customLibrary, illustrations: new IllustrationLibrary(admin), progress: (stage) => void setGeneration(videoId, { stage, mode: mode.kind }) });
     const version = await insertVersion(video, { plan: g.plan, spec: g.spec, custom: g.custom, validation: g.specRun.rounds, slideshow: g.slideshow, mixWav: g.audio.mix, sfxWav: g.audio.sfx, lufs: g.audio.lufs, peak: g.audio.truePeak }, mode.kind === "direction" ? "direction" : "new");
     await admin.from("videos").update({ title: g.plan.title.slice(0, 120), music_mood: g.plan.music_mood }).eq("id", videoId);
-    await setGeneration(videoId, { stage: "done", mode: mode.kind, version, cost_usd: Number(g.costUsd.toFixed(4)), to_preview_s: Number((g.toPreviewMs / 1000).toFixed(1)), slideshow_risk: g.slideshow.score }, "ready");
+    await setGeneration(videoId, { stage: "done", mode: mode.kind, version, cost_usd: Number(g.costUsd.toFixed(4)), to_preview_s: Number((g.toPreviewMs / 1000).toFixed(1)), slideshow_risk: g.slideshow.score, illustration_reuse: g.illustrations.reuseRate, ...(g.flagged ? { flagged: true, issues: g.specRun.issues.slice(0, 5) } : {}) }, "ready");
     console.info("[motion] generated", { videoId, version, slideshowRisk: g.slideshow.score, log: g.slideshow.log, costUsd: Number(g.costUsd.toFixed(4)) });
     await finishInBackground(video, version, g.background);
   } catch (err) {

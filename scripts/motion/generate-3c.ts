@@ -1,5 +1,6 @@
-// Phase 3C/3D acceptance run: companies through the spec pipeline.
-//   npx tsx --env-file=.env.local --tsconfig tsconfig.scripts.json scripts/motion/generate-3c.ts [slug,slug] [--no-export] [--out out/3d]
+// Phase 3C–3F acceptance run: companies through the spec pipeline.
+//   npx tsx --env-file=.env.local --tsconfig tsconfig.scripts.json scripts/motion/generate-3c.ts [slug,slug] [--no-export] [--out out/3f] [--tag run2]
+// --tag keeps a second run of the same brand (same workspace) in its own folder/report key.
 // Per video: concept, behaviors, tokens per call (+ cache hits), AI cost, time to preview; then 6
 // contact-sheet stills, a chunked export with the stem music, and hit measurement.
 // Outputs: out/<slug>.mp4, out/3c/<slug>/…, out/3c/report.json
@@ -10,6 +11,7 @@ import { behaviorsUsed, generateVideo } from "../../lib/motion/generate";
 import { measureHits } from "../../lib/motion/music";
 import { runSpecJob } from "../../lib/motion/spec-runner";
 import { DbStore } from "../../lib/motion/store";
+import { IllustrationLibrary } from "../../lib/motion/illustrations";
 import { verifyMp4 } from "../../lib/motion/verify-mp4";
 import { admin, brandFor, briefFor, CAP, JOBS, workspaceFor } from "./jobs";
 
@@ -22,11 +24,15 @@ import { admin, brandFor, briefFor, CAP, JOBS, workspaceFor } from "./jobs";
   const reportFile = path.join(root, "report.json");
   const report: Record<string, unknown> = existsSync(reportFile) ? JSON.parse(readFileSync(reportFile, "utf8")) : {};
   const store = new DbStore(admin);
+  const ti = process.argv.indexOf("--tag");
+  const tag = ti > 0 ? process.argv[ti + 1] : "";
+  const library = new IllustrationLibrary(admin);
 
   for (const job of JOBS) {
     if (only && !only.includes(job.slug)) continue;
     const ws = await workspaceFor(job.slug);
-    const dir = path.join(root, job.slug);
+    const key = tag ? `${job.slug}-${tag}` : job.slug;
+    const dir = path.join(root, key);
     mkdirSync(dir, { recursive: true });
     console.log(`\n=== ${job.slug} (${job.url}) · ${job.format} ${job.lengthS}s ${job.dialect} ===`);
     const { draft, ogImage } = await brandFor(job, ws);
@@ -35,10 +41,10 @@ import { admin, brandFor, briefFor, CAP, JOBS, workspaceFor } from "./jobs";
 
     let g;
     try {
-      g = await generateVideo(brief, store, dir, { capUsd: CAP, printCost: true });
+      g = await generateVideo(brief, store, dir, { capUsd: CAP, printCost: true, illustrations: library });
     } catch (err) {
       console.error(`  FAILED: ${err instanceof Error ? err.message : err}`);
-      report[job.slug] = { error: String(err) };
+      report[key] = { error: String(err) };
       writeFileSync(reportFile, JSON.stringify(report, null, 1));
       continue;
     }
@@ -47,6 +53,8 @@ import { admin, brandFor, briefFor, CAP, JOBS, workspaceFor } from "./jobs";
     const behaviors = behaviorsUsed(g.spec);
     console.log(`  concept: "${g.plan.motion_language}" — ${g.plan.concept}`);
     console.log(`  summary: ${g.plan.summary_en} (nearest previous ${g.similarity.toFixed(2)}, concept redos ${g.conceptRedos})`);
+    console.log(`  illustrations (${g.plan.illustration_style}): ${g.illustrations.lookup.map((l) => `${l.name}${l.reused ? `=library:${l.match}(${l.similarity})` : ` drawn (nearest ${l.match ?? "–"} ${l.similarity}${l.reason ? `, ${l.reason}` : ""})`}`).join(" | ")} · reuse ${Math.round(g.illustrations.reuseRate * 100)}%${g.illustrations.dropped.length ? ` · DROPPED ${g.illustrations.dropped.join(", ")}` : ""}`);
+    for (const d of g.illustrations.drawn) console.log(`    draw ${d.name}: ${d.ok ? "ok" : "FAILED"} ${d.rounds} round(s) ${(d.ms / 1000).toFixed(1)}s${d.problems.length ? ` — ${d.problems.join("; ")}` : ""}`);
     console.log(`  spec: ${g.spec.elements.length} elements, ${behaviors.length} behaviors: ${behaviors.join(", ")}`);
     console.log(`  rounds: ${g.specRun.rounds.map((r) => `${r.stage}${r.model ? `(${r.model.replace("claude-", "")})` : ""}→${r.issues} issues${r.autoFixed ? `, ${r.autoFixed} auto-fixed` : ""} ${(r.ms / 1000).toFixed(1)}s`).join(" | ")}`);
     if (g.specRun.issues.length) console.log(`  REMAINING ISSUES: ${g.specRun.issues.map((i) => `[${i.code}] ${i.id}: ${i.msg}`).join(" ; ")}`);
@@ -64,7 +72,7 @@ import { admin, brandFor, briefFor, CAP, JOBS, workspaceFor } from "./jobs";
     let hits: Awaited<ReturnType<typeof measureHits>> = [];
     if (doExport && g.status === "ready") {
       const t0 = Date.now();
-      const out = root.endsWith(`${path.sep}3c`) ? path.resolve(`out/${job.slug}.mp4`) : path.join(root, `${job.slug}.mp4`);
+      const out = root.endsWith(`${path.sep}3c`) ? path.resolve(`out/${job.slug}.mp4`) : path.join(root, `${key}.mp4`);
       const r = await runSpecJob({ task: "render", props, output: out, audioFile: g.audio.mix });
       exportInfo = r.ok ? { file: out, seconds: Number(((Date.now() - t0) / 1000).toFixed(1)), timings: r.timings } : { error: r.errors };
       if (r.ok) {
@@ -74,10 +82,18 @@ import { admin, brandFor, briefFor, CAP, JOBS, workspaceFor } from "./jobs";
       }
       console.log(r.ok ? `  export → ${out} in ${((Date.now() - t0) / 1000).toFixed(1)}s ${JSON.stringify(r.timings)}` : `  export FAILED ${r.errors.join("; ")}`);
       hits = await measureHits(g.audio.mixWav, g.plan.energy, dir);
+      // the export stands in for a download: shipped illustrations join the library
+      if (r.ok) for (const x of g.illustrations.shown) await library.promote(x, { taste: bg.taste?.score ?? null });
     }
     const calls = [...g.usage, ...bg.usage].map((u) => ({ kind: u.kind, model: u.model.replace("claude-", ""), in: u.input_tokens, cached: u.cache_read ?? 0, cache_write: u.cache_write ?? 0, out: u.output_tokens, usd: Number(entryCost(u).toFixed(5)), s: u.ms ? Number((u.ms / 1000).toFixed(1)) : null }));
-    report[job.slug] = {
+    const by = costOf(g.usage).byKind;
+    const sum = (pre: string[]) => Number(Object.entries(by).filter(([k]) => pre.some((p) => k.startsWith(`${p}:`))).reduce((a, [, v]) => a + v.usd, 0).toFixed(5));
+    report[key] = {
       brand: draft.name,
+      flagged: g.flagged,
+      illustration_style: g.plan.illustration_style,
+      illustrations: { lookup: g.illustrations.lookup, drawn: g.illustrations.drawn, dropped: g.illustrations.dropped, reuse_rate: g.illustrations.reuseRate, shown: g.illustrations.shown.map((x) => ({ name: x.name, source: x.source, parts: x.parts.map((p) => p.name) })) },
+      cost_split_usd: { plan: sum(["director"]), spec: sum(["motion_spec", "spec_patch"]), illustrations: sum(["illustration"]) },
       format: job.format,
       length_s: job.lengthS,
       dialect: job.dialect,

@@ -10,7 +10,7 @@ import { dimensionsFor, type MotionBrief } from "../../lib/motion/types";
 import type { Dialect, Goal, Pace, VideoFormat } from "../../lib/types";
 
 export const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
-export const CAP = Number(process.env.MOTIONGX_CAP_USD ?? 0.05);
+export const CAP = Number(process.env.MOTIONGX_CAP_USD ?? 0.25);
 
 export type Job = { slug: string; url: string; dialect: Dialect; format: VideoFormat; lengthS: 15 | 30 | 60; pace: Pace; goal: Goal; brief: string };
 export const JOBS: Job[] = [

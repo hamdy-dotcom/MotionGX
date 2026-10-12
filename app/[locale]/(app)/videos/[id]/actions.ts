@@ -8,7 +8,7 @@ import { runGeneration, undoLatest, type UndoResult } from "@/lib/motion/app";
 import { historyFor } from "@/lib/motion/revision";
 import type { MotionSpec } from "@/lib/motion/spec";
 import { runRender } from "@/lib/render/run";
-import { promoteCustom } from "@/lib/motion/promote";
+import { promoteCustom, promoteIllustrations } from "@/lib/motion/promote";
 import type { ScriptBeat } from "@motiongx/primitives";
 
 export type ActionResult = { ok: true } | { ok: false; error: AiErrorCode | "generic" };
@@ -116,8 +116,14 @@ export async function renderDownloadUrl(renderId: string): Promise<string | null
   const { data: render } = await supabase.from("renders").select("output_path, status, version_id, video_id").eq("id", renderId).maybeSingle();
   if (!render?.output_path || render.status !== "done") return null;
   const { data } = await supabase.storage.from("renders").createSignedUrl(render.output_path, 60 * 60, { download: true });
-  // a downloaded video's vetted custom effects join the behavior library
-  if (data?.signedUrl && render.version_id) after(() => promoteCustom(render.video_id, render.version_id));
+  // a downloaded video's vetted custom effects and illustrations join the libraries
+  if (data?.signedUrl && render.version_id) {
+    const versionId = render.version_id;
+    after(async () => {
+      await promoteCustom(render.video_id, versionId);
+      await promoteIllustrations(versionId);
+    });
+  }
   return data?.signedUrl ?? null;
 }
 

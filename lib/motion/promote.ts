@@ -4,6 +4,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MotionSpec } from "./spec";
+import { IllustrationLibrary } from "./illustrations";
+import type { Plan } from "./plan";
 
 export async function promoteCustom(videoId: string, versionId: string) {
   const admin = createAdminClient();
@@ -21,6 +23,21 @@ export async function promoteCustom(videoId: string, versionId: string) {
       const { error } = await admin.from("motion_custom_behaviors").insert({ name, note: el.note ?? null, tsx: el.tsx, js: js[el.id], source_video_id: videoId, source_element: el.id });
       if (error) console.error("[motion] promote failed", { name, code: error.code, message: error.message });
     }
+  }
+}
+
+/** Illustrations shown in a downloaded video join the `illustrations` library (or count another use). */
+export async function promoteIllustrations(versionId: string) {
+  const admin = createAdminClient();
+  const { data: v } = await admin.from("video_versions").select("plan, custom_js, qa").eq("id", versionId).maybeSingle();
+  const plan = v?.plan as Plan | null;
+  const js = (v?.custom_js ?? {}) as Record<string, string>;
+  const taste = ((v?.qa ?? {}) as { taste?: { score?: number } | null }).taste?.score ?? null;
+  const lib = new IllustrationLibrary(admin);
+  for (const a of plan?.illustration_assets ?? []) {
+    const code = js[`illo:${a.name}`];
+    if (!code) continue;
+    await lib.promote({ ...a, js: code }, { taste }).catch((err) => console.error("[illustrations] promote failed", { name: a.name, err: err instanceof Error ? err.message : err }));
   }
 }
 
