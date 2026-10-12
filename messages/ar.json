@@ -134,7 +134,28 @@
     "role_primary": "أساسي",
     "role_ink": "نص",
     "role_accent": "مميز",
-    "role_background": "خلفية"
+    "role_background": "خلفية",
+    "stepFacts": "المعلومات",
+    "factsTitle": "<b>حقائق</b> الشركة",
+    "factsHint": "السكريبت بيستخدم المعلومات دي بس — ومفيش أرقام من غير ما تكون موجودة على الموقع.",
+    "factWhat": "الشركة بتعمل إيه",
+    "factAudience": "الجمهور",
+    "factFeatures": "المميزات",
+    "factNumbers": "أرقام حقيقية من الموقع",
+    "factPrefix": "قبل الرقم",
+    "factValue": "الرقم",
+    "factSuffix": "بعد الرقم",
+    "factLabel": "الرقم ده بيعدّ إيه",
+    "remove": "احذف",
+    "addNumber": "أضف رقم",
+    "noNumbers": "مفيش أرقام — الفيديو مش هيعرض إحصائيات.",
+    "factOffers": "العروض الحالية",
+    "factCta": "لينك التسجيل / الطلب",
+    "onePerLine": "واحدة في كل سطر",
+    "savedChanges": "اتحفظت التعديلات.",
+    "saveChanges": "احفظ التعديلات",
+    "editTitle": "<b>{name}</b> هوية وحقائق",
+    "editSubtitle": "عدّل الهوية والمعلومات اللي بيعتمد عليها السكريبت، أو اضغط «أعد القراءة» عشان نقرا الموقع من جديد."
   },
   "videos": {
     "title": "<b>فيديو</b> جديد",
@@ -192,7 +213,16 @@
     "rewritten": "اتكتب المشهد من جديد واتحفظ كنسخة {n}.",
     "editApplied": "اتحفظ كنسخة {n}: {summary}",
     "editing": "بنعدّل السكريبت…",
-    "visual": "شكل المشهد"
+    "visual": "شكل المشهد",
+    "download": "نزّل الفيديو",
+    "renderQueued": "الفيديو في الطابور…",
+    "rendering": "بنجهّز الفيديو…",
+    "renderDone": "الفيديو جاهز! تقدر تنزّله دلوقتي.",
+    "renderFailed": "التصدير فشل، ورجّعنا المبلغ للمحفظة.",
+    "pause": "إيقاف",
+    "lineN": "سطر {n}",
+    "removeLine": "احذف السطر",
+    "addLine": "أضف سطر"
   },
   "wallet": {
     "title": "<b>المحفظة</b>",
@@ -252,6 +282,16 @@
     "role_ink": "لون النص",
     "role_accent": "اللون المميز",
     "role_background": "لون الخلفية"
+  },
+  "music": {
+    "on": "الموسيقى شغالة",
+    "off": "الموسيقى مقفولة",
+    "change": "غيّر المقطوعة",
+    "mood": "المود: {mood}",
+    "mood_energetic": "حماسي",
+    "mood_warm": "دافي",
+    "mood_corporate": "رسمي",
+    "mood_luxury": "فخم"
   },
   "art": {
     "hero": "شريط فيلم وزر تشغيل ونقطة قلم تصميم",

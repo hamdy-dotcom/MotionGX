@@ -134,7 +134,28 @@
     "role_primary": "Primary",
     "role_ink": "Text",
     "role_accent": "Accent",
-    "role_background": "Background"
+    "role_background": "Background",
+    "stepFacts": "Facts",
+    "factsTitle": "<b>Company</b> facts",
+    "factsHint": "Scripts only use these facts — and no numbers that aren't on the site.",
+    "factWhat": "What it does",
+    "factAudience": "Audience",
+    "factFeatures": "Features",
+    "factNumbers": "Real numbers from the site",
+    "factPrefix": "Prefix",
+    "factValue": "Number",
+    "factSuffix": "Suffix",
+    "factLabel": "What it counts",
+    "remove": "Remove",
+    "addNumber": "Add number",
+    "noNumbers": "No numbers — videos won't show stats.",
+    "factOffers": "Current offers",
+    "factCta": "Sign-up / order link",
+    "onePerLine": "One per line",
+    "savedChanges": "Changes saved.",
+    "saveChanges": "Save changes",
+    "editTitle": "<b>{name}</b> brand & facts",
+    "editSubtitle": "Edit the brand and the facts scripts rely on, or press \"Re-read website\" to read the site again."
   },
   "videos": {
     "title": "<b>New</b> video",
@@ -192,7 +213,16 @@
     "rewritten": "Scene rewritten and saved as version {n}.",
     "editApplied": "Saved as version {n}: {summary}",
     "editing": "Editing the script…",
-    "visual": "Scene look"
+    "visual": "Scene look",
+    "download": "Download video",
+    "renderQueued": "Queued for rendering…",
+    "rendering": "Rendering your video…",
+    "renderDone": "Your video is ready to download.",
+    "renderFailed": "The export failed — the charge was refunded to your wallet.",
+    "pause": "Pause",
+    "lineN": "Line {n}",
+    "removeLine": "Remove line",
+    "addLine": "Add line"
   },
   "wallet": {
     "title": "<b>Wallet</b>",
@@ -252,6 +282,16 @@
     "role_ink": "Text color",
     "role_accent": "Accent color",
     "role_background": "Background color"
+  },
+  "music": {
+    "on": "Music on",
+    "off": "Music off",
+    "change": "Change track",
+    "mood": "Mood: {mood}",
+    "mood_energetic": "Energetic",
+    "mood_warm": "Warm",
+    "mood_corporate": "Corporate",
+    "mood_luxury": "Luxury"
   },
   "art": {
     "hero": "Film strip, play button and pen-tool node",

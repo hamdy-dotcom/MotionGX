@@ -130,7 +130,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
           ) : (
             <ul className="mt-4 space-y-2">
               {companies.map((c) => (
-                <li key={c.id} className="flex items-center gap-3 rounded-full bg-white p-1.5 pe-4">
+                <li key={c.id}>
+                  <Link href={`/companies/${c.id}`} className="flex items-center gap-3 rounded-full bg-white p-1.5 pe-4 transition-colors hover:bg-primary-light">
                   <CompanyMark name={c.name} logoUrl={c.logo_url} colors={c.brand_profiles?.colors} size="size-10" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{c.name}</p>
@@ -141,6 +142,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
                     ) : null}
                   </div>
                   <ColorDots colors={c.brand_profiles?.colors ?? []} />
+                  </Link>
                 </li>
               ))}
             </ul>

@@ -91,6 +91,9 @@ export type Video = {
   voice_id: string | null;
   status: VideoStatus;
   created_at: string;
+  music_enabled?: boolean;
+  music_mood?: "energetic" | "warm" | "corporate" | "luxury" | null;
+  music_track_id?: string | null;
 };
 
 export type LedgerRow = {

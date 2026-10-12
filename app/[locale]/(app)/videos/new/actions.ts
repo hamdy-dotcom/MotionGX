@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getTranslations } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
 import { redirect } from "@/i18n/navigation";
 import { generateScript } from "@/lib/script/generate";
+import { loadCompanyBrand } from "@/lib/video/brand-props";
+import { pickTrack } from "@/lib/video/music";
 import { toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import {
   DIALECTS,
@@ -12,7 +13,6 @@ import {
   GOALS,
   LENGTHS,
   PACES,
-  type BrandProfile,
   type Dialect,
   type Goal,
   type Pace,
@@ -43,15 +43,8 @@ export async function createVideo(_prev: CreateVideoState, formData: FormData): 
   const voiceId = voiceover ? String(formData.get("voice_id") ?? "") || null : null;
   if (!goal || !format || !length || !pace || !dialect || !companyId || (voiceover && !voiceId)) return { error: "generic" };
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("name, brand_profiles(colors, fonts, tone, tagline)")
-    .eq("id", companyId)
-    .eq("workspace_id", workspace.id)
-    .maybeSingle();
-  if (!company) return { error: "generic" };
-  const profileRaw = (company as unknown as { brand_profiles: BrandProfile | BrandProfile[] | null }).brand_profiles;
-  const profile = Array.isArray(profileRaw) ? (profileRaw[0] ?? null) : profileRaw;
+  const brand = await loadCompanyBrand(supabase, companyId);
+  if (!brand || brand.workspaceId !== workspace.id) return { error: "generic" };
 
   // Write the script first so a failed AI call doesn't leave an empty video behind.
   let generated: Awaited<ReturnType<typeof generateScript>>;
@@ -65,21 +58,22 @@ export async function createVideo(_prev: CreateVideoState, formData: FormData): 
       pace,
       dialect,
       voiceover,
-      brand: { name: company.name, profile },
+      brand: { name: brand.name, websiteUrl: brand.websiteUrl, profile: brand.profile },
     });
   } catch (err) {
     console.error("[createVideo] script generation failed", { err });
     return { aiError: toAiErrorCode(err) };
   }
 
-  const t = await getTranslations("videos");
-  const tg = await getTranslations("goals");
-  const firstLine = brief.split("\n")[0];
-  const title = firstLine.length > 60 ? `${firstLine.slice(0, 57)}…` : firstLine || t("untitled", { goal: tg(goal) });
+  // The AI picks the mood; code picks a matching track at this pace.
+  const videoId = crypto.randomUUID();
+  const track = await pickTrack(supabase, pace, generated.musicMood, videoId);
+  const title = generated.title || brief.split("\n")[0].slice(0, 60);
 
   const { data: video, error } = await supabase
     .from("videos")
     .insert({
+      id: videoId,
       workspace_id: workspace.id,
       company_id: companyId,
       title,
@@ -92,6 +86,9 @@ export async function createVideo(_prev: CreateVideoState, formData: FormData): 
       voiceover,
       voice_id: voiceId,
       status: "draft",
+      music_enabled: true,
+      music_mood: generated.musicMood,
+      music_track_id: track?.id ?? null,
     })
     .select("id")
     .single();
