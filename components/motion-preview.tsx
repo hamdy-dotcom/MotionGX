@@ -5,8 +5,10 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "reac
 export type PreviewHandle = { seek: (frame: number) => void; toggle: () => void; play: () => void; pause: () => void };
 
 export type PreviewProps = {
-  /** compiled composition (CommonJS) — evaluated only inside the sandboxed iframe */
-  code: string;
+  /** the MotionSpec (data) the engine renders */
+  spec: unknown;
+  /** vetted custom elements (compiled) — evaluated only inside the sandboxed iframe */
+  custom?: Record<string, string>;
   input: unknown;
   audio: { music: string | null; sfx: string | null; voiceover: string | null };
 };

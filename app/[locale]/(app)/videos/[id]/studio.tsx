@@ -18,9 +18,9 @@ import { toLocal } from "@/lib/pricing";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { formatKey } from "@/lib/video-labels";
 import type { BrandColor, Video } from "@/lib/types";
-import type { Treatment } from "@/lib/motion/director";
-import type { QaReport } from "@/lib/motion/qa";
-import type { RuntimeInput } from "@/remotion/MotionVideo";
+import type { Plan } from "@/lib/motion/plan";
+import type { MotionSpec } from "@/lib/motion/spec";
+import type { RuntimeInput } from "@/remotion/runtime-input";
 import type { ScriptBeat } from "@motiongx/primitives";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { Heading, boldTag } from "@/components/heading";
@@ -34,16 +34,18 @@ type Notice = { tone: "ok" | "info" | "error"; text: string; topUp?: boolean } |
 export type RenderInfo = { id: string; status: string; progress: number; downloadUrl: string | null };
 export type StudioVersion = {
   version: number;
-  js: string;
+  spec: MotionSpec;
+  custom: Record<string, string>;
   input: RuntimeInput;
-  treatment: Treatment;
+  plan: Plan;
   beats: ScriptBeat[];
-  qa: QaReport[];
+  /** validation rounds + background taste verdict */
+  qa: { validation?: { stage: string }[]; taste?: { score: number; note: string } | null };
   mixUrl: string | null;
   sfxUrl: string | null;
 };
 
-const STAGES = ["queued", "director", "script", "code", "validate", "qa", "music", "done"] as const;
+const STAGES = ["queued", "plan", "spec", "music", "ready", "done"] as const;
 type Stage = (typeof STAGES)[number];
 
 export function Studio({
@@ -113,7 +115,8 @@ export function Studio({
   const previewProps: PreviewProps | null = useMemo(() => {
     if (!current) return null;
     return {
-      code: current.js,
+      spec: current.spec,
+      custom: current.custom,
       input: { ...current.input, script: { ...current.input.script, beats } },
       audio: { music: musicOn ? current.mixUrl : current.sfxUrl, sfx: null, voiceover: null },
     };
@@ -258,9 +261,10 @@ export function Studio({
     });
 
   const exporting = status === "exporting" || renderActive;
-  const treatment = current?.treatment;
-  const energy = treatment?.energy;
-  const lastQa = current?.qa.at(-1);
+  const plan = current?.plan;
+  const energy = plan?.energy;
+  const taste = current?.qa.taste ?? null;
+  const repairRounds = current?.qa.validation?.filter((r) => /patch|fix|finish/.test(r.stage)).length ?? 0;
   const markers = beats.slice(1).map((b) => (b.start_s / video.length_s) * 100);
   const stageIndex = Math.max(0, STAGES.indexOf(stage as Stage));
 
@@ -359,7 +363,7 @@ export function Studio({
         </div>
       ) : null}
 
-      {current && treatment ? (
+      {current && plan ? (
         <>
           <div className="grid gap-5 xl:grid-cols-[320px_1fr_340px]">
             {/* Treatment */}
@@ -370,14 +374,14 @@ export function Studio({
               <div>
                 <p className="label">{t("concept")}</p>
                 <p className="mt-1 text-sm leading-relaxed" dir="auto">
-                  {treatment.concept}
+                  {plan.concept}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <span className="chip chip-solid" dir="auto">
-                  {treatment.motion_language}
+                  {plan.motion_language}
                 </span>
-                <span className="chip chip-white">{tm(`mood_${treatment.music.mood}` as "mood_energetic")}</span>
+                <span className="chip chip-white">{tm(`mood_${plan.music_mood}` as "mood_energetic")}</span>
                 {energy ? (
                   <span className="chip chip-white" dir="ltr">
                     {formatNumber(energy.bpm, locale)} BPM
@@ -386,24 +390,9 @@ export function Studio({
               </div>
               <details className="text-sm">
                 <summary className="cursor-pointer font-semibold text-primary-dark">{t("treatmentMore")}</summary>
-                <dl className="mt-2 space-y-2 leading-relaxed" dir="auto">
-                  <div>
-                    <dt className="label">{t("metaphor")}</dt>
-                    <dd>{treatment.visual_metaphor}</dd>
-                  </div>
-                  <div>
-                    <dt className="label">{t("motion")}</dt>
-                    <dd>{treatment.motion_language_detail}</dd>
-                  </div>
-                  <div>
-                    <dt className="label">{t("typography")}</dt>
-                    <dd>{treatment.typography}</dd>
-                  </div>
-                  <div>
-                    <dt className="label">{t("palette")}</dt>
-                    <dd>{treatment.palette_usage}</dd>
-                  </div>
-                </dl>
+                <p className="mt-2 leading-relaxed" dir="ltr">
+                  {plan.summary_en}
+                </p>
               </details>
               <ol className="space-y-1.5">
                 {beats.map((b, i) => (
@@ -421,7 +410,7 @@ export function Studio({
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium" dir="auto">
-                          {treatment.beats.find((tb) => tb.id === b.id)?.name ?? b.role}
+                          {plan.shots.find((x) => x.id === b.id)?.visual ?? b.role}
                         </span>
                         <span className="block truncate text-xs text-ink-muted" dir={scriptDir}>
                           {b.lines.join(" · ")}
@@ -522,9 +511,9 @@ export function Studio({
                 <p className="mt-2 text-xs text-ink-muted">{t("requestHint")}</p>
               </form>
 
-              {lastQa ? (
+              {taste ? (
                 <p className="text-xs text-ink-muted">
-                  {t("qaScore", { score: formatNumber(lastQa.score, locale, { maximumFractionDigits: 1 }), rounds: formatNumber(current.qa.length, locale) })}
+                  {t("qaScore", { score: formatNumber(taste.score, locale, { maximumFractionDigits: 1 }), rounds: formatNumber(repairRounds, locale) })}
                 </p>
               ) : null}
             </section>

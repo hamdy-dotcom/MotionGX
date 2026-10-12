@@ -1,20 +1,20 @@
 import "server-only";
+import { writeFileSync } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadCompanyBrand } from "@/lib/video/brand-props";
-import { runMotionJob } from "@/lib/motion/runner";
-import { runtimeInput } from "@/lib/motion/pipeline";
-import { dimensionsFor } from "@/lib/motion/types";
-import { EMPTY_FACTS } from "@/lib/brand/types";
-import type { Treatment } from "@/lib/motion/director";
-import type { ScriptBeat } from "@motiongx/primitives";
+import { briefFor, runtimeInputFor } from "@/lib/motion/app";
+import { runSpecJob } from "@/lib/motion/spec-runner";
+import type { Plan } from "@/lib/motion/plan";
+import type { MotionSpec } from "@/lib/motion/spec";
+import type { SpecVideoProps } from "@/remotion/SpecVideo";
 import type { Video } from "@/lib/types";
 
 /**
- * Renders a queued export: status `rendering` → MP4 (rendered by the isolated motion worker / Vercel
- * Sandbox) uploaded to renders/{workspace_id}/{render_id}.mp4 → status `done`, video `ready`.
+ * Renders a queued export: status `rendering` → MP4 (the version's MotionSpec, rendered in parallel
+ * chunks by the isolated spec worker — Vercel Sandbox in production, unverified — with the mastered
+ * mix muxed once) uploaded to renders/{workspace_id}/{render_id}.mp4 → status `done`, video `ready`.
  * Any failure calls refund_render(), which credits the wallet back.
  */
 export async function runRender(renderId: string, opts: { forceFailure?: boolean } = {}) {
@@ -32,53 +32,30 @@ export async function runRender(renderId: string, opts: { forceFailure?: boolean
     const { data: video } = await admin.from("videos").select("*").eq("id", render.video_id).single();
     const { data: version } = await admin.from("video_versions").select("*").eq("id", render.version_id).single();
     if (!video || !version) throw new Error("video or version missing");
-    if (!version.composition_js || !version.treatment) throw new Error("this version has no generated composition");
 
     await admin.from("renders").update({ status: "rendering", progress: 0.05, updated_at: new Date().toISOString() }).eq("id", renderId);
     if (opts.forceFailure || process.env.MOTIONGX_FORCE_RENDER_FAILURE === "1") throw new Error("forced failure (test)");
 
     const v = video as Video;
-    const brand = await loadCompanyBrand(admin, v.company_id);
-    if (!brand) throw new Error("brand missing");
-    const { width, height } = dimensionsFor(v.format);
-    const treatment = version.treatment as Treatment;
-    const script = { title: v.title, beats: version.scenes as ScriptBeat[] };
-    const input = runtimeInput(
-      {
-        workspaceId: v.workspace_id,
-        brief: v.brief,
-        goal: v.goal,
-        format: v.format,
-        width,
-        height,
-        lengthS: v.length_s,
-        pace: v.pace,
-        dialect: v.dialect,
-        voiceover: v.voiceover,
-        brand: {
-          name: brand.name,
-          url: (brand.video.url ?? "").replace(/^https?:\/\//, ""),
-          tone: "",
-          tagline: "",
-          colors: brand.video.colors,
-          fonts: brand.video.fonts,
-          hasLogo: Boolean(brand.video.logoUrl),
-          logoUrl: brand.video.logoUrl,
-          logoPlate: brand.video.logoPlate,
-          imageUrls: brand.video.imageUrls,
-          imageCount: brand.video.imageUrls.length,
-        },
-        facts: EMPTY_FACTS,
-      },
-      treatment.energy,
-      script,
-    );
+    if (!version.spec || !version.plan) throw new Error("this version has no MotionSpec (made with the old engine — generate another direction)");
+    const brief = await briefFor(v);
+    if (!brief) throw new Error("brand missing");
+    const plan = { ...(version.plan as Plan), beats: version.scenes } as Plan;
     const audio = (version.audio ?? {}) as { mix?: string; sfx?: string };
-    const publicUrl = (p?: string) => (p ? admin.storage.from("music").getPublicUrl(p).data.publicUrl : null);
-    const music = v.music_enabled === false ? publicUrl(audio.sfx) : publicUrl(audio.mix);
-
-    const res = await runMotionJob({ task: "render", js: version.composition_js, input, audio: { music, sfx: null, voiceover: null }, output: out });
-    if (!res.ok) throw new Error(`${res.stage}: ${res.errors.join("; ")}`);
+    // the soundtrack is muxed once after the chunks render: download it next to the output
+    const track = v.music_enabled === false ? audio.sfx : audio.mix;
+    let audioFile: string | null = null;
+    if (track) {
+      const { data: blob } = await admin.storage.from("music").download(track);
+      if (blob) {
+        audioFile = out.replace(/\.mp4$/, path.extname(track));
+        writeFileSync(audioFile, Buffer.from(await blob.arrayBuffer()));
+      }
+    }
+    const props: SpecVideoProps = { spec: version.spec as MotionSpec, input: runtimeInputFor(brief, plan), audio: { music: null, sfx: null, voiceover: null }, custom: (version.custom_js ?? {}) as Record<string, string> };
+    const res = await runSpecJob({ task: "render", props, output: out, audioFile });
+    if (audioFile) await rm(audioFile, { force: true });
+    if (!res.ok) throw new Error(`render: ${res.errors.join("; ")}`);
     await admin.from("renders").update({ progress: 0.95, updated_at: new Date().toISOString() }).eq("id", renderId);
 
     const outputPath = `${v.workspace_id}/${renderId}.mp4`;

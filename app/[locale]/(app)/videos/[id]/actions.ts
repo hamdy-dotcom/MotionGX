@@ -6,15 +6,16 @@ import { getAppContext } from "@/lib/context";
 import { assertWithinRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { runGeneration } from "@/lib/motion/app";
 import { runRender } from "@/lib/render/run";
+import { promoteCustom } from "@/lib/motion/promote";
 import type { ScriptBeat } from "@motiongx/primitives";
 
 export type ActionResult = { ok: true } | { ok: false; error: AiErrorCode | "generic" };
 
-/** Edits on-screen lines: a new version that reuses the same composition (the code reads lines from props). */
+/** Edits on-screen lines: a new version with the same spec (text elements reference lines as "sN:i"). */
 export async function saveLines(videoId: string, beats: ScriptBeat[]): Promise<{ ok: true; version: number } | { ok: false }> {
   const { supabase } = await getAppContext();
   const { data: latest } = await supabase.from("video_versions").select("*").eq("video_id", videoId).order("version", { ascending: false }).limit(1).maybeSingle();
-  if (!latest?.composition_js) return { ok: false };
+  if (!latest?.spec) return { ok: false };
   const byId = new Map(beats.map((b) => [b.id, b]));
   const scenes = (latest.scenes as ScriptBeat[]).map((b) => {
     const next = byId.get(b.id);
@@ -96,9 +97,11 @@ export async function exportVideoAction(videoId: string): Promise<ExportResult> 
 
 export async function renderDownloadUrl(renderId: string): Promise<string | null> {
   const { supabase } = await getAppContext();
-  const { data: render } = await supabase.from("renders").select("output_path, status").eq("id", renderId).maybeSingle();
+  const { data: render } = await supabase.from("renders").select("output_path, status, version_id, video_id").eq("id", renderId).maybeSingle();
   if (!render?.output_path || render.status !== "done") return null;
   const { data } = await supabase.storage.from("renders").createSignedUrl(render.output_path, 60 * 60, { download: true });
+  // a downloaded video's vetted custom effects join the behavior library
+  if (data?.signedUrl && render.version_id) after(() => promoteCustom(render.video_id, render.version_id));
   return data?.signedUrl ?? null;
 }
 

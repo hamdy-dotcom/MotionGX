@@ -1,30 +1,25 @@
 import "server-only";
+// App glue for Phase 3C: background generation (runs in `after()`), change requests and storage.
 import { mkdirSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadCompanyBrand } from "@/lib/video/brand-props";
 import { EMPTY_FACTS, type BrandFacts } from "@/lib/brand/types";
-import { withRun, type RunContext } from "@/lib/ai/usage";
-import { pickTrack } from "@/lib/video/music";
+import { costOf, withRun, type RunContext } from "@/lib/ai/usage";
 import type { Video } from "@/lib/types";
-import type { ScriptBeat } from "@motiongx/primitives";
-import { codeWithQa, generateMotion, runtimeInput, type PipelineProgress } from "./pipeline";
-import { scoreVideo, type ScoredAudio } from "./audio";
-import { DbStore, FileStore, type MotionStore } from "./store";
-import type { Treatment } from "./director";
-import type { QaReport } from "./qa";
+import { GENERATION_CAP_USD, generateVideo, runtimeInputFor, type Generation } from "./generate";
+import { deriveEvents } from "./events";
+import { encodeMp3, renderMusic } from "./music";
+import type { Plan } from "./plan";
+import { editSpec } from "./spec-gen";
+import type { MotionSpec } from "./spec";
+import { customLibrary } from "./promote";
+import { DbStore } from "./store";
 import { dimensionsFor, type MotionBrief } from "./types";
+import type { ValidateCtx } from "./validate";
 
 export type GenerationMode = { kind: "new" } | { kind: "direction" } | { kind: "edit"; instruction: string };
-
-async function storeFor(): Promise<MotionStore> {
-  const admin = createAdminClient();
-  const probe = await admin.from("motion_refs").select("id", { count: "exact", head: true });
-  // Before 0004 runs (or with an empty library) fall back to the local JSON store.
-  if (probe.error || !probe.count) return new FileStore(path.join(os.tmpdir(), "mgx-motion-store.json"));
-  return new DbStore(admin);
-}
 
 export async function briefFor(video: Video): Promise<MotionBrief | null> {
   const admin = createAdminClient();
@@ -69,63 +64,61 @@ async function setGeneration(videoId: string, patch: Record<string, unknown>, st
   if (error) console.error("[motion] progress update failed", { videoId, code: error.code, message: error.message });
 }
 
-async function uploadAudio(workspaceId: string, videoId: string, version: number, audio: ScoredAudio) {
+const audioPath = (video: Video, version: number, name: string) => `generated/${video.workspace_id}/${video.id}/v${version}/${name}`;
+
+async function upload(p: string, file: string, contentType: string) {
+  const { error } = await createAdminClient().storage.from("music").upload(p, readFileSync(file), { contentType, upsert: true });
+  if (error) throw new Error(`audio upload failed: ${error.message}`);
+  return p;
+}
+
+async function nextVersion(videoId: string) {
+  const { data } = await createAdminClient().from("video_versions").select("version").eq("video_id", videoId).order("version", { ascending: false }).limit(1).maybeSingle();
+  return (data?.version ?? 0) + 1;
+}
+
+/** Saves a version that plays immediately (WAV); MP3s replace the WAVs when the background encode lands. */
+async function insertVersion(video: Video, data: { plan: Plan; spec: MotionSpec; custom: Record<string, string>; validation: unknown; mixWav: string; sfxWav: string; lufs: number | null; peak: number | null }) {
   const admin = createAdminClient();
-  const paths: Record<string, string> = {};
-  for (const name of ["mix", "sfx", "music"] as const) {
-    const p = `generated/${workspaceId}/${videoId}/v${version}/${name}.mp3`;
-    const { error } = await admin.storage.from("music").upload(p, readFileSync(audio[name]), { contentType: "audio/mpeg", upsert: true });
-    if (error) throw new Error(`audio upload failed: ${error.message}`);
-    paths[name] = p;
-  }
-  return { ...paths, lufs: audio.report.mix_lufs, peak_dbfs: audio.report.mix_peak_dbfs, hits: audio.hits };
-}
-
-/** Per-video score when it worked; otherwise the closest track from the 24-track library (no SFX layer). */
-async function libraryFallback(video: Video, mood: string) {
-  const track = await pickTrack(createAdminClient(), video.pace, mood as Parameters<typeof pickTrack>[2], video.id);
-  return track ? { mix: track.storage_path, sfx: null, music: track.storage_path, fallback_track_id: track.id } : {};
-}
-
-async function scoreOrNull(...args: Parameters<typeof scoreVideo>): Promise<ScoredAudio | null> {
-  try {
-    return await scoreVideo(...args);
-  } catch (err) {
-    console.error("[motion] scoring failed — using the library", err instanceof Error ? err.message : err);
-    return null;
-  }
-}
-
-async function insertVersion(video: Video, data: { script: { title: string; beats: ScriptBeat[] }; code: string; js: string; treatment: Treatment; qa: QaReport[]; audio: ScoredAudio | null }) {
-  const admin = createAdminClient();
-  const { data: latest } = await admin.from("video_versions").select("version").eq("video_id", video.id).order("version", { ascending: false }).limit(1).maybeSingle();
-  const version = (latest?.version ?? 0) + 1;
-  const audio = data.audio ? await uploadAudio(video.workspace_id, video.id, version, data.audio) : await libraryFallback(video, data.treatment.music.mood);
+  const version = await nextVersion(video.id);
+  const mix = await upload(audioPath(video, version, "mix.wav"), data.mixWav, "audio/wav");
+  const sfx = await upload(audioPath(video, version, "sfx.wav"), data.sfxWav, "audio/wav");
   const { error } = await admin.from("video_versions").insert({
     video_id: video.id,
     version,
-    scenes: data.script.beats,
-    script: { title: data.script.title, generator: "motion", motion_language: data.treatment.motion_language },
-    composition_code: data.code,
-    composition_js: data.js,
-    treatment: data.treatment,
-    energy_map: data.treatment.energy,
-    qa: data.qa,
-    audio,
+    scenes: data.plan.beats,
+    script: { title: data.plan.title, generator: "spec", motion_language: data.plan.motion_language },
+    spec: data.spec,
+    plan: data.plan,
+    custom_js: data.custom,
+    energy_map: data.plan.energy,
+    qa: { validation: data.validation },
+    audio: { mix, sfx, lufs: data.lufs, peak_dbfs: data.peak },
   });
   if (error) throw new Error(`version insert failed: ${error.message}`);
   return version;
 }
 
-async function hasVersion(videoId: string) {
-  const { count } = await createAdminClient().from("video_versions").select("id", { count: "exact", head: true }).eq("video_id", videoId);
-  return Boolean(count);
+async function finishInBackground(video: Video, version: number, bg: Generation["background"]) {
+  try {
+    const r = await bg;
+    const admin = createAdminClient();
+    const { data: v } = await admin.from("video_versions").select("audio, qa").eq("video_id", video.id).eq("version", version).single();
+    const audio = { ...((v?.audio ?? {}) as Record<string, unknown>) };
+    if (r.mixMp3) audio.mix = await upload(audioPath(video, version, "mix.mp3"), r.mixMp3, "audio/mpeg");
+    if (r.sfxMp3) audio.sfx = await upload(audioPath(video, version, "sfx.mp3"), r.sfxMp3, "audio/mpeg");
+    await admin.from("video_versions").update({ audio, qa: { ...((v?.qa ?? {}) as Record<string, unknown>), taste: r.taste } }).eq("video_id", video.id).eq("version", version);
+  } catch (err) {
+    console.error("[motion] background step failed", { videoId: video.id, version, err: err instanceof Error ? err.message : err });
+  }
 }
 
+const vctxFor = (b: MotionBrief, plan: Plan): ValidateCtx => ({ width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: b.brand.fonts, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo });
+
 /**
- * Background generation for a video (runs in `after()`): a new video, "another direction" (fresh
- * treatment + composition) or a change request (coder + QA loop on the current composition).
- * AI calls are free to the user and count toward the hourly AI limit.
+ * Background generation (runs in `after()`): a new video, "another direction" (fresh plan + spec), or
+ * a change request (JSON Patch on the current spec + the same validation/repair). AI is free to the
+ * user, counts toward the hourly limit and is capped per generation.
  */
 export async function runGeneration(videoId: string, mode: GenerationMode) {
   const admin = createAdminClient();
@@ -134,54 +127,49 @@ export async function runGeneration(videoId: string, mode: GenerationMode) {
   if (!video) return;
   const brief = await briefFor(video);
   if (!brief) return setGeneration(videoId, { stage: "error", error: "brand missing" }, "failed");
-
   const workDir = path.join(os.tmpdir(), "mgx", videoId, String(Date.now()));
   mkdirSync(workDir, { recursive: true });
-  let last = 0;
-  const progress: PipelineProgress = (stage, detail) => {
-    const now = Date.now();
-    if (now - last < 1500 && stage !== "done") return;
-    last = now;
-    void setGeneration(videoId, { stage, detail, mode: mode.kind });
-  };
+  const hasVersion = async () => Boolean((await admin.from("video_versions").select("id", { count: "exact", head: true }).eq("video_id", videoId)).count);
 
   try {
     if (mode.kind === "edit") {
       const { data: v } = await admin.from("video_versions").select("*").eq("video_id", videoId).order("version", { ascending: false }).limit(1).single();
-      if (!v?.composition_code || !v.treatment) throw new Error("no composition to edit");
-      const treatment = v.treatment as Treatment;
-      const script = { title: (v.script as { title?: string })?.title ?? video.title, beats: v.scenes as ScriptBeat[] };
-      await setGeneration(videoId, { stage: "code", mode: "edit" }, "generating");
-      const ctx: RunContext = { videoId, usage: [] };
-      const coded = await withRun(ctx, () => codeWithQa(brief, treatment, script, runtimeInput(brief, treatment.energy, script), workDir, progress, { instruction: mode.instruction, baseCode: v.composition_code as string }));
-      if (!coded.code || !coded.js) {
-        // Keep the last passing version; tell the user.
-        return setGeneration(videoId, { stage: "edit_failed", mode: "edit", qa: coded.qa.at(-1)?.summary ?? null }, "ready");
-      }
-      const audio = await scoreOrNull(treatment.energy, coded.sfx, treatment.music.mood, 7, path.join(workDir, "audio"));
-      const version = await insertVersion(video, { script, code: coded.code, js: coded.js, treatment, qa: coded.qa, audio });
-      return setGeneration(videoId, { stage: "done", mode: "edit", version }, "ready");
+      if (!v?.spec || !v.plan) throw new Error("no spec to edit");
+      const plan = { ...(v.plan as Plan), beats: v.scenes } as Plan;
+      await setGeneration(videoId, { stage: "spec", mode: "edit" }, "generating");
+      const ctx: RunContext = { videoId, usage: [], capUsd: GENERATION_CAP_USD };
+      const run = await withRun(ctx, () => editSpec(brief, plan, v.spec as MotionSpec, mode.instruction, vctxFor(brief, plan)));
+      if (run.issues.length) return setGeneration(videoId, { stage: "edit_failed", mode: "edit", issues: run.issues.slice(0, 5) }, "ready");
+      const events = deriveEvents(run.spec, { width: brief.width, height: brief.height, fps: 30, bpm: plan.energy.bpm, duration: brief.lengthS, hits: plan.energy.hits, lineText: () => null, arabic: () => false, shots: new Map(plan.beats.map((b) => [b.id, { start: b.start_s, end: b.end_s }])) });
+      await setGeneration(videoId, { stage: "music", mode: "edit" }, "generating");
+      const audio = await renderMusic({ energy: plan.energy, mood: plan.music_mood, events, outDir: path.join(workDir, "audio") });
+      const version = await insertVersion(video, { plan, spec: run.spec, custom: (v.custom_js ?? {}) as Record<string, string>, validation: run.rounds, mixWav: audio.mix, sfxWav: audio.sfx, lufs: audio.lufs, peak: audio.truePeak });
+      void encodeMp3([audio.mix, audio.sfx]).then(async ([mixMp3, sfxMp3]) => {
+        const a = { mix: await upload(audioPath(video, version, "mix.mp3"), mixMp3, "audio/mpeg"), sfx: await upload(audioPath(video, version, "sfx.mp3"), sfxMp3, "audio/mpeg"), lufs: audio.lufs, peak_dbfs: audio.truePeak };
+        await admin.from("video_versions").update({ audio: a }).eq("video_id", videoId).eq("version", version);
+      });
+      return setGeneration(videoId, { stage: "done", mode: "edit", version, cost_usd: Number(costOf(ctx.usage).usd.toFixed(4)) }, "ready");
     }
 
-    await setGeneration(videoId, { stage: "director", mode: mode.kind }, "generating");
-    const store = await storeFor();
+    await setGeneration(videoId, { stage: "plan", mode: mode.kind }, "generating");
     const avoid: string[] = [];
     if (mode.kind === "direction") {
-      const { data: v } = await admin.from("video_versions").select("treatment").eq("video_id", videoId).order("version", { ascending: false }).limit(1).maybeSingle();
-      const lang = (v?.treatment as Treatment | null)?.motion_language;
-      if (lang) avoid.push(lang);
+      const { data: v } = await admin.from("video_versions").select("plan").eq("video_id", videoId).order("version", { ascending: false }).limit(1).maybeSingle();
+      const p = v?.plan as Plan | null;
+      if (p) avoid.push(`${p.motion_language}: ${p.summary_en}`);
     }
-    const result = await generateMotion(brief, store, workDir, { progress, avoidMotionLanguages: avoid, seed: Date.now() % 1000 });
-    if (result.status !== "passed" || !result.code || !result.js) {
-      // A failed "another direction" keeps the current version playable.
-      const { count } = await admin.from("video_versions").select("id", { count: "exact", head: true }).eq("video_id", videoId);
-      return setGeneration(videoId, { stage: "needs_direction", mode: mode.kind, qa: result.qa.at(-1)?.summary ?? null }, count ? "ready" : "needs_direction");
+    const g = await generateVideo(brief, new DbStore(admin), workDir, { avoid, customLibrary, progress: (stage) => void setGeneration(videoId, { stage, mode: mode.kind }) });
+    if (g.status !== "ready") {
+      return setGeneration(videoId, { stage: "needs_direction", mode: mode.kind, issues: g.specRun.issues.slice(0, 5) }, (await hasVersion()) ? "ready" : "needs_direction");
     }
-    const version = await insertVersion(video, { script: result.script, code: result.code, js: result.js, treatment: result.treatment, qa: result.qa, audio: result.audio });
-    await admin.from("videos").update({ title: result.script.title.slice(0, 120), music_mood: result.treatment.music.mood }).eq("id", videoId);
-    return setGeneration(videoId, { stage: "done", mode: mode.kind, version }, "ready");
+    const version = await insertVersion(video, { plan: g.plan, spec: g.spec, custom: g.custom, validation: g.specRun.rounds, mixWav: g.audio.mix, sfxWav: g.audio.sfx, lufs: g.audio.lufs, peak: g.audio.truePeak });
+    await admin.from("videos").update({ title: g.plan.title.slice(0, 120), music_mood: g.plan.music_mood }).eq("id", videoId);
+    await setGeneration(videoId, { stage: "done", mode: mode.kind, version, cost_usd: Number(g.costUsd.toFixed(4)), to_preview_s: Number((g.toPreviewMs / 1000).toFixed(1)) }, "ready");
+    await finishInBackground(video, version, g.background);
   } catch (err) {
     console.error("[motion] generation failed", { videoId, mode: mode.kind, err });
-    return setGeneration(videoId, { stage: "error", mode: mode.kind, error: err instanceof Error ? err.message.slice(0, 300) : String(err) }, mode.kind === "edit" ? "ready" : (await hasVersion(videoId)) ? "ready" : "needs_direction");
+    return setGeneration(videoId, { stage: "error", mode: mode.kind, error: err instanceof Error ? err.message.slice(0, 300) : String(err) }, mode.kind === "edit" || (await hasVersion()) ? "ready" : "needs_direction");
   }
 }
+
+export { runtimeInputFor };

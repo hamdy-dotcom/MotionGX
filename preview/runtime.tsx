@@ -1,13 +1,13 @@
 // Preview runtime for the studio. Loaded by preview/frame.html inside <iframe sandbox="allow-scripts">, i.e. an
-// opaque origin with no cookies, no storage and no access to the app. Generated composition code is
-// evaluated only here (by MotionVideo), never in the app's origin. Props arrive by postMessage.
+// opaque origin with no cookies, no storage and no access to the app. It renders a MotionSpec (data)
+// with SpecVideo; vetted custom elements are the only code, and they run only here. Props arrive by postMessage.
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Player, type PlayerRef } from "@remotion/player";
-import { MotionVideo, type MotionVideoProps } from "../remotion/MotionVideo";
+import { SpecVideo, type SpecVideoProps } from "../remotion/SpecVideo";
 
 type Inbound =
-  | { type: "mgx:props"; props: MotionVideoProps }
+  | { type: "mgx:props"; props: SpecVideoProps }
   | { type: "mgx:seek"; frame: number }
   | { type: "mgx:play" }
   | { type: "mgx:pause" }
@@ -16,7 +16,7 @@ type Inbound =
 const send = (msg: Record<string, unknown>) => window.parent.postMessage(msg, "*");
 
 function App() {
-  const [props, setProps] = useState<MotionVideoProps | null>(null);
+  const [props, setProps] = useState<SpecVideoProps | null>(null);
   const ref = useRef<PlayerRef>(null);
 
   useEffect(() => {
@@ -58,7 +58,7 @@ function App() {
   return (
     <Player
       ref={ref}
-      component={MotionVideo}
+      component={SpecVideo}
       inputProps={props}
       durationInFrames={durationInFrames}
       fps={fps}

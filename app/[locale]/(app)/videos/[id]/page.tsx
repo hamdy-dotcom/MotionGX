@@ -2,10 +2,9 @@ import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
 import { exportCostUsd, getFxRate, getPrices } from "@/lib/pricing";
-import { briefFor } from "@/lib/motion/app";
-import { runtimeInput } from "@/lib/motion/pipeline";
-import type { Treatment } from "@/lib/motion/director";
-import type { QaReport } from "@/lib/motion/qa";
+import { briefFor, runtimeInputFor } from "@/lib/motion/app";
+import type { Plan } from "@/lib/motion/plan";
+import type { MotionSpec } from "@/lib/motion/spec";
 import type { Video } from "@/lib/types";
 import type { ScriptBeat } from "@motiongx/primitives";
 import { Studio, type RenderInfo, type StudioVersion } from "./studio";
@@ -31,23 +30,24 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
   const video = videoRes.data as Row | null;
   if (!video) notFound();
 
-  // Only versions with a generated composition can be previewed (scene-kit versions from Phase 3 cannot).
+  // Phase 3C versions carry a MotionSpec; older (3B code-based) versions can't be previewed — the studio
+  // offers "another direction" for those.
   let current: StudioVersion | null = null;
   const v = versionRes.data;
-  if (v?.composition_js && v.treatment) {
+  if (v?.spec && v.plan) {
     const brief = await briefFor(video);
-    const treatment = v.treatment as Treatment;
-    const script = { title: (v.script as { title?: string } | null)?.title ?? video.title, beats: (v.scenes ?? []) as ScriptBeat[] };
-    const audio = (v.audio ?? {}) as { mix?: string; sfx?: string; hits?: number[] };
+    const plan = { ...(v.plan as Plan), beats: (v.scenes ?? []) as ScriptBeat[] } as Plan;
+    const audio = (v.audio ?? {}) as { mix?: string; sfx?: string };
     const publicUrl = (p?: string) => (p ? supabase.storage.from("music").getPublicUrl(p).data.publicUrl : null);
     if (brief) {
       current = {
         version: v.version,
-        js: v.composition_js as string,
-        input: runtimeInput(brief, treatment.energy, script),
-        treatment,
-        beats: script.beats,
-        qa: (v.qa ?? []) as QaReport[],
+        spec: v.spec as MotionSpec,
+        custom: (v.custom_js ?? {}) as Record<string, string>,
+        input: runtimeInputFor(brief, plan),
+        plan,
+        beats: plan.beats,
+        qa: (v.qa ?? {}) as StudioVersion["qa"],
         mixUrl: publicUrl(audio.mix),
         sfxUrl: publicUrl(audio.sfx),
       };
