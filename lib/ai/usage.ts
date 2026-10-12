@@ -17,7 +17,8 @@ export type AiKind =
   | "vision_qa"
   | "ref_card"
   | "motion_spec"
-  | "spec_patch";
+  | "spec_patch"
+  | "illustration";
 
 /** Price per million tokens (input, output) — Claude API list prices. */
 export const PRICES: Record<string, [number, number]> = {

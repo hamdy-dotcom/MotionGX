@@ -13,6 +13,8 @@
     "music:generate": ".venv/bin/python scripts/music/generate.py --library --length 70",
     "music:upload": "tsx --env-file=.env.local --tsconfig tsconfig.scripts.json scripts/music/upload.ts",
     "preview:build": "tsx --tsconfig tsconfig.scripts.json scripts/motion/build-preview.ts",
+    "illustrations:seed": "tsx --env-file=.env.local --tsconfig tsconfig.scripts.json scripts/motion/seed-illustrations.ts",
+    "illustrations:sync": "tsx --env-file=.env.local --tsconfig tsconfig.scripts.json scripts/motion/illustrations-sync.ts",
     "refs:import": "tsx --env-file=.env.local --tsconfig tsconfig.scripts.json scripts/motion/refs-import.ts"
   },
   "dependencies": {
@@ -36,6 +38,7 @@
     "@remotion/three": "4.0.534",
     "@remotion/transitions": "4.0.534",
     "@remotion/vercel": "4.0.534",
+    "@resvg/resvg-js": "2.6.2",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "^2.117.3",
     "@vercel/sandbox": "^3.6.1",
