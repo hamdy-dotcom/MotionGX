@@ -40,3 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 !.env.example
+
+# local design reference (motion-kit)
+/reference/
+/.venv/
+/out/
+/.remotion-bundle/
+/scripts/music/out/
