@@ -148,6 +148,8 @@ export function autoFix(spec: MotionSpec, issues: SpecIssue[]): { spec: MotionSp
 }
 
 const SCRIM_CODES = new Set(["low_contrast", "text_spills_plate", "line_through_text", "covered"]);
+/** label behaviors a scrim copies so it appears, moves and leaves exactly with its label */
+const SCRIM_FX = new Set(["fade", "rise", "pop", "zoom-in", "blur-in", "slide", "fade-out", "rise-out", "blur-out", "slide-out", "shrink-out", "stamp", "spring-in", "drop-in", "pulse", "breathe", "float", "hit-pulse", "move-to", "scale-to"]);
 
 /**
  * Deterministic finisher after the patch rounds: whatever is still wrong with a label gets the standard
@@ -164,15 +166,32 @@ export function finish(spec: MotionSpec, issues: SpecIssue[], ctx: ValidateCtx):
   const scrimmed = new Set<string>();
   for (const i of issues) {
     const el = i.id ? out.elements.find((e) => e.id === i.id) : undefined;
+    // covered by ANOTHER label's scrim: the two labels are too close — shrink both, push this one down
+    const coverer = i.code === "covered" ? i.msg.match(/^"([^"]+)"/)?.[1] : undefined;
+    if (el && el.type === "text" && coverer?.endsWith("_scrim")) {
+      const other = out.elements.find((e) => e.id === coverer.replace(/_scrim$/, ""));
+      for (const t of [el, other]) if (t && (t.type === "text" || t.type === "counter")) t.size = Number((t.size * 0.88).toFixed(2));
+      el.y = Number(Math.min(92, el.y + 3).toFixed(2));
+      applied.push(`separate:${el.id}`);
+      continue;
+    }
     if (el && (el.type === "text" || el.type === "counter") && SCRIM_CODES.has(i.code) && !scrimmed.has(el.id) && i.box) {
       scrimmed.add(el.id);
       // already has a scrim (an earlier pass): make it more opaque / a little bigger instead of adding another
       const existing = out.elements.find((e) => e.id === `${el.id}_scrim`);
       if (existing && existing.type === "shape") {
-        existing.alpha = 0.95;
-        existing.w = Math.min(96, (existing.w ?? 20) + 4);
-        existing.h = (existing.h ?? 8) * 1.15;
-        existing.z = Math.min(98, Math.max(existing.z ?? 0, ...out.elements.filter((e) => !e.id.endsWith("_scrim") && e.id !== el.id).map((e) => (e.z ?? 0) + 1)));
+        // re-fit to the label's current box (never grow cumulatively — that's how scrims start fighting)
+        const hPx2 = ((i.box.y1 - i.box.y0) / 100) * ctx.height;
+        const w2 = Math.min(96, i.box.x1 - i.box.x0 + 6);
+        existing.x = Math.min(98 - w2 / 2, Math.max(2 + w2 / 2, (i.box.x0 + i.box.x1) / 2));
+        existing.y = (i.box.y0 + i.box.y1) / 2;
+        existing.w = w2;
+        existing.h = ((hPx2 * 1.3) / ctx.width) * 100;
+        existing.alpha = 0.96;
+        existing.in = el.in;
+        existing.out = el.out;
+        existing.fx = (el.fx ?? []).filter((f) => SCRIM_FX.has(f.fx));
+        existing.z = Math.min(97, Math.max(existing.z ?? 0, ...out.elements.filter((e) => !e.id.endsWith("_scrim") && e.id !== el.id).map((e) => (e.z ?? 0) + 1)));
         el.z = (existing.z ?? 0) + 1;
         if (el.type === "text") {
           el.color = onScrim;
@@ -186,21 +205,22 @@ export function finish(spec: MotionSpec, issues: SpecIssue[], ctx: ValidateCtx):
       // scrimmed labels go to the top layer (above whatever crossed or covered them), scrim just beneath
       const top = Math.max(...out.elements.filter((e) => !e.id.endsWith("_scrim")).map((e) => e.z ?? 0));
       const z = Math.min(98, Math.max(el.z ?? 0, top + 1));
-      const enterExit = (el.fx ?? []).filter((f) => ["fade", "rise", "pop", "zoom-in", "blur-in", "slide", "fade-out", "rise-out", "blur-out", "slide-out", "shrink-out", "stamp", "spring-in", "drop-in"].includes(f.fx));
+      const enterExit = (el.fx ?? []).filter((f) => SCRIM_FX.has(f.fx));
       out.elements.push({
         id: `${el.id}_scrim`,
         type: "shape",
         shape: "pill",
         fill: "bg",
         alpha: 0.92,
-        x: (i.box.x0 + i.box.x1) / 2,
+        x: Math.min(98 - Math.min(96, wPct + 6) / 2, Math.max(2 + Math.min(96, wPct + 6) / 2, (i.box.x0 + i.box.x1) / 2)),
         y: (i.box.y0 + i.box.y1) / 2,
-        w: Math.min(96, wPct + 7),
+        w: Math.min(96, wPct + 6),
         h: ((hPx * 1.35) / ctx.width) * 100,
         z,
         in: el.in,
         out: el.out,
-        fx: enterExit.length ? enterExit : [{ fx: "fade" }],
+        // exactly the label's own entrance/exit: a scrim that lags behind its label leaves it unreadable
+        fx: enterExit,
       } as MotionSpec["elements"][number]);
       el.z = z + 1;
       if (el.type === "text") {
@@ -239,7 +259,7 @@ export function finish(spec: MotionSpec, issues: SpecIssue[], ctx: ValidateCtx):
       }
     }
     if (el && (el.type === "text" || el.type === "counter") && (i.code === "offscreen" || i.code === "text_overlap" || i.code === "text_overflow") && !i.fix) {
-      el.size = Number((el.size * 0.82).toFixed(2));
+      el.size = Number((el.size * 0.78).toFixed(2));
       if (i.box && i.code === "offscreen") el.x = 50;
       applied.push(`shrink:${el.id}`);
       continue;
@@ -402,7 +422,7 @@ export async function repairSpec(b: MotionBrief, system: string, prompt: string,
     rounds.push({ stage: `patch-${round}`, model: HAIKU, issues: v.issues.length, ms: Date.now() - t0 });
   }
   // deterministic finisher: guarantees a clean layout for what the patches didn't solve
-  for (let pass = 0; pass < 3 && v.issues.length; pass++) {
+  for (let pass = 0; pass < 6 && v.issues.length; pass++) {
     t0 = Date.now();
     const fin = finish(spec, v.issues, vctx);
     const fx = fin.applied.length ? null : autoFix(spec, v.issues);

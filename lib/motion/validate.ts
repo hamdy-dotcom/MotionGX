@@ -352,7 +352,9 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
         .sort((a, c) => zOf(c.o, all) - zOf(a.o, all));
       const plate = below[0];
       // a label on a plate (bubble/pill/card) must sit fully on it
-      if (plate && plate.cov > 0.15 && plate.cov < 0.88 && plate.o.el.type === "shape") {
+      // a shape behind two or more labels is a backdrop, not a plate (no fitting; contrast still applies)
+      const backdrop = plate ? vis.filter((o) => isText(o) && o !== r && (o.text ?? "").trim() && inter(boxes.get(o.el.id)!, boxes.get(plate.o.el.id)!) > 0.15 * area(boxes.get(o.el.id)!)).length >= 1 : false;
+      if (plate && !backdrop && plate.cov > 0.15 && plate.cov < 0.88 && plate.o.el.type === "shape") {
         const pe = plate.o.el;
         const pb = boxes.get(pe.id)!;
         const tw = b.x1 - b.x0;
@@ -384,7 +386,12 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
             w: Number((((nx1 - nx0) / W) * 100).toFixed(2)),
             h: Number((((ny1 - ny0) / W) * 100).toFixed(2)),
           });
-        } else if (needW <= plateW * 1.3 && pe.w !== undefined) add(pe.id, "text_spills_plate", `plate "${pe.id}" is a bit small for "${textNow}"`, t, { w: Number(((pe.w * needW) / plateW).toFixed(1)) });
+        } else if (needW <= plateW * 1.3 && pe.w !== undefined) add(pe.id, "text_spills_plate", `plate "${pe.id}" is a bit small for "${textNow}"`, t, {
+            w: Number(((pe.w * needW * 1.1) / plateW).toFixed(1)),
+            // and centred on its label (an off-centre plate never contains it, however big)
+            x: Number((pe.x + (((b.x0 + b.x1) / 2 - (pb.x0 + pb.x1) / 2) / W) * 100).toFixed(2)),
+            y: Number((pe.y + (((b.y0 + b.y1) / 2 - (pb.y0 + pb.y1) / 2) / H) * 100).toFixed(2)),
+          });
         else if (shrink >= 0.6 && el.size * shrink >= 3.5) add(el.id, "text_spills_plate", `"${textNow}" spills over its plate "${pe.id}" (only ${(plate.cov * 100).toFixed(0)}% on it)`, t, { size: Number((el.size * Math.min(1, shrink)).toFixed(2)) });
         else add(el.id, "text_spills_plate", `"${textNow}" (${((tw / W) * 100).toFixed(0)}% of the width) doesn't fit its plate "${pe.id}" (${((plateW / W) * 100).toFixed(0)}% wide, only ${(plate.cov * 100).toFixed(0)}% of the text on it) — put the label beside/below the plate, use a wide pill/card instead, or shorten the line's size`, t);
       }
