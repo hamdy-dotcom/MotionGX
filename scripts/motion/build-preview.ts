@@ -1,6 +1,6 @@
 // Builds the sandboxed preview runtime → public/preview/runtime.js
 import path from "node:path";
-import { rmSync } from "node:fs";
+import { copyFileSync, rmSync } from "node:fs";
 import { build } from "esbuild";
 
 (async () => {
@@ -24,6 +24,7 @@ import { build } from "esbuild";
     metafile: true,
     logLevel: "warning",
   });
+  copyFileSync(path.resolve("preview/frame.html"), path.resolve("public/preview/frame.html"));
   const entry = Object.entries(res.metafile.outputs).find(([k]) => k.endsWith("runtime.js"))![1].bytes;
   const chunks = Object.keys(res.metafile.outputs).length - 1;
   console.log(`preview runtime → public/preview/runtime.js (${(entry / 1024 / 1024).toFixed(2)} MB entry + ${chunks} lazy chunks, ${Date.now() - t0}ms)`);

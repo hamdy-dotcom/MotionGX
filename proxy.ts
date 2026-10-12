@@ -5,7 +5,21 @@ import { routing } from "./i18n/routing";
 
 const intl = createIntlMiddleware(routing);
 
+// The studio preview iframe is sandboxed (opaque origin), so its module loads are cross-origin and,
+// on a local address, Chrome preflights them (Private Network Access). Answer those preflights here;
+// the GET headers come from next.config.ts.
+const PREVIEW_PREFLIGHT = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, HEAD",
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Allow-Private-Network": "true",
+  "Access-Control-Max-Age": "86400",
+};
+
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith("/preview/")) {
+    return request.method === "OPTIONS" ? new NextResponse(null, { status: 204, headers: PREVIEW_PREFLIGHT }) : NextResponse.next();
+  }
   // 1. Locale: redirects `/` → `/ar` (Accept-Language, then NEXT_LOCALE cookie).
   const response = intl(request);
   if (response.headers.get("location")) return response;
@@ -52,5 +66,5 @@ function redirectKeepingCookies(request: NextRequest, from: NextResponse, pathna
 
 export const config = {
   // Skip Next internals, static files and the auth callback route.
-  matcher: ["/((?!api|auth|_next|_vercel|.*\\..*).*)"],
+  matcher: ["/((?!api|auth|_next|_vercel|.*\\..*).*)", "/preview/:path*"],
 };

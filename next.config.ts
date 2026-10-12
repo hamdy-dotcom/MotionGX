@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   },
   // The studio preview runs in a sandboxed (opaque-origin) iframe, which loads the runtime cross-origin.
   async headers() {
-    return [{ source: "/preview/:path*", headers: [{ key: "Access-Control-Allow-Origin", value: "*" }, { key: "Cross-Origin-Resource-Policy", value: "cross-origin" }] }];
+    return [{ source: "/preview/:path*", headers: [{ key: "Access-Control-Allow-Origin", value: "*" }, { key: "Cross-Origin-Resource-Policy", value: "cross-origin" }, { key: "Access-Control-Allow-Private-Network", value: "true" }] }];
   },
   experimental: {
     serverActions: { bodySizeLimit: "4mb" },

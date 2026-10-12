@@ -1,4 +1,4 @@
-// Preview runtime for the studio. Loaded inside <iframe sandbox="allow-scripts" srcdoc>, i.e. an
+// Preview runtime for the studio. Loaded by preview/frame.html inside <iframe sandbox="allow-scripts">, i.e. an
 // opaque origin with no cookies, no storage and no access to the app. Generated composition code is
 // evaluated only here (by MotionVideo), never in the app's origin. Props arrive by postMessage.
 import React, { useEffect, useRef, useState } from "react";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 
 export type PreviewHandle = { seek: (frame: number) => void; toggle: () => void; play: () => void; pause: () => void };
 
@@ -12,9 +12,10 @@ export type PreviewProps = {
 };
 
 /**
- * The live preview. Generated code never runs in the app's origin: the Player lives in an
- * `<iframe sandbox="allow-scripts" srcdoc>` (opaque origin — no cookies, storage or session) that
- * loads /preview/runtime.js and receives its props by postMessage.
+ * The live preview. Generated code never runs in the app's origin: the Player lives in
+ * /preview/frame.html inside `<iframe sandbox="allow-scripts">` — without allow-same-origin the frame
+ * gets an opaque origin (no cookies, storage, session or DOM access to the app). Its props arrive by
+ * postMessage; it posts back ready / frame / playing / error.
  */
 export function MotionPreview({
   props,
@@ -37,21 +38,6 @@ export function MotionPreview({
   useEffect(() => {
     callbacks.current = { onFrame, onPlaying, onError };
   });
-
-  const srcDoc = useMemo(() => {
-    const origin = typeof window === "undefined" ? "" : window.location.origin;
-    const csp = [
-      "default-src 'none'",
-      // 'unsafe-eval': the runtime evaluates the compiled composition with new Function (inside this sandbox only).
-      `script-src ${origin} 'unsafe-eval'`,
-      "style-src 'unsafe-inline'",
-      "font-src https: data:",
-      "img-src https: data: blob:",
-      `media-src https: data: blob: ${origin}`,
-      "connect-src https: data: blob:",
-    ].join("; ");
-    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>html,body,#root{margin:0;height:100%;overflow:hidden;background:transparent}</style></head><body><div id="root"></div><script type="module" src="${origin}/preview/runtime.js"></script></body></html>`;
-  }, []);
 
   const post = (msg: Record<string, unknown>) => frameRef.current?.contentWindow?.postMessage(msg, "*");
 
@@ -79,5 +65,5 @@ export function MotionPreview({
     if (ready) frameRef.current?.contentWindow?.postMessage({ type: "mgx:props", props }, "*");
   }, [ready, props]);
 
-  return <iframe ref={frameRef} title={title} sandbox="allow-scripts" srcDoc={srcDoc} className="block size-full border-0" allow="autoplay" />;
+  return <iframe ref={frameRef} title={title} sandbox="allow-scripts" src="/preview/frame.html" className="block size-full border-0" allow="autoplay" />;
 }
