@@ -360,7 +360,11 @@ export function Studio({
         {/* Live preview: the real BrandVideo composition */}
         <section className="min-w-0">
           <div className="overflow-hidden rounded-panel bg-primary-lavender p-3">
-            <div className={`mx-auto overflow-hidden rounded-2xl bg-navy ${video.format === "9:16" ? "max-w-[340px]" : video.format === "1:1" ? "max-w-[480px]" : ""}`} style={{ aspectRatio: `${width} / ${height}` }}>
+            <div className={`mx-auto overflow-hidden rounded-2xl bg-navy ${video.format === "9:16" ? "max-w-[340px]" : video.format === "1:1" ? "max-w-[480px]" : ""}`} style={{ aspectRatio: `${width} / ${height}` }}
+              // The Player lays out its scaled canvas assuming LTR; in an RTL page it lands off-screen.
+              // The composition sets its own direction per scene.
+              dir="ltr"
+            >
               {mounted ? (
                 <Player
                   ref={playerRef}
