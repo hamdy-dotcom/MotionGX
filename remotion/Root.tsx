@@ -1,21 +1,22 @@
 import React from "react";
 import { Composition } from "remotion";
-import { dimensionsFor, type BrandVideoProps } from "../lib/video/kit";
-import { BrandVideo } from "./BrandVideo";
-import { previewProps } from "./preview-props";
+import { MotionVideo, type MotionVideoProps } from "./MotionVideo";
+import { sampleProps } from "./fixtures/sample";
 
 export const RemotionRoot: React.FC = () => (
   <Composition
-    id="BrandVideo"
-    component={BrandVideo}
+    id="MotionVideo"
+    component={MotionVideo}
     fps={30}
     width={1080}
     height={1920}
-    durationInFrames={900}
-    defaultProps={previewProps as BrandVideoProps}
-    calculateMetadata={({ props }) => {
-      const { width, height } = dimensionsFor(props.format);
-      return { width, height, fps: props.fps, durationInFrames: Math.round(props.lengthS * props.fps) };
-    }}
+    durationInFrames={300}
+    defaultProps={sampleProps as MotionVideoProps}
+    calculateMetadata={({ props }) => ({
+      width: props.input.width,
+      height: props.input.height,
+      fps: props.input.fps,
+      durationInFrames: props.input.durationInFrames,
+    })}
   />
 );
