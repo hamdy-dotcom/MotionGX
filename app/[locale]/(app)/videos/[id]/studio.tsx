@@ -10,6 +10,7 @@ import {
   getRenderStatus,
   renderDownloadUrl,
   requestEdit,
+  undoLastChange,
   saveLines,
   setMusicEnabled,
   type ActionResult,
@@ -28,12 +29,16 @@ import { StatusChip } from "@/components/status-chip";
 import { TimelineSlider } from "@/components/timeline-slider";
 import { CompanyMark } from "@/components/company-mark";
 import { MotionPreview, type PreviewHandle, type PreviewProps } from "@/components/motion-preview";
-import { CheckIcon, DownloadIcon, PlayIcon, SendIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
+import { CheckIcon, DownloadIcon, PlayIcon, SendIcon, SparkIcon, SpinnerIcon, UndoIcon } from "@/components/icons";
 
 type Notice = { tone: "ok" | "info" | "error"; text: string; topUp?: boolean } | null;
 export type RenderInfo = { id: string; status: string; progress: number; downloadUrl: string | null };
 export type StudioVersion = {
   version: number;
+  /** content revision of the spec: edits/undo are made against it and rejected if it moved on */
+  revision: string;
+  /** this version has a parent + inverse patch */
+  canUndo: boolean;
   spec: MotionSpec;
   custom: Record<string, string>;
   input: RuntimeInput;
@@ -88,7 +93,7 @@ export function Studio({
   const [notice, setNotice] = useState<Notice>(null);
   const [request, setRequest] = useState("");
   const [pending, startTransition] = useTransition();
-  const [busy, setBusy] = useState<"save" | "direction" | "export" | "request" | "music" | null>(null);
+  const [busy, setBusy] = useState<"save" | "direction" | "export" | "request" | "music" | "undo" | null>(null);
   const [render, setRender] = useState<RenderInfo | null>(initialRender);
   const [status, setStatus] = useState(video.status);
   const [gen, setGen] = useState<Record<string, unknown> | null>(generation);
@@ -133,6 +138,7 @@ export function Studio({
         setStatus(s.status as Video["status"]);
         const g = String(s.generation.stage ?? "");
         if (g === "edit_failed") setNotice({ tone: "info", text: t("editFailed") });
+        else if (g === "edit_stale") setNotice({ tone: "info", text: t("editStale") });
         else if (g === "needs_direction" && current) setNotice({ tone: "info", text: t("directionFailed") });
         else if (g === "error") setNotice({ tone: "error", text: tc("error") });
         router.refresh();
@@ -223,13 +229,22 @@ export function Studio({
       router.refresh();
     });
 
+  const onUndo = () =>
+    run("undo", async () => {
+      if (!current) return;
+      const res = await undoLastChange(video.id, current.version, current.revision);
+      if (!res.ok) return setNotice({ tone: res.error === "stale" ? "info" : "error", text: res.error === "stale" ? t("editStale") : t("undoFailed") });
+      setNotice({ tone: "ok", text: t("undone", { n: formatNumber(res.version, locale) }) });
+      router.refresh();
+    });
+
   const onDirection = () => run("direction", async () => onStarted(await anotherDirection(video.id), t("directionStarted")));
 
   const onRequest = (e: FormEvent) => {
     e.preventDefault();
     if (!request.trim()) return;
     run("request", async () => {
-      const res = await requestEdit(video.id, request);
+      const res = await requestEdit(video.id, request, current?.revision);
       onStarted(res, t("editStarted"));
       if (res.ok) setRequest("");
     });
@@ -452,6 +467,12 @@ export function Studio({
                 <button type="button" role="switch" aria-checked={musicOn} onClick={onToggleMusic} disabled={pending} className={`chip ${musicOn ? "chip-solid" : "chip-white"}`}>
                   {musicOn ? tm("on") : tm("off")}
                 </button>
+                {current?.canUndo ? (
+                  <button type="button" onClick={onUndo} disabled={pending || generating} className="btn btn-white">
+                    {busy === "undo" ? <SpinnerIcon className="size-4" /> : <UndoIcon className="size-4 rtl:-scale-x-100" />}
+                    {t("undo")}
+                  </button>
+                ) : null}
                 <button type="button" onClick={onDirection} disabled={pending || generating} className="btn btn-white">
                   {busy === "direction" ? <SpinnerIcon className="size-4" /> : <SparkIcon className="size-4" />}
                   {t("anotherDirection")}

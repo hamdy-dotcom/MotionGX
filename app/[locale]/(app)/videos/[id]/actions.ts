@@ -4,7 +4,9 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
 import { assertWithinRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
-import { runGeneration } from "@/lib/motion/app";
+import { runGeneration, undoLatest, type UndoResult } from "@/lib/motion/app";
+import { historyFor } from "@/lib/motion/revision";
+import type { MotionSpec } from "@/lib/motion/spec";
 import { runRender } from "@/lib/render/run";
 import { promoteCustom } from "@/lib/motion/promote";
 import type { ScriptBeat } from "@motiongx/primitives";
@@ -27,7 +29,9 @@ export async function saveLines(videoId: string, beats: ScriptBeat[]): Promise<{
   void _id;
   void _c;
   void _v;
-  const { error } = await supabase.from("video_versions").insert({ ...rest, version, scenes });
+  // same spec, new lines: the lineage keeps an (empty) inverse patch so undo restores the old lines
+  const history = historyFor(latest.spec as MotionSpec, "lines", { version: latest.version, spec: latest.spec });
+  const { error } = await supabase.from("video_versions").insert({ ...rest, version, scenes, qa: { ...((latest.qa ?? {}) as Record<string, unknown>), history } });
   if (error) {
     console.error("[studio] save lines failed", { videoId, code: error.code, message: error.message });
     return { ok: false };
@@ -59,10 +63,22 @@ export async function anotherDirection(videoId: string) {
 }
 
 /** "اطلب تعديلًا": the coder edits the composition through the QA loop; the last passing version stays if it fails. */
-export async function requestEdit(videoId: string, instruction: string) {
+export async function requestEdit(videoId: string, instruction: string, baseRevision?: string) {
   const text = instruction.trim().slice(0, 1000);
   if (!text) return { ok: false, error: "generic" } as ActionResult;
-  return startGeneration(videoId, { kind: "edit", instruction: text });
+  return startGeneration(videoId, { kind: "edit", instruction: text, baseRevision });
+}
+
+/** «تراجع»: restores the previous version through the stored inverse patch (as a new version). */
+export async function undoLastChange(videoId: string, version: number, revision: string): Promise<UndoResult> {
+  const { supabase } = await getAppContext();
+  // RLS: only a member of the video's workspace can see it
+  const { data } = await supabase.from("videos").select("id, status").eq("id", videoId).maybeSingle();
+  if (!data) return { ok: false, error: "failed" };
+  if (data.status === "generating") return { ok: false, error: "stale" };
+  const res = await undoLatest(videoId, { version, revision });
+  if (res.ok) revalidatePath(`/videos/${videoId}`);
+  return res;
 }
 
 export async function getGenerationStatus(videoId: string): Promise<{ status: string; generation: Record<string, unknown> } | null> {

@@ -104,6 +104,15 @@ export function DownloadIcon(props: IconProps) {
   );
 }
 
+export function UndoIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </Icon>
+  );
+}
+
 export function LogoutIcon({ className = "size-5", ...props }: IconProps) {
   return (
     <Icon className={`${className} rtl:-scale-x-100`} {...props}>

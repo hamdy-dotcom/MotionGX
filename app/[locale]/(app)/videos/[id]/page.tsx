@@ -5,6 +5,7 @@ import { exportCostUsd, getFxRate, getPrices } from "@/lib/pricing";
 import { briefFor, runtimeInputFor } from "@/lib/motion/app";
 import type { Plan } from "@/lib/motion/plan";
 import type { MotionSpec } from "@/lib/motion/spec";
+import { specRevision, type VersionHistory } from "@/lib/motion/revision";
 import type { Video } from "@/lib/types";
 import type { ScriptBeat } from "@motiongx/primitives";
 import { Studio, type RenderInfo, type StudioVersion } from "./studio";
@@ -40,8 +41,11 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
     const audio = (v.audio ?? {}) as { mix?: string; sfx?: string };
     const publicUrl = (p?: string) => (p ? supabase.storage.from("music").getPublicUrl(p).data.publicUrl : null);
     if (brief) {
+      const history = ((v.qa ?? {}) as { history?: VersionHistory }).history;
       current = {
         version: v.version,
+        revision: specRevision(v.spec),
+        canUndo: Boolean(history?.parent_version && history.inverse_patch),
         spec: v.spec as MotionSpec,
         custom: (v.custom_js ?? {}) as Record<string, string>,
         input: runtimeInputFor(brief, plan),
