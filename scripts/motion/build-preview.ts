@@ -20,7 +20,7 @@ import { build } from "esbuild";
     jsx: "automatic",
     platform: "browser",
     define: { "process.env.NODE_ENV": '"production"' },
-    alias: { "@motiongx/primitives": path.resolve("packages/primitives/src/index.ts") },
+    alias: { "@motiongx/primitives": path.resolve("packages/primitives/src/index.ts"), "@": path.resolve(".") },
     metafile: true,
     logLevel: "warning",
   });

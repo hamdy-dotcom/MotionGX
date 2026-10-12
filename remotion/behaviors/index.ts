@@ -1,0 +1,194 @@
+// The behavior library: small, composable, parameterised effects (never layouts). Pure functions of
+// time used by both the renderer and the validator. The catalogue text the AI sees is generated from
+// the `desc` + params here (lib/motion/catalogue.ts), so adding a behavior = adding an entry.
+import { z } from "zod";
+import { clamp01, EASE, lerp, noise1, rand, spring, type BState, type EaseName, type Overlay } from "./core";
+
+export * from "./core";
+
+export type BehaviorKind = "enter" | "exit" | "loop" | "emphasis" | "morph" | "physics" | "generative" | "data" | "camera";
+
+export type BCtx = {
+  t: number;
+  start: number;
+  dur: number;
+  /** clamp01((t - start) / dur) */
+  p: number;
+  /** seconds since start (may be negative) */
+  local: number;
+  w: number;
+  h: number;
+  /** element box in px */
+  bw: number;
+  bh: number;
+  /** seconds per beat */
+  beat: number;
+  hits: { t: number; kind: string }[];
+  seed: number;
+  params: Record<string, unknown>;
+  /** child index / count when a group staggers its children */
+  i: number;
+  n: number;
+  /** element is Arabic text */
+  arabic: boolean;
+};
+
+export type Behavior = {
+  kind: BehaviorKind;
+  desc: string;
+  /** default duration in seconds (loops: Infinity = until the element leaves) */
+  dur: number;
+  params: z.ZodObject<z.ZodRawShape>;
+  /** text only (splits into letters/words) */
+  textOnly?: boolean;
+  /** splits by letter — forbidden for Arabic (breaks letter joins) */
+  perLetter?: boolean;
+  apply: (c: BCtx) => Partial<BState>;
+};
+
+const easeParam = z.enum(Object.keys(EASE) as [EaseName, ...EaseName[]]);
+const DIRS = ["left", "right", "up", "down", "upLeft", "upRight", "downLeft", "downRight"] as const;
+const dir8 = z.enum(DIRS);
+type Dir = (typeof DIRS)[number];
+const P = <T extends z.ZodRawShape>(shape: T) => z.object(shape);
+const none = P({});
+
+const ev = (c: BCtx, name: EaseName = "expoOut") => EASE[name](c.p);
+const g = <T>(c: BCtx, k: string, d: T): T => (c.params[k] ?? d) as T;
+
+/** unit vector for a direction ("from" side) */
+const vec = (d: Dir): [number, number] =>
+  ({ left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1], upLeft: [-0.7, -0.7], upRight: [0.7, -0.7], downLeft: [-0.7, 0.7], downRight: [0.7, 0.7] })[d] as [number, number];
+
+/** clip-path that reveals toward `d` as p goes 0→1 */
+function wipeClip(d: Dir, p: number) {
+  const r = (1 - p) * 100;
+  switch (d) {
+    case "right":
+      return `inset(0 ${r}% 0 0)`;
+    case "left":
+      return `inset(0 0 0 ${r}%)`;
+    case "down":
+      return `inset(0 0 ${r}% 0)`;
+    case "up":
+      return `inset(${r}% 0 0 0)`;
+    case "downRight":
+      return `polygon(0 0, ${p * 200}% 0, 0 ${p * 200}%)`;
+    case "downLeft":
+      return `polygon(100% 0, ${100 - p * 200}% 0, 100% ${p * 200}%)`;
+    case "upRight":
+      return `polygon(0 100%, ${p * 200}% 100%, 0 ${100 - p * 200}%)`;
+    case "upLeft":
+      return `polygon(100% 100%, ${100 - p * 200}% 100%, 100% ${100 - p * 200}%)`;
+  }
+}
+
+/** hit pulse: 1 at a hit, decaying over `decay` s */
+function hitPulse(c: BCtx, decay = 0.35, kind?: string) {
+  let v = 0;
+  for (const h of c.hits) {
+    if (kind && h.kind !== kind) continue;
+    const d = c.t - h.t;
+    if (d >= 0 && d < decay) v = Math.max(v, 1 - d / decay);
+  }
+  return v;
+}
+const beatPhase = (c: BCtx) => ((c.t / c.beat) % 1 + 1) % 1;
+
+const ENTER_DUR = 0.6;
+
+export const BEHAVIORS: Record<string, Behavior> = {
+  // ── entrances ─────────────────────────────────────────────────────────────
+  rise: { kind: "enter", desc: "fade up from below", dur: ENTER_DUR, params: P({ dist: z.number().min(0).max(60).default(8), ease: easeParam.default("expoOut") }), apply: (c) => { const e = ev(c, g(c, "ease", "expoOut")); return { dy: (1 - e) * g(c, "dist", 8) * c.w / 100, opacity: clamp01(c.p * 2.5) }; } },
+  "drop-in": { kind: "enter", desc: "fall in from above with a bounce", dur: 0.8, params: P({ dist: z.number().min(0).max(120).default(30) }), apply: (c) => ({ dy: -(1 - EASE.bounce(c.p)) * g(c, "dist", 30) * c.h / 100, opacity: c.p > 0 ? 1 : 0 }) },
+  slide: { kind: "enter", desc: "slide in from a side", dur: ENTER_DUR, params: P({ from: dir8.default("left"), dist: z.number().min(0).max(120).default(25), ease: easeParam.default("expoOut") }), apply: (c) => { const [vx, vy] = vec(g(c, "from", "left")); const k = (1 - ev(c, g(c, "ease", "expoOut"))) * g(c, "dist", 25) * c.w / 100; return { dx: vx * k, dy: vy * k, opacity: clamp01(c.p * 3) }; } },
+  pop: { kind: "enter", desc: "spring scale-up from zero with overshoot", dur: 0.7, params: P({ stiffness: z.number().min(40).max(600).default(220), damping: z.number().min(4).max(40).default(12) }), apply: (c) => { const s = spring(c.local, g(c, "stiffness", 220), g(c, "damping", 12)); return { scale: c.local <= 0 ? 0 : Math.max(0, s), opacity: c.local <= 0 ? 0 : 1 }; } },
+  "zoom-in": { kind: "enter", desc: "shrink in from oversized with blur", dur: ENTER_DUR, params: P({ from: z.number().min(1).max(6).default(2.2) }), apply: (c) => { const e = ev(c); return { scale: lerp(g(c, "from", 2.2), 1, e), opacity: clamp01(c.p * 2), blur: (1 - e) * 18 }; } },
+  fade: { kind: "enter", desc: "plain fade in", dur: 0.5, params: none, apply: (c) => ({ opacity: EASE.inOut(c.p) }) },
+  "blur-in": { kind: "enter", desc: "come into focus from a heavy blur", dur: 0.7, params: P({ amount: z.number().min(2).max(60).default(28) }), apply: (c) => ({ blur: (1 - ev(c)) * g(c, "amount", 28), opacity: clamp01(c.p * 2), scale: lerp(1.08, 1, ev(c)) }) },
+  "mask-wipe": { kind: "enter", desc: "hard-edged mask reveal in one of 8 directions", dur: 0.6, params: P({ dir: dir8.default("right"), ease: easeParam.default("inOut") }), apply: (c) => ({ clip: wipeClip(g(c, "dir", "right"), EASE[g(c, "ease", "inOut") as EaseName](c.p)) }) },
+  "iris-in": { kind: "enter", desc: "circular mask opening from the centre", dur: 0.7, params: none, apply: (c) => ({ clip: `circle(${ev(c, "inOut") * 75}% at 50% 50%)` }) },
+  "split-reveal": { kind: "enter", desc: "two halves part like doors to reveal", dur: 0.7, params: P({ vertical: z.boolean().default(false) }), apply: (c) => { const r = (1 - ev(c, "inOut")) * 50; return { clip: g(c, "vertical", false) ? `inset(${r}% 0 ${r}% 0)` : `inset(0 ${r}% 0 ${r}%)` }; } },
+  "per-letter": { kind: "enter", desc: "letters rise in one by one (Latin only; Arabic auto-falls back to words)", dur: 0.9, textOnly: true, perLetter: true, params: P({ dist: z.number().min(0).max(40).default(10), step: z.number().min(0.005).max(0.2).default(0.03) }), apply: (c) => ({ units: { split: "letter", fn: (i) => { const p = clamp01((c.local - i * g(c, "step", 0.03)) / 0.5); return { dy: (1 - EASE.expoOut(p)) * g(c, "dist", 10) * c.w / 100 * 0.3, opacity: clamp01(p * 3) }; } } }) },
+  "per-word": { kind: "enter", desc: "words rise in one by one from a mask", dur: 0.9, textOnly: true, params: P({ step: z.number().min(0.02).max(0.5).default(0.09), from: z.enum(["below", "above", "side"]).default("below") }), apply: (c) => ({ units: { split: "word", fn: (i) => { const p = clamp01((c.local - i * g(c, "step", 0.09)) / 0.55); const o = (1 - EASE.expoOut(p)); const from = g<string>(c, "from", "below"); return { dy: from === "below" ? o * 0.9 * c.bh : from === "above" ? -o * 0.9 * c.bh : 0, dx: from === "side" ? o * c.bh * (c.arabic ? -1 : 1) : 0, opacity: clamp01(p * 2.5) }; } } }) },
+  typewriter: { kind: "enter", desc: "characters appear one by one (cursor-like)", dur: 1.2, textOnly: true, params: none, apply: (c) => ({ typed: c.p }) },
+  "stroke-draw": { kind: "enter", desc: "draw a path/route/ring/line/outlined text along its length", dur: 1.0, params: P({ ease: easeParam.default("inOut") }), apply: (c) => ({ draw: EASE[g(c, "ease", "inOut") as EaseName](c.p) }) },
+  "ink-bloom": { kind: "enter", desc: "blooms out of a blurred ink drop", dur: 0.9, params: none, apply: (c) => { const e = ev(c); return { clip: `circle(${e * 80}% at 50% 55%)`, blur: (1 - e) * 14, scale: lerp(0.85, 1, e) }; } },
+  "scatter-in": { kind: "enter", desc: "letters/words fly in from random directions and assemble", dur: 0.9, textOnly: true, params: P({ spread: z.number().min(0).max(60).default(18) }), apply: (c) => ({ units: { split: c.arabic ? "word" : "letter", fn: (i) => { const e = EASE.expoOut(c.p); const a = rand(c.seed, i) * Math.PI * 2; const r = (1 - e) * g(c, "spread", 18) * c.w / 100; return { dx: Math.cos(a) * r, dy: Math.sin(a) * r, rot: (1 - e) * (rand(c.seed, i + 99) * 80 - 40), opacity: clamp01(c.p * 2) }; } } }) },
+  "glitch-in": { kind: "enter", desc: "digital glitch: jittering slices settle into place", dur: 0.5, params: none, apply: (c) => { const k = 1 - c.p; const j = (rand(c.seed, Math.floor(c.local * 30)) - 0.5) * k * c.w * 0.05; return { dx: j, skewX: k * 12 * (rand(c.seed, Math.floor(c.local * 24) + 3) - 0.5), opacity: c.p > 0 ? (rand(c.seed, Math.floor(c.local * 40)) > k * 0.5 ? 1 : 0.2) : 0, overlays: k > 0.05 ? [{ kind: "glitch", amount: k, seed: c.seed + Math.floor(c.local * 30) }] : undefined }; } },
+  "flip-in": { kind: "enter", desc: "flips in like a card turning over", dur: 0.6, params: P({ axis: z.enum(["x", "y"]).default("y") }), apply: (c) => { const e = ev(c, "backOut"); return g(c, "axis", "y") === "y" ? { sx: Math.max(0.001, Math.abs(Math.cos((1 - e) * Math.PI / 2))), opacity: c.p > 0 ? 1 : 0 } : { sy: Math.max(0.001, Math.abs(Math.cos((1 - e) * Math.PI / 2))), opacity: c.p > 0 ? 1 : 0 }; } },
+  "spin-in": { kind: "enter", desc: "spins and scales in", dur: 0.7, params: P({ turns: z.number().min(-3).max(3).default(0.5) }), apply: (c) => { const e = ev(c); return { rot: (1 - e) * g(c, "turns", 0.5) * 360, scale: e, opacity: clamp01(c.p * 2) }; } },
+  stamp: { kind: "enter", desc: "slams down from big like a rubber stamp, with a jolt", dur: 0.45, params: none, apply: (c) => { const e = EASE.in(c.p); return { scale: c.p >= 1 ? 1 : lerp(2.4, 1, e), opacity: c.local < 0 ? 0 : clamp01(c.p * 4), rot: (1 - e) * -8 }; } },
+  unfold: { kind: "enter", desc: "unfolds from a thin line (scaleX or scaleY from 0)", dur: 0.6, params: P({ axis: z.enum(["x", "y"]).default("x") }), apply: (c) => { const e = ev(c, "inOut"); return g(c, "axis", "x") === "x" ? { sx: Math.max(0.001, e) } : { sy: Math.max(0.001, e) }; } },
+  "kashida-stretch": { kind: "emphasis", desc: "Arabic headline stretches its kashida (tatweel) on the beat then snaps back; never breaks joins", dur: 1.0, textOnly: true, params: P({ max: z.number().int().min(1).max(8).default(4) }), apply: (c) => ({ kashida: c.p <= 0 || c.p >= 1 ? 0 : Math.round(Math.sin(c.p * Math.PI) * g(c, "max", 4)) }) },
+
+  // ── loops ─────────────────────────────────────────────────────────────────
+  float: { kind: "loop", desc: "gentle vertical float", dur: Infinity, params: P({ amp: z.number().min(0).max(10).default(1.2), period: z.number().min(0.3).max(10).default(3) }), apply: (c) => ({ dy: Math.sin((c.local / g(c, "period", 3)) * Math.PI * 2 + c.seed) * g(c, "amp", 1.2) * c.w / 100 }) },
+  orbit: { kind: "loop", desc: "circles around its position", dur: Infinity, params: P({ radius: z.number().min(0).max(40).default(4), period: z.number().min(0.3).max(20).default(4), reverse: z.boolean().default(false) }), apply: (c) => { const a = (c.local / g(c, "period", 4)) * Math.PI * 2 * (g(c, "reverse", false) ? -1 : 1) + c.seed; const r = g(c, "radius", 4) * c.w / 100; return { dx: Math.cos(a) * r, dy: Math.sin(a) * r }; } },
+  pulse: { kind: "loop", desc: "scale pulse on every beat", dur: Infinity, params: P({ amount: z.number().min(0).max(0.5).default(0.06) }), apply: (c) => ({ scale: 1 + Math.exp(-beatPhase(c) * 6) * g(c, "amount", 0.06) }) },
+  "hit-pulse": { kind: "loop", desc: "punchy scale + glow on every energy-map hit", dur: Infinity, params: P({ amount: z.number().min(0).max(0.6).default(0.12) }), apply: (c) => { const h = hitPulse(c); return { scale: 1 + h * g(c, "amount", 0.12), glow: h }; } },
+  wobble: { kind: "loop", desc: "playful rotation wobble", dur: Infinity, params: P({ deg: z.number().min(0).max(30).default(4), period: z.number().min(0.2).max(6).default(1.2) }), apply: (c) => ({ rot: Math.sin((c.local / g(c, "period", 1.2)) * Math.PI * 2) * g(c, "deg", 4) }) },
+  shimmer: { kind: "loop", desc: "a light sheen sweeps across every few seconds", dur: Infinity, params: P({ every: z.number().min(0.5).max(10).default(2.5) }), apply: (c) => ({ overlays: [{ kind: "shine", p: (c.local % g(c, "every", 2.5)) / Math.min(1.2, g(c, "every", 2.5)) }] }) },
+  "noise-drift": { kind: "loop", desc: "organic wandering drift", dur: Infinity, params: P({ amp: z.number().min(0).max(20).default(1.5), speed: z.number().min(0.05).max(3).default(0.4) }), apply: (c) => { const s = g(c, "speed", 0.4); const a = g(c, "amp", 1.5) * c.w / 100; return { dx: noise1(c.seed, c.local * s) * a, dy: noise1(c.seed + 7, c.local * s) * a, rot: noise1(c.seed + 13, c.local * s) * 2 }; } },
+  breathe: { kind: "loop", desc: "slow scale breathing", dur: Infinity, params: P({ amount: z.number().min(0).max(0.3).default(0.03), period: z.number().min(0.5).max(12).default(4) }), apply: (c) => ({ scale: 1 + Math.sin((c.local / g(c, "period", 4)) * Math.PI * 2) * g(c, "amount", 0.03) }) },
+  spin: { kind: "loop", desc: "continuous rotation", dur: Infinity, params: P({ rpm: z.number().min(-120).max(120).default(10) }), apply: (c) => ({ rot: c.local * g(c, "rpm", 10) * 6 }) },
+  sway: { kind: "loop", desc: "side-to-side sway like a hanging sign", dur: Infinity, params: P({ amp: z.number().min(0).max(10).default(1), period: z.number().min(0.5).max(8).default(2.4) }), apply: (c) => ({ dx: Math.sin((c.local / g(c, "period", 2.4)) * Math.PI * 2) * g(c, "amp", 1) * c.w / 100 }) },
+  "beat-bob": { kind: "loop", desc: "bobs down on each beat", dur: Infinity, params: P({ amp: z.number().min(0).max(6).default(0.8) }), apply: (c) => ({ dy: Math.exp(-beatPhase(c) * 5) * g(c, "amp", 0.8) * c.w / 100 }) },
+  jitter: { kind: "loop", desc: "nervous high-frequency jitter", dur: Infinity, params: P({ amp: z.number().min(0).max(3).default(0.3) }), apply: (c) => ({ dx: (rand(c.seed, Math.floor(c.t * 24)) - 0.5) * g(c, "amp", 0.3) * c.w / 50, dy: (rand(c.seed + 1, Math.floor(c.t * 24)) - 0.5) * g(c, "amp", 0.3) * c.w / 50 }) },
+  "glow-pulse": { kind: "loop", desc: "glow swells on the beat", dur: Infinity, params: none, apply: (c) => ({ glow: 0.4 + 0.6 * Math.exp(-beatPhase(c) * 4) }) },
+  blink: { kind: "loop", desc: "blinks on/off (cursor, notification dot)", dur: Infinity, params: P({ period: z.number().min(0.2).max(3).default(0.9) }), apply: (c) => ({ opacity: (c.local / g(c, "period", 0.9)) % 1 < 0.55 ? 1 : 0.15 }) },
+  "neon-flicker": { kind: "loop", desc: "neon-sign flicker with glow", dur: Infinity, params: none, apply: (c) => { const f = Math.floor(c.t * 18); const off = rand(c.seed, f) > 0.93 || (c.local < 0.6 && rand(c.seed, f + 5) > 0.5); return { opacity: off ? 0.25 : 1, glow: off ? 0 : 0.9 }; } },
+  "hue-cycle": { kind: "loop", desc: "slow hue rotation (decorative shapes only)", dur: Infinity, params: P({ speed: z.number().min(0).max(120).default(20) }), apply: (c) => ({ hue: c.local * g(c, "speed", 20) }) },
+
+  // ── exits ─────────────────────────────────────────────────────────────────
+  "fade-out": { kind: "exit", desc: "fade away", dur: 0.4, params: none, apply: (c) => ({ opacity: 1 - EASE.inOut(c.p) }) },
+  "rise-out": { kind: "exit", desc: "float up and fade", dur: 0.45, params: none, apply: (c) => ({ dy: -EASE.in(c.p) * 6 * c.w / 100, opacity: 1 - c.p }) },
+  "drop-out": { kind: "exit", desc: "fall away with gravity", dur: 0.6, params: none, apply: (c) => ({ dy: EASE.in(c.p) * c.h * 0.6, rot: c.p * 14, opacity: 1 - EASE.in(c.p) }) },
+  "wipe-out": { kind: "exit", desc: "mask wipes the element away", dur: 0.45, params: P({ dir: dir8.default("right") }), apply: (c) => ({ clip: wipeClip(g(c, "dir", "right"), 1 - EASE.inOut(c.p)) }) },
+  "shrink-out": { kind: "exit", desc: "shrinks to nothing", dur: 0.4, params: none, apply: (c) => ({ scale: 1 - EASE.backOut(c.p) * 0.999, opacity: 1 - EASE.in(c.p) }) },
+  "blur-out": { kind: "exit", desc: "blurs and fades out", dur: 0.45, params: none, apply: (c) => ({ blur: c.p * 24, opacity: 1 - c.p, scale: 1 + c.p * 0.1 }) },
+  "scatter-out": { kind: "exit", desc: "letters/words explode outward", dur: 0.6, textOnly: true, params: none, apply: (c) => ({ units: { split: c.arabic ? "word" : "letter", fn: (i) => { const a = rand(c.seed, i) * Math.PI * 2; const r = EASE.in(c.p) * c.w * 0.25; return { dx: Math.cos(a) * r, dy: Math.sin(a) * r, rot: c.p * 90 * (rand(c.seed, i + 3) - 0.5), opacity: 1 - c.p }; } } }) },
+  "slide-out": { kind: "exit", desc: "slides off toward a side", dur: 0.45, params: P({ to: dir8.default("left") }), apply: (c) => { const [vx, vy] = vec(g(c, "to", "left")); const k = EASE.in(c.p) * c.w * 0.6; return { dx: vx * k, dy: vy * k }; } },
+
+  // ── emphasis ──────────────────────────────────────────────────────────────
+  punch: { kind: "emphasis", desc: "quick scale punch (use on a hit)", dur: 0.35, params: P({ amount: z.number().min(0).max(0.8).default(0.18) }), apply: (c) => ({ scale: c.p <= 0 || c.p >= 1 ? 1 : 1 + Math.sin(c.p * Math.PI) * g(c, "amount", 0.18) }) },
+  "shake-hit": { kind: "emphasis", desc: "shakes on every energy-map hit", dur: Infinity, params: P({ amp: z.number().min(0).max(4).default(1) }), apply: (c) => { const h = hitPulse(c, 0.3); return { dx: (rand(c.seed, Math.floor(c.t * 30)) - 0.5) * h * g(c, "amp", 1) * c.w / 25, rot: (rand(c.seed + 2, Math.floor(c.t * 30)) - 0.5) * h * 4 }; } },
+  "color-flash": { kind: "emphasis", desc: "brightness flash", dur: 0.3, params: none, apply: (c) => ({ brightness: 1 + Math.sin(clamp01(c.p) * Math.PI) * 0.8 }) },
+  "underline-draw": { kind: "emphasis", desc: "an accent underline draws beneath the text", dur: 0.6, textOnly: true, params: P({ thickness: z.number().min(0.1).max(3).default(0.6) }), apply: (c) => ({ overlays: [{ kind: "underline", p: EASE.inOut(c.p), thickness: g(c, "thickness", 0.6) }] }) },
+  "highlight-sweep": { kind: "emphasis", desc: "a marker block sweeps behind the text", dur: 0.6, textOnly: true, params: none, apply: (c) => ({ overlays: [{ kind: "highlight", p: EASE.inOut(c.p) }] }) },
+  wave: { kind: "emphasis", desc: "a sine wave ripples through the words", dur: 1.2, textOnly: true, params: P({ amp: z.number().min(0).max(5).default(1) }), apply: (c) => ({ units: { split: "word", fn: (i) => ({ dy: Math.sin(c.local * 8 - i * 0.8) * (c.p < 1 ? 1 : 0) * g(c, "amp", 1) * c.w / 100 }) } }) },
+  "bounce-units": { kind: "emphasis", desc: "words hop one after another", dur: 0.9, textOnly: true, params: none, apply: (c) => ({ units: { split: "word", fn: (i) => { const p = clamp01((c.local - i * 0.08) / 0.4); return { dy: -Math.sin(p * Math.PI) * c.bh * 0.25 }; } } }) },
+  tilt: { kind: "emphasis", desc: "tilts to an angle and holds", dur: 0.5, params: P({ deg: z.number().min(-45).max(45).default(-6) }), apply: (c) => ({ rot: EASE.backOut(c.p) * g(c, "deg", -6) }) },
+  "scale-to": { kind: "emphasis", desc: "eases to a new scale and holds", dur: 0.6, params: P({ to: z.number().min(0.05).max(5).default(1.3), ease: easeParam.default("inOut") }), apply: (c) => ({ scale: lerp(1, g(c, "to", 1.3), EASE[g(c, "ease", "inOut") as EaseName](c.p)) }) },
+  "move-to": { kind: "emphasis", desc: "glides by (dx, dy) % and holds", dur: 0.8, params: P({ dx: z.number().default(0), dy: z.number().default(0), ease: easeParam.default("inOut") }), apply: (c) => { const e = EASE[g(c, "ease", "inOut") as EaseName](c.p); return { dx: e * g(c, "dx", 0) * c.w / 100, dy: e * g(c, "dy", 0) * c.h / 100 }; } },
+  ripple: { kind: "emphasis", desc: "concentric rings radiate out from the element", dur: 1.0, params: P({ rings: z.number().int().min(1).max(5).default(3) }), apply: (c) => ({ overlays: c.p > 0 && c.p < 1 ? [{ kind: "ripple", p: c.p, rings: g(c, "rings", 3) }] : undefined }) },
+
+  // ── morphs ────────────────────────────────────────────────────────────────
+  morph: { kind: "morph", desc: "shape morphs into its `to` shape", dur: 0.8, params: P({ ease: easeParam.default("inOut") }), apply: (c) => ({ morph: EASE[g(c, "ease", "inOut") as EaseName](c.p) }) },
+  dissolve: { kind: "morph", desc: "text/element breaks into particles and blows away", dur: 0.9, params: P({ count: z.number().int().min(10).max(160).default(60) }), apply: (c) => ({ opacity: 1 - clamp01(c.p * 1.6), overlays: c.p > 0 && c.p < 1 ? [{ kind: "dissolve", p: c.p, count: g(c, "count", 60), seed: c.seed }] : undefined }) },
+  assemble: { kind: "morph", desc: "particles converge to form the element", dur: 0.9, params: P({ count: z.number().int().min(10).max(160).default(60) }), apply: (c) => ({ opacity: clamp01(c.p * 1.6 - 0.6), overlays: c.p > 0 && c.p < 1 ? [{ kind: "dissolve", p: 1 - c.p, count: g(c, "count", 60), seed: c.seed }] : undefined }) },
+
+  // ── physics ───────────────────────────────────────────────────────────────
+  gravity: { kind: "physics", desc: "drops from above and bounces to rest", dur: 1.2, params: P({ height: z.number().min(0).max(120).default(40), bounces: z.number().min(0).max(1).default(0.45) }), apply: (c) => { const hgt = g(c, "height", 40) * c.h / 100; const p = c.p; const y = p < 0.55 ? -(1 - (p / 0.55) ** 2) * hgt : -Math.abs(Math.sin(((p - 0.55) / 0.45) * Math.PI * 2)) * hgt * g(c, "bounces", 0.45) * (1 - p) * 1.6; return { dy: c.local < 0 ? -hgt : y, opacity: c.local < 0 ? 0 : 1, sy: p > 0.5 && p < 0.6 ? 0.85 : 1, sx: p > 0.5 && p < 0.6 ? 1.12 : 1 }; } },
+  "spring-in": { kind: "physics", desc: "springs into place from an offset (overshoot)", dur: 1.0, params: P({ from: dir8.default("down"), dist: z.number().min(0).max(100).default(20), stiffness: z.number().min(40).max(600).default(160) }), apply: (c) => { const s = spring(c.local, g(c, "stiffness", 160), 11); const [vx, vy] = vec(g(c, "from", "down")); const k = (1 - s) * g(c, "dist", 20) * c.w / 100; return { dx: vx * k, dy: vy * k, opacity: c.local < 0 ? 0 : 1 }; } },
+  pendulum: { kind: "physics", desc: "swings like a pendulum and settles", dur: 3, params: P({ deg: z.number().min(0).max(60).default(18) }), apply: (c) => ({ rot: Math.cos(c.local * 4) * Math.exp(-c.local * 0.8) * g(c, "deg", 18) }) },
+  domino: { kind: "physics", desc: "topples over (stagger a group's children for a chain reaction)", dur: 0.5, params: P({ deg: z.number().min(-110).max(110).default(80) }), apply: (c) => ({ rot: EASE.in(c.p) * g(c, "deg", 80) }) },
+  jelly: { kind: "physics", desc: "squash-and-stretch wobble", dur: 0.8, params: none, apply: (c) => { const v = Math.sin(c.local * 22) * Math.exp(-c.local * 5) * (c.local > 0 ? 0.18 : 0); return { sx: 1 + v, sy: 1 - v }; } },
+
+  // ── generative overlays ───────────────────────────────────────────────────
+  "confetti-burst": { kind: "generative", desc: "confetti bursts out of the element", dur: 1.4, params: P({ count: z.number().int().min(5).max(160).default(60), spread: z.number().min(5).max(120).default(45) }), apply: (c) => ({ overlays: c.p > 0 && c.p < 1 ? [{ kind: "burst", p: c.p, count: g(c, "count", 60), spread: g(c, "spread", 45), shape: "confetti", seed: c.seed }] : undefined }) },
+  "spark-burst": { kind: "generative", desc: "sparks fly out radially (great on a hit)", dur: 0.8, params: P({ count: z.number().int().min(5).max(120).default(28), spread: z.number().min(5).max(120).default(30) }), apply: (c) => ({ overlays: c.p > 0 && c.p < 1 ? [{ kind: "burst", p: c.p, count: g(c, "count", 28), spread: g(c, "spread", 30), shape: "spark", seed: c.seed }] : undefined }) },
+  "dot-burst": { kind: "generative", desc: "dots pop outward", dur: 0.9, params: P({ count: z.number().int().min(5).max(120).default(24), spread: z.number().min(5).max(120).default(25) }), apply: (c) => ({ overlays: c.p > 0 && c.p < 1 ? [{ kind: "burst", p: c.p, count: g(c, "count", 24), spread: g(c, "spread", 25), shape: "dot", seed: c.seed }] : undefined }) },
+
+  // ── data ──────────────────────────────────────────────────────────────────
+  "count-up": { kind: "data", desc: "counter rolls from `from` to `to`", dur: 1.4, params: P({ ease: easeParam.default("expoOut") }), apply: (c) => ({ count: EASE[g(c, "ease", "expoOut") as EaseName](c.p) }) },
+  "bar-grow": { kind: "data", desc: "bar grows from its base (stagger a group of bars for a bar race)", dur: 0.8, params: P({ axis: z.enum(["x", "y"]).default("y"), ease: easeParam.default("backOut") }), apply: (c) => { const e = Math.max(0.001, EASE[g(c, "ease", "backOut") as EaseName](c.p)); return g(c, "axis", "y") === "y" ? { sy: e, dy: (1 - e) * c.bh / 2 } : { sx: e, dx: -(1 - e) * c.bw / 2 }; } },
+  "route-follow": { kind: "data", desc: "moves along a route element (params: route = its id)", dur: 2, params: P({ route: z.string(), ease: easeParam.default("inOut") }), apply: (c) => ({ follow: { route: g(c, "route", ""), p: EASE[g(c, "ease", "inOut") as EaseName](c.p) } }) },
+};
+
+/** camera behaviors (spec.camera.keys handles explicit moves; these are the reusable gestures) */
+export const CAMERA_FX = ["push", "pull", "whip", "shake", "parallax", "dolly"] as const;
+
+export const BEHAVIOR_NAMES = Object.keys(BEHAVIORS);
+
+export type { Overlay };
