@@ -13,7 +13,7 @@ export type VideoLength = (typeof LENGTHS)[number];
 export const PACES = ["calm", "medium", "fast"] as const;
 export type Pace = (typeof PACES)[number];
 
-export type VideoStatus = "draft" | "ready" | "review" | "exporting" | "failed";
+export type VideoStatus = "draft" | "generating" | "ready" | "review" | "exporting" | "failed" | "needs_direction";
 export type RenderStatus = "queued" | "rendering" | "done" | "failed";
 export type LedgerKind = "topup" | "export" | "refund" | "adjustment";
 export type Role = "owner" | "admin" | "editor" | "viewer";

@@ -7,6 +7,8 @@ const STYLES: Record<VideoStatus, string> = {
   draft: "bg-primary-light text-primary-dark",
   exporting: "bg-primary-lavender text-primary-dark",
   failed: "bg-danger-bg text-danger-ink",
+  generating: "bg-primary-lavender text-primary-dark",
+  needs_direction: "bg-warning-bg text-warning-ink",
 };
 
 export function StatusChip({ status }: { status: VideoStatus }) {
