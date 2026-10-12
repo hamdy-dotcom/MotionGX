@@ -6,7 +6,7 @@
 //     continuously, so kashida elongation never breaks a join (scale 0 = the plain word)
 //   • points sampled evenly along the outlines (text ↔ particles)
 import type * as HB from "harfbuzzjs";
-import opentype from "opentype.js";
+import * as opentype from "opentype.js";
 import { svgPathProperties } from "svg-path-properties";
 import { fontBytes } from "./fonts-node";
 
