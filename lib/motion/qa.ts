@@ -24,7 +24,9 @@ const qaSchema = z.object({
   pass: z.boolean(),
   score: z.number().min(0).max(10),
   treatment_followed: z.boolean(),
-  issues: z.array(z.object({ check: z.enum(QA_CHECKS), t: z.number().nullable(), detail: z.string().max(500) })).max(30),
+  issues: z
+    .array(z.object({ check: z.enum(QA_CHECKS), severity: z.enum(["blocking", "minor"]).default("blocking"), t: z.number().nullable(), detail: z.string().max(500) }))
+    .max(30),
   summary: z.string().max(600),
 });
 export type QaReport = z.infer<typeof qaSchema> & { static_spans: { from_s: number; to_s: number }[]; round: number; checked_frames: number[] };
@@ -42,8 +44,13 @@ const tool = {
         type: "array",
         items: {
           type: "object",
-          properties: { check: { type: "string", enum: [...QA_CHECKS] }, t: { anyOf: [{ type: "number" }, { type: "null" }] }, detail: { type: "string", description: "What is wrong and how to fix it, concretely." } },
-          required: ["check", "t", "detail"],
+          properties: {
+            check: { type: "string", enum: [...QA_CHECKS] },
+            severity: { type: "string", enum: ["blocking", "minor"], description: "blocking = a viewer would see a defect in the settled frame; minor = polish" },
+            t: { anyOf: [{ type: "number" }, { type: "null" }] },
+            detail: { type: "string", description: "What is wrong and how to fix it, concretely." },
+          },
+          required: ["check", "severity", "t", "detail"],
         },
       },
       summary: { type: "string" },
@@ -89,7 +96,8 @@ Checklist — FAIL the video if any frame shows:
 5. off_brand_colors: prominent colors that are clearly not from the palette.
 6. logo_distorted: logo stretched, cropped, recolored or illegible.
 7. treatment_not_followed: the frames don't show the treatment's motion language / visual idea.
-Mid-transition frames may legitimately show partial words entering or leaving — only flag it if a word is cut where it should be readable.
+Frames labelled "hit" are captured on a musical hit, while things are entering: partially revealed words, motion blur and elements mid-flight are EXPECTED there and are not defects. Judge settled states mainly from the "even" frames; a problem seen only mid-motion is at most "minor".
+Severity: "blocking" for anything a viewer would notice as broken in a settled frame (cut-off or overlapping text, unreadable or broken Arabic, illegible contrast, an empty frame where copy should be, a distorted logo, an empty CTA). "minor" for polish. pass = no blocking issues and the treatment is followed.
 Be concrete in "detail" so a coder can fix it.`,
     },
   ];
@@ -101,8 +109,8 @@ Be concrete in "detail" so a coder can fix it.`,
   const res = await callTool({ workspaceId, kind: "vision_qa", model: SONNET, strict: false, system: "You review rendered video frames against a checklist and report precisely.", prompt: content, tool, schema: qaSchema, maxTokens: 6000 });
   if (!res.value) throw new AiError("ai_invalid", res.problem);
   const issues = [...res.value.issues];
-  for (const s of staticSpans) issues.push({ check: "static_over_0_6s", t: s.from_s, detail: `Nothing moves from ${s.from_s}s to ${s.to_s}s — add continuous motion (camera drift, particles, pulses).` });
-  const blocking = issues.length > 0;
+  for (const s of staticSpans) issues.push({ check: "static_over_0_6s", severity: "blocking", t: s.from_s, detail: `Nothing moves from ${s.from_s}s to ${s.to_s}s — add continuous motion (camera drift, particles, pulses).` });
+  const blocking = issues.some((i) => i.severity === "blocking");
   return {
     ...res.value,
     issues,

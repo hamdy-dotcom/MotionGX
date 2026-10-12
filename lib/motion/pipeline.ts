@@ -76,7 +76,8 @@ export function runtimeInput(b: MotionBrief, energy: Treatment["energy"], script
 export function qaFrames(t: Treatment) {
   const L = t.energy.length_s;
   const even = Array.from({ length: 8 }, (_, i) => ({ t: Number((((i + 0.5) / 8) * L).toFixed(2)), label: `even ${i + 1}/8` }));
-  const hits = t.energy.hits.map((h) => ({ t: Math.min(L - 0.05, h.t + 0.25), label: `hit: ${h.kind}${h.label ? ` (${h.label})` : ""} +0.25s` }));
+  // On the hit itself (spec): the impact frame. Things are mid-entrance there by design; QA knows.
+  const hits = t.energy.hits.map((h) => ({ t: Math.min(L - 0.05, h.t), label: `hit: ${h.kind}${h.label ? ` (${h.label})` : ""}` }));
   return [...hits, ...even].sort((a, b) => a.t - b.t);
 }
 
@@ -108,7 +109,7 @@ export async function codeWithQa(
       // A cut-off or malformed answer is a failed round, not a failed video.
       if (!(err instanceof AiError) || err.code !== "ai_invalid") throw err;
       timings[`code_r${round}`] = Date.now() - t0;
-      qa.push({ pass: false, score: 0, treatment_followed: false, issues: [{ check: "render_error", t: null, detail: err.message }], summary: err.message, static_spans: [], round, checked_frames: [] });
+      qa.push({ pass: false, score: 0, treatment_followed: false, issues: [{ check: "render_error", severity: "blocking", t: null, detail: err.message }], summary: err.message, static_spans: [], round, checked_frames: [] });
       feedback = { previousCode: feedback?.previousCode ?? opts.baseCode ?? "", errors: [`Your previous answer was unusable (${err.message}). Write a tighter complete file (under 450 lines) with helpers instead of repetition.`], stills: feedback?.stills };
       continue;
     }
@@ -126,7 +127,7 @@ export async function codeWithQa(
     timings[`validate_r${round}`] = Date.now() - t0;
     if (!res.ok) {
       console.warn(`[motion] round ${round} ${res.stage} failed: ${res.errors.slice(0, 3).join(" | ").slice(0, 600)}`);
-      const report: QaReport = { pass: false, score: 0, treatment_followed: false, issues: res.errors.map((e) => ({ check: "render_error" as const, t: null, detail: `${res.stage}: ${e}` })), summary: `${res.stage} failed`, static_spans: [], round, checked_frames: [] };
+      const report: QaReport = { pass: false, score: 0, treatment_followed: false, issues: res.errors.map((e) => ({ check: "render_error" as const, severity: "blocking" as const, t: null, detail: `${res.stage}: ${e}` })), summary: `${res.stage} failed`, static_spans: [], round, checked_frames: [] };
       qa.push(report);
       feedback = { previousCode: code, errors: res.errors.map((e) => `${res.stage === "compile" ? "Compile/typecheck" : "Render"} error: ${e}`) };
       continue;
@@ -146,7 +147,7 @@ export async function codeWithQa(
       .slice(0, 6)
       .map((s) => ({ t: s.t, label: s.label, jpegBase64: readFileSync(s.path).toString("base64") }));
     const typeNotes = (res.warnings ?? []).slice(0, 8).map((w) => `TypeScript (non-blocking, fix while you're there): ${w}`);
-    feedback = { previousCode: code, errors: [...report.issues.map((i) => `[${i.check}${i.t !== null ? ` @${i.t}s` : ""}] ${i.detail}`), ...typeNotes], stills };
+    feedback = { previousCode: code, errors: [...report.issues.map((i) => `[${i.severity === "minor" ? "minor " : ""}${i.check}${i.t !== null ? ` @${i.t}s` : ""}] ${i.detail}`), ...typeNotes], stills };
   }
   return { code: null, js: null, sfx: [], qa, timings };
 }
