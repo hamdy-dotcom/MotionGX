@@ -36,6 +36,7 @@ export async function loadCompanyBrand(supabase: SupabaseClient, companyId: stri
     .select(`id, workspace_id, name, website_url, default_dialect, brand_profiles(${profileCols}), brand_assets(kind, storage_path, meta)`)
     .eq("id", companyId)
     .maybeSingle();
+  if (error?.code === "42703" && withFacts) return loadCompanyBrand(supabase, companyId, false); // facts column added in 0003
   if (error || !data) {
     if (error) console.error("[brand-props] load failed", { companyId, code: error.code, message: error.message });
     return null;
