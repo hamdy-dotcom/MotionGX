@@ -1,6 +1,8 @@
 // pnpm refs:import <file.json>  — upserts motion references (with embeddings) into motion_refs.
 // The file is an array of { id, title, source_url, creator, category, tags, prompt_text, code_snippet?, license_note,
-// card?, embed_text? }. embed_text (when given) is what gets embedded; otherwise title + category + tags + prompt_text.
+// card?, embed_text? }. What gets embedded: embed_text if given; else, for rows with a card, the same recipe as the
+// prompt-motion cards (summary + techniques + tags) so all carded refs compare like with like; else
+// title + category + tags + prompt_text.
 // References are descriptions/paraphrases + links for inspiration only: never paste someone else's
 // project or ship their videos. Rows without license_note or creator are rejected.
 import { readFileSync } from "node:fs";
@@ -15,7 +17,10 @@ import { refText, type MotionRef } from "../../lib/motion/store";
     console.error("usage: pnpm refs:import <file.json>");
     process.exit(1);
   }
-  type ImportRow = MotionRef & { card?: Record<string, unknown> | null; embed_text?: string };
+  type Card = { summary?: string; techniques?: string[] };
+  type ImportRow = Omit<MotionRef, "card"> & { card?: (Card & Record<string, unknown>) | null; embed_text?: string };
+  const embedText = (r: ImportRow) =>
+    r.embed_text ?? (r.card?.summary ? `${r.card.summary} ${(r.card.techniques ?? []).join(", ")}. ${r.tags.join(", ")}` : refText(r));
   const rows = JSON.parse(readFileSync(path.resolve(file), "utf8")) as ImportRow[];
   if (!Array.isArray(rows)) throw new Error("expected a JSON array");
 
@@ -47,7 +52,7 @@ import { refText, type MotionRef } from "../../lib/motion/store";
       code_snippet: r.code_snippet ?? null,
       license_note: r.license_note,
       card: r.card ?? null,
-      embedding: JSON.stringify(await embed(r.embed_text ?? refText(r))),
+      embedding: JSON.stringify(await embed(embedText(r))),
     });
   }
   const { error } = await admin.from("motion_refs").upsert(payload, { onConflict: "id" });

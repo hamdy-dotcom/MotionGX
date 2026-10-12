@@ -1,0 +1,1489 @@
+[
+  {
+    "id": "mgx-001",
+    "title": "Kashida stretch headline",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Kinetic type",
+    "tags": [
+      "Kinetic type"
+    ],
+    "prompt_text": "Animate an Arabic headline where the kashida (tatweel) between letters stretches like elastic on the beat, then snaps back as the word settles. Never break letter joins.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Arabic word elongates through kashida on a downbeat, then recoils into place.",
+      "motion_language": "elastic Arabic typography",
+      "techniques": [
+        "kashida/tatweel interpolation",
+        "spring overshoot",
+        "beat-synced scale",
+        "per-word stagger"
+      ],
+      "pacing": "fast hits on downbeats",
+      "palette_usage": "primary on dark background, accent glow on the stretched letter",
+      "best_for_industries": [
+        "ecommerce",
+        "retail",
+        "food",
+        "fashion"
+      ],
+      "best_for_goals": [
+        "sell",
+        "offer",
+        "launch"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-002",
+    "title": "Calligraphy stroke reveal",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Kinetic type",
+    "tags": [
+      "Kinetic type",
+      "Shapes"
+    ],
+    "prompt_text": "Reveal the brand name as if written by a qalam: an SVG stroke draws the letterforms right-to-left with variable width, ink pooling at stroke ends, then the fill floods in.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Brand name hand-written right-to-left with a reed-pen stroke, then filled.",
+      "motion_language": "calligraphic ink",
+      "techniques": [
+        "SVG stroke-dashoffset draw",
+        "variable stroke width",
+        "RTL draw order",
+        "fill flood after stroke",
+        "ink-dot particles"
+      ],
+      "pacing": "slow build, single reveal hit",
+      "palette_usage": "ink in brand ink color on light background, gold or accent dot",
+      "best_for_industries": [
+        "luxury",
+        "perfume",
+        "real estate",
+        "hospitality",
+        "government"
+      ],
+      "best_for_goals": [
+        "about",
+        "launch",
+        "occasion"
+      ],
+      "difficulty": "hard"
+    }
+  },
+  {
+    "id": "mgx-003",
+    "title": "Arabesque tile bloom",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Shapes",
+    "tags": [
+      "Shapes",
+      "Particles"
+    ],
+    "prompt_text": "Build a geometric Islamic star pattern that blooms from the centre tile outward, each ring rotating in opposite directions, settling into a seamless background behind the headline.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "8-point star tessellation grows ring by ring with counter-rotation.",
+      "motion_language": "sacred geometry",
+      "techniques": [
+        "procedural girih/star tiling",
+        "radial stagger",
+        "counter-rotating rings",
+        "line-to-fill morph"
+      ],
+      "pacing": "medium, ring per beat",
+      "palette_usage": "primary lines on deep background, accent at star centers",
+      "best_for_industries": [
+        "banking",
+        "government",
+        "real estate",
+        "education",
+        "hospitality"
+      ],
+      "best_for_goals": [
+        "about",
+        "occasion",
+        "launch"
+      ],
+      "difficulty": "hard"
+    }
+  },
+  {
+    "id": "mgx-004",
+    "title": "Ramadan lantern parallax",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Characters",
+    "tags": [
+      "Shapes",
+      "Particles"
+    ],
+    "prompt_text": "Hanging fanoos lanterns sway on strings at three parallax depths, their light casting soft pools; the offer text hangs from the middle lantern and swings into place.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Swinging lanterns in 3 depth layers; offer text hangs and settles.",
+      "motion_language": "festive parallax",
+      "techniques": [
+        "pendulum physics",
+        "2.5D parallax layers",
+        "radial light glow",
+        "hanging text on spring"
+      ],
+      "pacing": "calm to medium",
+      "palette_usage": "warm gold/amber light over brand dark, brand primary on lantern glass",
+      "best_for_industries": [
+        "retail",
+        "food",
+        "ecommerce",
+        "telecom",
+        "banking"
+      ],
+      "best_for_goals": [
+        "occasion",
+        "offer"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-005",
+    "title": "RTL wipe cascade",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Kinetic type",
+    "tags": [
+      "Kinetic type",
+      "Product UI"
+    ],
+    "prompt_text": "Every transition wipes right-to-left like turning an Arabic page: a brand-colored panel sweeps in, carries the next scene, and its trailing edge leaves a thin accent line.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Right-to-left panel wipes act as page turns between scenes.",
+      "motion_language": "editorial page-turn",
+      "techniques": [
+        "clip-path inset wipe",
+        "RTL direction",
+        "trailing accent line",
+        "eased panel stagger"
+      ],
+      "pacing": "cuts on every bar",
+      "palette_usage": "alternating primary and ink panels",
+      "best_for_industries": [
+        "media",
+        "education",
+        "saas",
+        "ecommerce"
+      ],
+      "best_for_goals": [
+        "about",
+        "sell",
+        "launch"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-006",
+    "title": "Bilingual morph",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Kinetic type",
+    "tags": [
+      "Kinetic type"
+    ],
+    "prompt_text": "A word in Arabic morphs into its English counterpart (or the reverse) through a shared shape: letters dissolve into dots, re-cluster, and resolve in the other script, changing reading direction mid-morph.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Arabic word dissolves into particles and re-forms as the English word.",
+      "motion_language": "script morph",
+      "techniques": [
+        "text-to-particle sampling",
+        "particle re-targeting",
+        "direction flip RTL→LTR",
+        "blur crossfade"
+      ],
+      "pacing": "one big hit",
+      "palette_usage": "primary particles on dark",
+      "best_for_industries": [
+        "saas",
+        "tech",
+        "telecom",
+        "travel"
+      ],
+      "best_for_goals": [
+        "launch",
+        "about"
+      ],
+      "difficulty": "hard"
+    }
+  },
+  {
+    "id": "mgx-007",
+    "title": "Price slam with Arabic numerals",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Charts",
+    "tags": [
+      "Kinetic type",
+      "Charts"
+    ],
+    "prompt_text": "The old price is struck through with a fast slash, shatters downward, and the new price slams in from above with screen shake and a burst of confetti in brand colors. Support both ٠١٢٣ and 0123 digits.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Old price slashed and shattered; new price slams in with shake.",
+      "motion_language": "impact retail",
+      "techniques": [
+        "strike-through draw",
+        "shatter pieces with gravity",
+        "slam with overshoot",
+        "camera shake",
+        "confetti burst"
+      ],
+      "pacing": "fast, hit on drop",
+      "palette_usage": "accent for slash, primary for new price, white flash",
+      "best_for_industries": [
+        "ecommerce",
+        "retail",
+        "food",
+        "electronics"
+      ],
+      "best_for_goals": [
+        "offer",
+        "sell"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-008",
+    "title": "Phone-in-hand app tour",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Phone",
+    "tags": [
+      "Phone",
+      "Product UI"
+    ],
+    "prompt_text": "A phone tilts in 3D, the screen scrolls through 3 app states, each tap shows a ripple, and a key number pops out of the screen into the foreground.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "3D-tilted phone scrolls app screens; key UI element pops out of the screen.",
+      "motion_language": "product demo 2.5D",
+      "techniques": [
+        "3D perspective transform",
+        "screen scroll",
+        "tap ripple",
+        "element pop-out with z-depth",
+        "shadow follow"
+      ],
+      "pacing": "medium, a tap per beat",
+      "palette_usage": "brand UI colors inside phone, neutral backdrop with primary glow",
+      "best_for_industries": [
+        "saas",
+        "fintech",
+        "delivery",
+        "ecommerce",
+        "telecom"
+      ],
+      "best_for_goals": [
+        "sell",
+        "launch"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-009",
+    "title": "Map route to doorstep",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Diagrams",
+    "tags": [
+      "Diagrams",
+      "Shapes"
+    ],
+    "prompt_text": "A stylised city map of the target country draws in; a route line races from warehouse to a home pin, passing city names in Arabic, and the pin bursts into the delivery promise text.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Route races across a stylised local map to a home pin that bursts into the promise.",
+      "motion_language": "logistics journey",
+      "techniques": [
+        "SVG path draw along route",
+        "pin drop bounce",
+        "label stagger",
+        "camera follow along path",
+        "burst on arrival"
+      ],
+      "pacing": "build then hit at arrival",
+      "palette_usage": "map in ink tones, route in primary, pin in accent",
+      "best_for_industries": [
+        "logistics",
+        "delivery",
+        "ecommerce",
+        "food"
+      ],
+      "best_for_goals": [
+        "sell",
+        "about"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-010",
+    "title": "Counter wall",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Charts",
+    "tags": [
+      "Charts",
+      "Kinetic type"
+    ],
+    "prompt_text": "Three big numbers count up in a staggered wall, each finishing exactly on a beat with a small flash and a label sliding under it.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Staggered counters finish on beats with flash and label.",
+      "motion_language": "data punch",
+      "techniques": [
+        "number count-up with easeOut",
+        "beat-locked finish",
+        "flash on hit",
+        "label slide-in"
+      ],
+      "pacing": "three hits in a row",
+      "palette_usage": "primary numbers, ink labels, accent flash",
+      "best_for_industries": [
+        "saas",
+        "fintech",
+        "logistics",
+        "education"
+      ],
+      "best_for_goals": [
+        "about",
+        "sell",
+        "hiring"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-011",
+    "title": "Desert dune gradient flow",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Particles",
+    "tags": [
+      "Particles",
+      "Shapes"
+    ],
+    "prompt_text": "Layered sine-wave dunes drift slowly in brand gradients, sand particles blow across, and the headline rises out of the dunes like a mirage.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Drifting dune layers with blowing sand; headline rises like a mirage.",
+      "motion_language": "atmospheric landscape",
+      "techniques": [
+        "layered sine paths",
+        "noise-driven drift",
+        "wind particles",
+        "heat-haze displacement",
+        "rise from mask"
+      ],
+      "pacing": "calm",
+      "palette_usage": "gradient primary→accent across dunes, ink sky",
+      "best_for_industries": [
+        "travel",
+        "real estate",
+        "luxury",
+        "hospitality",
+        "energy"
+      ],
+      "best_for_goals": [
+        "about",
+        "launch",
+        "occasion"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-012",
+    "title": "Receipt print",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Product UI",
+    "tags": [
+      "Product UI",
+      "Kinetic type"
+    ],
+    "prompt_text": "A thermal receipt prints line by line with a mechanical stutter; items tick in, the total highlights, and a stamp slams 'FREE' or the offer across it.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Receipt prints line by line, ending with a stamped offer.",
+      "motion_language": "tactile retail",
+      "techniques": [
+        "line-by-line reveal with stutter",
+        "paper curl",
+        "highlight sweep",
+        "stamp slam with rotation"
+      ],
+      "pacing": "steady ticks then a slam",
+      "palette_usage": "paper white, ink text, accent stamp",
+      "best_for_industries": [
+        "ecommerce",
+        "food",
+        "retail",
+        "fintech"
+      ],
+      "best_for_goals": [
+        "offer",
+        "sell"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-013",
+    "title": "Chat bubble story",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Product UI",
+    "tags": [
+      "Product UI",
+      "Phone"
+    ],
+    "prompt_text": "Tell the story as a WhatsApp-style chat in Arabic: typing dots, bubbles pop in RTL, a voice-note waveform plays, and the brand reply solves the problem.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Story told as an RTL chat thread with typing dots and a brand reply.",
+      "motion_language": "conversational UI",
+      "techniques": [
+        "bubble pop with spring",
+        "typing indicator",
+        "RTL alignment",
+        "waveform animation",
+        "read-receipt ticks"
+      ],
+      "pacing": "conversation rhythm, quicker on fast pace",
+      "palette_usage": "neutral chat UI, brand color on the brand's bubbles",
+      "best_for_industries": [
+        "ecommerce",
+        "telecom",
+        "customer service",
+        "delivery",
+        "saas"
+      ],
+      "best_for_goals": [
+        "sell",
+        "about"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-014",
+    "title": "Split-screen before/after",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Photos",
+    "tags": [
+      "Photos",
+      "Shapes"
+    ],
+    "prompt_text": "A vertical divider sweeps right-to-left, turning a grey chaotic 'before' into a bright organised 'after'; the divider leaves sparkles and the brand logo docks at the seam.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "RTL divider sweep converts grey 'before' into branded 'after'.",
+      "motion_language": "transformation reveal",
+      "techniques": [
+        "clip-path divider sweep",
+        "desaturate→saturate",
+        "sparkle trail",
+        "logo dock at seam"
+      ],
+      "pacing": "build then one sweep hit",
+      "palette_usage": "grey before, full brand palette after",
+      "best_for_industries": [
+        "services",
+        "cleaning",
+        "beauty",
+        "saas",
+        "real estate"
+      ],
+      "best_for_goals": [
+        "sell",
+        "about"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-015",
+    "title": "Neon souq sign",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Kinetic type",
+    "tags": [
+      "Kinetic type",
+      "Shapes"
+    ],
+    "prompt_text": "The brand name flickers on as a neon sign over a dark souq alley, tubes buzzing on one by one with an uneven flicker, then glows steady with reflections below.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Brand name flickers on as a neon sign with reflections.",
+      "motion_language": "night neon",
+      "techniques": [
+        "stroke glow with blur stack",
+        "random flicker sequence",
+        "reflection mirror with blur",
+        "buzz SFX sync"
+      ],
+      "pacing": "irregular flicker then steady",
+      "palette_usage": "brand primary as neon, deep ink night",
+      "best_for_industries": [
+        "food",
+        "nightlife",
+        "gaming",
+        "retail",
+        "events"
+      ],
+      "best_for_goals": [
+        "launch",
+        "occasion",
+        "about"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-016",
+    "title": "Coffee pour liquid fill",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Shapes",
+    "tags": [
+      "Shapes",
+      "Particles"
+    ],
+    "prompt_text": "A stream of liquid pours into a glass shape built from the logo silhouette, filling with a wobbling surface, bubbles rising, and the tagline floats up through the liquid.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Liquid fills a logo-shaped vessel; tagline rises through it.",
+      "motion_language": "liquid fill",
+      "techniques": [
+        "metaball/wave surface",
+        "fill level easing",
+        "bubble particles",
+        "mask by logo shape"
+      ],
+      "pacing": "slow fill, hit when full",
+      "palette_usage": "brand primary liquid, accent highlights",
+      "best_for_industries": [
+        "food",
+        "beverage",
+        "cafe",
+        "beauty",
+        "energy"
+      ],
+      "best_for_goals": [
+        "sell",
+        "launch",
+        "about"
+      ],
+      "difficulty": "hard"
+    }
+  },
+  {
+    "id": "mgx-017",
+    "title": "Hiring badge roll-call",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Characters",
+    "tags": [
+      "Characters",
+      "Kinetic type"
+    ],
+    "prompt_text": "Job titles roll past like a departure board in Arabic and English, flipping split-flap letters, and stop on the open role with a 'join us' badge stamping on.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Split-flap board cycles roles and lands on the open job.",
+      "motion_language": "split-flap board",
+      "techniques": [
+        "split-flap character flip",
+        "bilingual rows",
+        "decelerating roll",
+        "badge stamp"
+      ],
+      "pacing": "accelerate then stop on hit",
+      "palette_usage": "ink board, white letters, primary badge",
+      "best_for_industries": [
+        "any"
+      ],
+      "best_for_goals": [
+        "hiring"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-018",
+    "title": "Isometric store build",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Diagrams",
+    "tags": [
+      "Diagrams",
+      "Shapes"
+    ],
+    "prompt_text": "An isometric storefront assembles block by block — floor, walls, shelves, products, sign with the logo — each piece dropping in on the beat with a small bounce and shadow.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Isometric store builds itself piece by piece on the beat.",
+      "motion_language": "isometric construction",
+      "techniques": [
+        "isometric projection",
+        "drop with bounce",
+        "shadow scaling",
+        "beat-locked assembly"
+      ],
+      "pacing": "one piece per beat",
+      "palette_usage": "brand palette on surfaces, soft ink shadows",
+      "best_for_industries": [
+        "ecommerce",
+        "saas",
+        "retail",
+        "real estate"
+      ],
+      "best_for_goals": [
+        "launch",
+        "about",
+        "sell"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-019",
+    "title": "Card stack swipe",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Product UI",
+    "tags": [
+      "Product UI"
+    ],
+    "prompt_text": "A stack of feature cards fans out, then each card swipes off right-to-left with a tilt revealing the next; the last card flips to show the CTA.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Feature cards swipe off one by one; final card flips to CTA.",
+      "motion_language": "card deck",
+      "techniques": [
+        "fan-out stagger",
+        "swipe with rotation",
+        "3D card flip",
+        "depth shadows"
+      ],
+      "pacing": "swipe per beat",
+      "palette_usage": "white cards with primary headers on brand background",
+      "best_for_industries": [
+        "saas",
+        "fintech",
+        "education",
+        "ecommerce"
+      ],
+      "best_for_goals": [
+        "sell",
+        "about"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-020",
+    "title": "Ink drop logo bloom",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Particles",
+    "tags": [
+      "Particles",
+      "Shapes"
+    ],
+    "prompt_text": "A single drop of brand-colored ink hits water in slow motion, blooms into fluid tendrils, and the tendrils converge into the logo mark.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Ink drop blooms in water and resolves into the logo.",
+      "motion_language": "fluid ink",
+      "techniques": [
+        "fluid noise displacement",
+        "radial bloom",
+        "particle convergence to logo path",
+        "slow-motion ramp"
+      ],
+      "pacing": "slow then snap",
+      "palette_usage": "primary ink on light or ink background",
+      "best_for_industries": [
+        "luxury",
+        "beauty",
+        "art",
+        "media"
+      ],
+      "best_for_goals": [
+        "launch",
+        "about"
+      ],
+      "difficulty": "hard"
+    }
+  },
+  {
+    "id": "mgx-021",
+    "title": "Ticker tape headline",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Kinetic type",
+    "tags": [
+      "Kinetic type"
+    ],
+    "prompt_text": "Multiple bands of text scroll at different speeds and directions behind the main headline, like a news ticker; on the drop they all freeze and the headline punches forward.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Layered scrolling text bands freeze on the drop as headline punches in.",
+      "motion_language": "marquee energy",
+      "techniques": [
+        "infinite marquee bands",
+        "opposing directions",
+        "freeze-frame on hit",
+        "scale punch"
+      ],
+      "pacing": "constant motion then freeze",
+      "palette_usage": "alternating primary/ink bands, accent headline",
+      "best_for_industries": [
+        "fashion",
+        "media",
+        "events",
+        "retail"
+      ],
+      "best_for_goals": [
+        "launch",
+        "offer"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-022",
+    "title": "Hand-drawn doodle explainer",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Shapes",
+    "tags": [
+      "Shapes",
+      "Diagrams"
+    ],
+    "prompt_text": "Sketchy marker doodles draw on in real time — arrows, circles, underlines — annotating the product and Arabic text with a playful wobble.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Marker doodles draw on and annotate the message with wobble.",
+      "motion_language": "sketch annotation",
+      "techniques": [
+        "rough SVG path draw",
+        "boil/wobble effect",
+        "arrow and circle callouts",
+        "handwritten underline"
+      ],
+      "pacing": "medium, playful",
+      "palette_usage": "marker in accent over clean brand background",
+      "best_for_industries": [
+        "education",
+        "saas",
+        "kids",
+        "food"
+      ],
+      "best_for_goals": [
+        "about",
+        "sell"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-023",
+    "title": "Stat bars race",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Charts",
+    "tags": [
+      "Charts"
+    ],
+    "prompt_text": "Horizontal bars race right-to-left comparing 'before' vs 'with brand'; the brand bar overtakes on the drop and its label flashes.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "RTL bar race where the brand bar overtakes on the drop.",
+      "motion_language": "data race",
+      "techniques": [
+        "bar width interpolation",
+        "overtake timing on beat",
+        "label follow",
+        "flash highlight"
+      ],
+      "pacing": "build then overtake hit",
+      "palette_usage": "grey competitors, primary brand bar",
+      "best_for_industries": [
+        "saas",
+        "fintech",
+        "logistics",
+        "marketing"
+      ],
+      "best_for_goals": [
+        "sell",
+        "about"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-024",
+    "title": "Cut-paper collage",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Photos",
+    "tags": [
+      "Photos",
+      "Shapes"
+    ],
+    "prompt_text": "Torn-paper shapes in brand colors slide and stack like a collage, with paper texture and drop shadows, framing product photos and Arabic headlines.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Torn-paper layers slide in to build a collage around photos and text.",
+      "motion_language": "paper craft",
+      "techniques": [
+        "torn-edge masks",
+        "layer slide with shadow",
+        "paper grain texture",
+        "stop-motion jitter"
+      ],
+      "pacing": "stepped, 12fps feel",
+      "palette_usage": "brand colors as paper stocks",
+      "best_for_industries": [
+        "fashion",
+        "food",
+        "kids",
+        "events",
+        "culture"
+      ],
+      "best_for_goals": [
+        "occasion",
+        "launch",
+        "sell"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-025",
+    "title": "Glass card float",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Product UI",
+    "tags": [
+      "Product UI",
+      "Shapes"
+    ],
+    "prompt_text": "Frosted glass cards float over moving gradient blobs, refracting them; key benefits appear on cards that drift and gently rotate in 3D.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Frosted cards with benefits float over refracted gradient blobs.",
+      "motion_language": "glassmorphism",
+      "techniques": [
+        "backdrop blur",
+        "moving gradient blobs",
+        "3D drift",
+        "specular highlight sweep"
+      ],
+      "pacing": "calm",
+      "palette_usage": "blobs in primary/accent, white glass",
+      "best_for_industries": [
+        "saas",
+        "fintech",
+        "tech",
+        "beauty"
+      ],
+      "best_for_goals": [
+        "about",
+        "launch"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-026",
+    "title": "Countdown to launch",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Kinetic type",
+    "tags": [
+      "Kinetic type",
+      "Particles"
+    ],
+    "prompt_text": "3-2-1 counts down with each number exploding into particles that form the next; on zero the particles form the logo and a light flash fills the frame.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Countdown numbers explode into particles that form the next number, ending on the logo.",
+      "motion_language": "launch countdown",
+      "techniques": [
+        "text-to-particle",
+        "particle retarget",
+        "flash frame",
+        "beat-locked counts"
+      ],
+      "pacing": "hit per number",
+      "palette_usage": "primary particles, white flash",
+      "best_for_industries": [
+        "tech",
+        "events",
+        "ecommerce",
+        "telecom"
+      ],
+      "best_for_goals": [
+        "launch",
+        "occasion"
+      ],
+      "difficulty": "hard"
+    }
+  },
+  {
+    "id": "mgx-027",
+    "title": "Fabric reveal",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Shapes",
+    "tags": [
+      "Shapes",
+      "Photos"
+    ],
+    "prompt_text": "A cloth in brand color is pulled off like an unveiling, rippling as it slides away to reveal the product and headline underneath.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Brand-colored cloth ripples and slides off to unveil the product.",
+      "motion_language": "unveiling",
+      "techniques": [
+        "mesh wave displacement",
+        "pull trajectory",
+        "shadow under cloth",
+        "reveal mask"
+      ],
+      "pacing": "one reveal",
+      "palette_usage": "primary cloth, neutral stage",
+      "best_for_industries": [
+        "luxury",
+        "automotive",
+        "real estate",
+        "electronics"
+      ],
+      "best_for_goals": [
+        "launch"
+      ],
+      "difficulty": "hard"
+    }
+  },
+  {
+    "id": "mgx-028",
+    "title": "Grid snap system",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Shapes",
+    "tags": [
+      "Shapes",
+      "Kinetic type"
+    ],
+    "prompt_text": "A visible modular grid draws on, then UI blocks, icons and text snap into cells with crisp overshoot, like a design system assembling itself.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Modular grid draws, then blocks snap into cells with overshoot.",
+      "motion_language": "Swiss grid",
+      "techniques": [
+        "grid line draw",
+        "snap with overshoot",
+        "staggered cell fill",
+        "monoline icons"
+      ],
+      "pacing": "tight, per beat",
+      "palette_usage": "ink lines, primary blocks, accent highlight",
+      "best_for_industries": [
+        "saas",
+        "agency",
+        "tech",
+        "education"
+      ],
+      "best_for_goals": [
+        "about",
+        "launch",
+        "hiring"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-029",
+    "title": "Eid sparkle burst",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Particles",
+    "tags": [
+      "Particles",
+      "Kinetic type"
+    ],
+    "prompt_text": "Crescent and star shapes burst outward from the greeting text in gold and brand colors, twinkle, and drift down slowly like festive confetti.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Crescent and star confetti bursts from an Eid greeting and drifts down.",
+      "motion_language": "festive greeting",
+      "techniques": [
+        "radial burst",
+        "twinkle opacity noise",
+        "slow gravity drift",
+        "greeting scale-in"
+      ],
+      "pacing": "one burst then calm",
+      "palette_usage": "gold plus brand primary on deep ink",
+      "best_for_industries": [
+        "any"
+      ],
+      "best_for_goals": [
+        "occasion"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-030",
+    "title": "Saudi National Day green wave",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Shapes",
+    "tags": [
+      "Shapes",
+      "Kinetic type"
+    ],
+    "prompt_text": "Waves of green ribbons sweep across, braiding with the brand color, and the greeting rises with palm and sword-inspired abstract strokes (no official emblem).",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Green ribbons braid with the brand color under a national-day greeting.",
+      "motion_language": "patriotic ribbon",
+      "techniques": [
+        "ribbon path animation",
+        "braided layers",
+        "stroke draw",
+        "greeting rise"
+      ],
+      "pacing": "medium",
+      "palette_usage": "Saudi green with brand accent; never use official emblems",
+      "best_for_industries": [
+        "any KSA brand"
+      ],
+      "best_for_goals": [
+        "occasion"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-031",
+    "title": "Magnetic product orbit",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Product UI",
+    "tags": [
+      "Product UI",
+      "Shapes"
+    ],
+    "prompt_text": "The product sits in the centre while feature icons orbit around it on tilted rings; on each beat one icon is pulled in and its label expands.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Feature icons orbit the product; one is pulled in per beat with its label.",
+      "motion_language": "orbital showcase",
+      "techniques": [
+        "elliptical orbit paths",
+        "3D ring tilt",
+        "magnetic pull easing",
+        "label expand"
+      ],
+      "pacing": "one pull per beat",
+      "palette_usage": "primary rings, accent active icon",
+      "best_for_industries": [
+        "electronics",
+        "saas",
+        "beauty",
+        "automotive"
+      ],
+      "best_for_goals": [
+        "sell",
+        "launch"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-032",
+    "title": "Typewriter terminal",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Code",
+    "tags": [
+      "Code",
+      "Kinetic type"
+    ],
+    "prompt_text": "A terminal types commands in monospace; the output renders the brand dashboard in ASCII which morphs into the real UI.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Typed terminal output morphs from ASCII into the real product UI.",
+      "motion_language": "dev terminal",
+      "techniques": [
+        "typewriter reveal",
+        "cursor blink",
+        "ASCII render",
+        "crossfade morph to UI"
+      ],
+      "pacing": "steady typing then morph",
+      "palette_usage": "ink terminal, primary prompt, accent output",
+      "best_for_industries": [
+        "saas",
+        "tech",
+        "developer tools"
+      ],
+      "best_for_goals": [
+        "launch",
+        "hiring",
+        "about"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-033",
+    "title": "Pulse heartbeat line",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Charts",
+    "tags": [
+      "Charts",
+      "Shapes"
+    ],
+    "prompt_text": "An ECG-like line runs across the frame, its spikes matching the music kicks; at the peak the line forms the brand logo then continues flat into the CTA.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Heartbeat line spikes on kicks and draws the logo at its peak.",
+      "motion_language": "pulse line",
+      "techniques": [
+        "path draw with leading head",
+        "spike on kick",
+        "logo path inserted",
+        "glow trail"
+      ],
+      "pacing": "locked to kick",
+      "palette_usage": "accent line on ink",
+      "best_for_industries": [
+        "healthcare",
+        "fitness",
+        "insurance",
+        "energy"
+      ],
+      "best_for_goals": [
+        "about",
+        "sell"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-034",
+    "title": "Stacked Arabic bold type",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Kinetic type",
+    "tags": [
+      "Kinetic type"
+    ],
+    "prompt_text": "Huge bold Arabic words stack vertically, each slamming in with a mask from below; the stack scrolls up and a new word lands every beat, outlined words alternate with solid.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Massive Arabic words stack and scroll, alternating solid and outline.",
+      "motion_language": "poster type",
+      "techniques": [
+        "mask-up reveal",
+        "alternating stroke/fill",
+        "stack scroll",
+        "beat-locked slams"
+      ],
+      "pacing": "fast",
+      "palette_usage": "solid primary and outline ink on accent background",
+      "best_for_industries": [
+        "fashion",
+        "retail",
+        "events",
+        "media",
+        "fitness"
+      ],
+      "best_for_goals": [
+        "launch",
+        "offer",
+        "sell"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-035",
+    "title": "Seasonal palm shadow",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Photos",
+    "tags": [
+      "Photos",
+      "Shapes"
+    ],
+    "prompt_text": "Soft palm-leaf shadows sway across a sunlit wall where the product and headline sit, light warming over time from morning to golden hour.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Swaying palm shadows and warming light over the product scene.",
+      "motion_language": "sunlit lifestyle",
+      "techniques": [
+        "shadow layer sway",
+        "color temperature ramp",
+        "soft blur",
+        "slow push-in"
+      ],
+      "pacing": "calm",
+      "palette_usage": "warm neutrals with brand primary product",
+      "best_for_industries": [
+        "hospitality",
+        "real estate",
+        "beauty",
+        "furniture"
+      ],
+      "best_for_goals": [
+        "about",
+        "sell"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-036",
+    "title": "Coupon tear-off",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Product UI",
+    "tags": [
+      "Product UI",
+      "Shapes"
+    ],
+    "prompt_text": "A coupon slides in, a dashed perforation draws, and the stub tears off with a jagged edge flying away, revealing the code and offer.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Coupon tears along a perforation to reveal the discount code.",
+      "motion_language": "coupon tear",
+      "techniques": [
+        "dashed line draw",
+        "jagged mask split",
+        "fly-away with rotation",
+        "code reveal"
+      ],
+      "pacing": "build then tear hit",
+      "palette_usage": "accent coupon, ink code",
+      "best_for_industries": [
+        "ecommerce",
+        "food",
+        "retail"
+      ],
+      "best_for_goals": [
+        "offer"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-037",
+    "title": "Light-sweep logo shine",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Shapes",
+    "tags": [
+      "Shapes"
+    ],
+    "prompt_text": "The logo sits on a dark surface; a diagonal light streak sweeps across it, a subtle lens flare blooms, and a reflection appears on the floor.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Diagonal light sweep, flare and floor reflection across the logo.",
+      "motion_language": "premium shine",
+      "techniques": [
+        "gradient mask sweep",
+        "flare bloom",
+        "mirror reflection",
+        "slow push"
+      ],
+      "pacing": "single hit",
+      "palette_usage": "ink background, white sweep, primary logo",
+      "best_for_industries": [
+        "luxury",
+        "automotive",
+        "real estate",
+        "finance"
+      ],
+      "best_for_goals": [
+        "about",
+        "launch"
+      ],
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "mgx-038",
+    "title": "Crowd of avatars",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Characters",
+    "tags": [
+      "Characters",
+      "Kinetic type"
+    ],
+    "prompt_text": "Dozens of simple avatar circles pop in to form a crowd, then rearrange into the shape of a number (e.g. customers served) before the label appears.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Avatar circles pop in and rearrange into a big number.",
+      "motion_language": "community count",
+      "techniques": [
+        "grid pop-in stagger",
+        "position morph to digit shape",
+        "label reveal",
+        "variation in avatar colors"
+      ],
+      "pacing": "build to one hit",
+      "palette_usage": "avatars in brand tints, number outline in primary",
+      "best_for_industries": [
+        "saas",
+        "community",
+        "education",
+        "marketplace"
+      ],
+      "best_for_goals": [
+        "about",
+        "hiring",
+        "sell"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-039",
+    "title": "Weather-to-mood transition",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Particles",
+    "tags": [
+      "Particles"
+    ],
+    "prompt_text": "Rain particles fall over a grey 'problem' scene, then on the drop the rain turns into rising golden sparks and the palette shifts to the brand colors.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Falling rain reverses into rising sparks as the scene turns branded.",
+      "motion_language": "mood flip",
+      "techniques": [
+        "rain particles",
+        "velocity reversal",
+        "palette crossfade",
+        "glow on sparks"
+      ],
+      "pacing": "breakdown then drop",
+      "palette_usage": "grey to full brand palette",
+      "best_for_industries": [
+        "insurance",
+        "services",
+        "fintech",
+        "healthcare"
+      ],
+      "best_for_goals": [
+        "sell",
+        "about"
+      ],
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "mgx-040",
+    "title": "Domino chain reaction",
+    "source_url": null,
+    "creator": "MotionGX",
+    "category": "Shapes",
+    "tags": [
+      "Shapes",
+      "Diagrams"
+    ],
+    "prompt_text": "A row of domino tiles in brand colors falls in a chain, each tile carrying one step of the process in Arabic, the last one tipping the CTA into place.",
+    "code_snippet": null,
+    "license_note": "Original MotionGX reference. Owned by MotionGX; free to use in product.",
+    "card": {
+      "summary": "Brand-colored dominoes fall in a chain, each showing a step, ending on the CTA.",
+      "motion_language": "chain reaction",
+      "techniques": [
+        "sequential rotation with physics easing",
+        "staggered timing on beats",
+        "label on tile",
+        "final push to CTA"
+      ],
+      "pacing": "one tile per half-beat",
+      "palette_usage": "alternating primary/accent tiles",
+      "best_for_industries": [
+        "logistics",
+        "saas",
+        "fintech",
+        "services"
+      ],
+      "best_for_goals": [
+        "sell",
+        "about"
+      ],
+      "difficulty": "medium"
+    }
+  }
+]

@@ -123,16 +123,29 @@ export class DbStore implements MotionStore {
  * The k most relevant references with diversity (maximal marginal relevance), skipping the ones
  * this workspace's last videos already used.
  */
-export function selectRefs(all: MotionRef[], query: number[], k: number, exclude: Set<string>, lambda = 0.65, goal?: string): MotionRef[] {
+export type RefWeighting = {
+  /** boost refs whose card lists this goal (sell, launch, …) */
+  goal?: string;
+  /** relevance multipliers by creator, e.g. { MotionGX: 1.2 } for Arabic videos */
+  creatorWeights?: Record<string, number>;
+};
+
+/** Arabic videos lean on our own Arabic-first references (+20% relevance). */
+export const ARABIC_CREATOR_WEIGHTS: Record<string, number> = { MotionGX: 1.2 };
+
+export function selectRefs(all: MotionRef[], query: number[], k: number, exclude: Set<string>, lambda = 0.65, weighting: RefWeighting = {}): MotionRef[] {
+  const { goal, creatorWeights } = weighting;
   const pool = all.filter((r) => r.embedding?.length && !exclude.has(r.id));
   const chosen: MotionRef[] = [];
   while (chosen.length < k && pool.length) {
     let best = 0;
     let bestScore = -Infinity;
     pool.forEach((r, i) => {
-      // small boost for references whose card says they suit this video's goal (sell, launch, …)
-      const rel = cosine(query, r.embedding!) + (goal && r.card?.best_for_goals?.includes(goal) ? 0.05 : 0);
-      const red = chosen.length ? Math.max(...chosen.map((c) => cosine(c.embedding!, r.embedding!))) : 0;
+      // relevance on a 0–1 scale (cosine can be ≤ 0, where a percentage weight would mean nothing),
+      // + a small boost when the card says the ref suits this video's goal, × the creator weight
+      const base = (cosine(query, r.embedding!) + 1) / 2 + (goal && r.card?.best_for_goals?.includes(goal) ? 0.025 : 0);
+      const rel = base * (creatorWeights?.[r.creator] ?? 1);
+      const red = chosen.length ? Math.max(...chosen.map((c) => (cosine(c.embedding!, r.embedding!) + 1) / 2)) : 0;
       const score = lambda * rel - (1 - lambda) * red;
       if (score > bestScore) {
         bestScore = score;

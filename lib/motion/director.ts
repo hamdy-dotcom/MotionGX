@@ -4,7 +4,7 @@ import { callTool, SONNET } from "@/lib/ai/claude";
 import { AiError } from "@/lib/ai/usage";
 import type { EnergyMap } from "@motiongx/primitives";
 import { cosine, embed } from "./embed";
-import { selectRefs, type MotionRef, type MotionStore, type TreatmentRecord } from "./store";
+import { ARABIC_CREATOR_WEIGHTS, selectRefs, type MotionRef, type MotionStore, type TreatmentRecord } from "./store";
 import type { MotionBrief } from "./types";
 
 export const PACE_BPM = { calm: 90, medium: 110, fast: 128 } as const;
@@ -156,7 +156,7 @@ export async function direct(brief: MotionBrief, store: MotionStore, opts: { avo
   const [allRefs, recentWs, recentGlobal] = await Promise.all([store.refs(), store.recentTreatments(brief.workspaceId, 10), store.recentGlobal(50)]);
   const usedRefs = new Set(recentWs.slice(0, 5).flatMap((t) => t.ref_ids));
   const query = await embed(`${brief.brand.name}. ${brief.brand.tone}. ${brief.facts.what_it_does}. ${brief.goal}. ${brief.brief}`);
-  const refs = selectRefs(allRefs, query, 4, usedRefs, 0.65, brief.goal);
+  const refs = selectRefs(allRefs, query, 4, usedRefs, 0.65, { goal: brief.goal, creatorWeights: brief.dialect === "en" ? undefined : ARABIC_CREATOR_WEIGHTS });
   const history: TreatmentRecord[] = [...recentWs, ...recentGlobal.filter((g) => !recentWs.includes(g))];
 
   const avoid = [...new Set([...history.map((h) => `${h.motion_language} — ${h.concept.slice(0, 120)}`), ...(opts.avoidMotionLanguages ?? [])])].slice(0, 30);
