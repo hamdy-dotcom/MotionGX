@@ -18,6 +18,8 @@ export type MotionRef = {
   code_snippet: string | null;
   license_note: string;
   embedding?: number[];
+  /** technique card (prompt-motion.com refs): summary, motion_language, techniques, best_for_goals, … */
+  card?: { motion_language?: string; best_for_goals?: string[]; difficulty?: string } | null;
 };
 
 export type TreatmentRecord = {
@@ -88,7 +90,7 @@ const parseVector = (v: unknown): number[] => (Array.isArray(v) ? (v as number[]
 export class DbStore implements MotionStore {
   constructor(private admin: SupabaseClient) {}
   async refs() {
-    const { data, error } = await this.admin.from("motion_refs").select("id, title, source_url, creator, category, tags, prompt_text, code_snippet, license_note, embedding");
+    const { data, error } = await this.admin.from("motion_refs").select("id, title, source_url, creator, category, tags, prompt_text, code_snippet, license_note, embedding, card");
     if (error) throw new Error(`motion_refs: ${error.message}`);
     return (data ?? []).map((r) => ({ ...r, embedding: parseVector(r.embedding) })) as MotionRef[];
   }
@@ -121,14 +123,15 @@ export class DbStore implements MotionStore {
  * The k most relevant references with diversity (maximal marginal relevance), skipping the ones
  * this workspace's last videos already used.
  */
-export function selectRefs(all: MotionRef[], query: number[], k: number, exclude: Set<string>, lambda = 0.65): MotionRef[] {
+export function selectRefs(all: MotionRef[], query: number[], k: number, exclude: Set<string>, lambda = 0.65, goal?: string): MotionRef[] {
   const pool = all.filter((r) => r.embedding?.length && !exclude.has(r.id));
   const chosen: MotionRef[] = [];
   while (chosen.length < k && pool.length) {
     let best = 0;
     let bestScore = -Infinity;
     pool.forEach((r, i) => {
-      const rel = cosine(query, r.embedding!);
+      // small boost for references whose card says they suit this video's goal (sell, launch, …)
+      const rel = cosine(query, r.embedding!) + (goal && r.card?.best_for_goals?.includes(goal) ? 0.05 : 0);
       const red = chosen.length ? Math.max(...chosen.map((c) => cosine(c.embedding!, r.embedding!))) : 0;
       const score = lambda * rel - (1 - lambda) * red;
       if (score > bestScore) {

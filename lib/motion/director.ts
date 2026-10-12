@@ -156,7 +156,7 @@ export async function direct(brief: MotionBrief, store: MotionStore, opts: { avo
   const [allRefs, recentWs, recentGlobal] = await Promise.all([store.refs(), store.recentTreatments(brief.workspaceId, 10), store.recentGlobal(50)]);
   const usedRefs = new Set(recentWs.slice(0, 5).flatMap((t) => t.ref_ids));
   const query = await embed(`${brief.brand.name}. ${brief.brand.tone}. ${brief.facts.what_it_does}. ${brief.goal}. ${brief.brief}`);
-  const refs = selectRefs(allRefs, query, 4, usedRefs);
+  const refs = selectRefs(allRefs, query, 4, usedRefs, 0.65, brief.goal);
   const history: TreatmentRecord[] = [...recentWs, ...recentGlobal.filter((g) => !recentWs.includes(g))];
 
   const avoid = [...new Set([...history.map((h) => `${h.motion_language} — ${h.concept.slice(0, 120)}`), ...(opts.avoidMotionLanguages ?? [])])].slice(0, 30);
@@ -223,7 +223,7 @@ Video: goal ${b.goal}; ${b.lengthS}s; format ${b.format} (${b.width}×${b.height
 Client brief (any language): """${b.brief}"""
 
 Inspiration references (borrow ideas, never copy):
-${refs.map((r, i) => `${i + 1}. ${r.title} [${r.category}; ${r.tags.join(", ")}] — ${r.prompt_text}${r.code_snippet ? ` (technique: ${r.code_snippet})` : ""}`).join("\n")}
+${refs.map((r, i) => `${i + 1}. ${r.card?.motion_language ?? r.title} [${r.tags.join(", ") || r.category}] — ${r.prompt_text}${r.code_snippet ? ` (technique: ${r.code_snippet})` : ""}`).join("\n")}
 
 Already used recently — do NOT reuse these concepts or motion languages:
 ${avoid.length ? avoid.map((a) => `- ${a}`).join("\n") : "- (none yet)"}

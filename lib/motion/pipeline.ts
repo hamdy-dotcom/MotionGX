@@ -11,7 +11,7 @@ import { visionQa, type QaReport } from "./qa";
 import { runMotionJob } from "./runner";
 import { writeScript } from "./script";
 import { scoreVideo, type ScoredAudio } from "./audio";
-import type { MotionStore } from "./store";
+import type { MotionRef, MotionStore } from "./store";
 import type { MotionBrief } from "./types";
 
 export const MAX_ROUNDS = 4;
@@ -24,6 +24,7 @@ export type PipelineResult = {
   status: "passed" | "needs_direction";
   treatment: Treatment;
   refIds: string[];
+  refs: MotionRef[];
   similarity: number;
   script: { title: string; beats: ScriptBeat[] };
   code: string | null;
@@ -136,9 +137,9 @@ export async function generateMotion(
   b: MotionBrief,
   store: MotionStore,
   workDir: string,
-  opts: { progress?: PipelineProgress; avoidMotionLanguages?: string[]; seed?: number } = {},
+  opts: { progress?: PipelineProgress; avoidMotionLanguages?: string[]; seed?: number; capUsd?: number; printCost?: boolean } = {},
 ): Promise<PipelineResult> {
-  const ctx: RunContext = { videoId: b.videoId, usage: [] };
+  const ctx: RunContext = { videoId: b.videoId, usage: [], capUsd: opts.capUsd, printCost: opts.printCost };
   return withRun(ctx, async () => {
     const timings: Record<string, number> = {};
     let t0 = Date.now();
@@ -182,6 +183,7 @@ export async function generateMotion(
       status: coded.code ? "passed" : "needs_direction",
       treatment: dir.treatment,
       refIds: dir.refs.map((r) => r.id),
+      refs: dir.refs.map((r) => ({ ...r, embedding: undefined })),
       similarity: dir.similarity,
       script,
       code: coded.code,

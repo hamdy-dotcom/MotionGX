@@ -9,7 +9,7 @@ import { extractBrand, type BrandDraft } from "../../lib/brand/extract";
 import { loadLogo } from "../../lib/brand/logo";
 import { logoNeedsPlate } from "../../lib/video/brand-props";
 import { buildTokens } from "../../packages/primitives/src/palette";
-import { FileStore } from "../../lib/motion/store";
+import { DbStore } from "../../lib/motion/store";
 import { costOf, generateMotion, type PipelineResult } from "../../lib/motion/pipeline";
 import { runMotionJob } from "../../lib/motion/runner";
 import { dimensionsFor, type MotionBrief } from "../../lib/motion/types";
@@ -32,6 +32,7 @@ async function workspaceFor(slug: string): Promise<string> {
   return data.id;
 }
 let WORKSPACE = FALLBACK_WORKSPACE;
+const CAP_PER_VIDEO_USD = Number(process.env.MOTIONGX_CAP_USD ?? 1.5);
 
 type Job = { slug: string; url: string; dialect: Dialect; format: VideoFormat; lengthS: 15 | 30 | 60; pace: Pace; goal: Goal; brief: string };
 
@@ -105,7 +106,8 @@ async function main() {
   mkdirSync(root, { recursive: true });
   const reportFile = path.join(root, "report.json");
   const report: Record<string, unknown> = existsSync(reportFile) ? JSON.parse(readFileSync(reportFile, "utf8")) : {};
-  const store = new FileStore();
+  // The real library (motion_refs) and treatment history (motion_treatments), as the app uses them.
+  const store = new DbStore(admin);
 
   // Serve generated audio to the renderer.
   const server = http.createServer((req, res) => {
@@ -130,7 +132,12 @@ async function main() {
     const t0 = Date.now();
     let result: PipelineResult;
     try {
-      result = await generateMotion(brief, store, dir, { progress: (s, d) => console.log(`  … ${s}${d ? ` ${d}` : ""} (${Math.round((Date.now() - t0) / 1000)}s)`), seed: job.slug.length * 13 });
+      result = await generateMotion(brief, store, dir, {
+        progress: (s, d) => console.log(`  … ${s}${d ? ` ${d}` : ""} (${Math.round((Date.now() - t0) / 1000)}s)`),
+        seed: job.slug.length * 13,
+        printCost: true,
+        capUsd: CAP_PER_VIDEO_USD,
+      });
     } catch (err) {
       console.error(`  FAILED: ${err instanceof Error ? err.message : err}`);
       report[job.slug] = { error: String(err) };
@@ -169,6 +176,7 @@ async function main() {
       concept: result.treatment.concept,
       similarity_to_nearest_previous: Number(result.similarity.toFixed(3)),
       refs: result.refIds,
+      refs_used: result.refs.map((r) => ({ id: r.id, creator: r.creator, label: r.card?.motion_language ?? r.title, source_url: r.source_url })),
       qa_rounds: result.qa.map((q) => ({ round: q.round, pass: q.pass, score: q.score, issues: q.issues.map((i) => `${i.check}${i.t !== null ? `@${i.t}` : ""}: ${i.detail}`) })),
       energy_map: result.treatment.energy,
       measured_hits: result.audio?.hits ?? [],
