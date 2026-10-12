@@ -6,6 +6,7 @@ import { callTool, HAIKU, SONNET } from "@/lib/ai/claude";
 import { AiError } from "@/lib/ai/usage";
 import { buildTokens, contrast } from "@/packages/primitives/src/palette";
 import { catalogueText } from "./catalogue";
+import { COUNTRIES, DOODLES, EMOJI, ICONS, PEEP_BODIES, PEEP_FACES, PEEP_HEADS, TEXTURES } from "@/remotion/asset-names";
 import { EXAMPLE_PLAN, EXAMPLE_SPEC } from "./spec-example";
 import { loadFont, measureLine } from "./fonts-node";
 import { applyPatch, type PatchOp } from "./patch";
@@ -25,11 +26,12 @@ const SPEC_DOC = `MotionSpec — the JSON language for one video. The engine ren
 COORDINATES: x, y = element CENTRE in % of canvas width / height (50,50 = centre). w, h, size = % of canvas WIDTH (so w = h is square in every format). Safe area: keep every text box inside 5–95% on both axes.
 TIME: seconds; "b12" = beat 12 (0-based); "s3" = start of shot 3, "s3e" = end of shot 3 (shot anchors — the easiest way to time things). Elements exist from "in" to "out" (default: whole video). z = layer (higher on top).
 COLORS: roles only — bg, bg2, surface, surface2, border, text, textMuted, primary, onPrimary, accent, gradA, gradB, glowA, glowB, white, black. Never hex.
-FONTS: font = head | body | latin.
+FONTS: font = head | body | latin | display (display = the director's expressive Arabic headline face, when the treatment names one; headlines only).
 
 {
  "version": 1,
- "canvas": { "bg": [ { "kind": "solid|gradient|radial|grid|dots|noise|stripes|stars|pattern", "colors": [role…], "angle"?, "alpha"?, "drift"?, "scale"?, "in"?, "out"? } ] },
+ "canvas": { "bg": [ { "kind": "solid|gradient|radial|grid|dots|noise|stripes|stars|pattern|texture|dunes|waves", "colors": [role…], "texture"?: ${TEXTURES.join("|")} (kind texture: paper/plaster grain), "angle"?, "alpha"?, "drift"?, "scale"?, "in"?, "out"? } ] },
+ "iconStroke"?: 1–3 (one stroke width for every icon in the video),
  "camera"?: { "keys"?: [ { "t", "zoom"?, "x"?, "y"?, "rot"?, "rx"?, "ry"? (3D camera tilt/orbit, ±40°), "ease"? } ], "shake"?: 0–1 (on hits), "drift"?: 0–1 },
  "cuts"?: [ { "t", "kind": "hard|flash|whip|wipe|zoom|glitch|iris|blinds|pixels|layers|diagonal|slice", "dir"?: "left|right|up|down", "color"?: role } ],
  "motionBlur"?: 0–1 (shutter blur on fast movers; default 0.5),
@@ -47,6 +49,14 @@ TYPES:
 - particles: { "kind": dots|squares|sparks|confetti|rain|bubbles|stars|dust, "count", "colors": [role…], "w", "h", "speed"?, "dir"?, "size"? }
 - group: { "w", "h", "clip"?: rect|circle|pill (mask), "fill"?: role, "radius"?, "stroke"?, "shadow"? } — children set "parent"; children use canvas coordinates
 - counter: { "from", "to", "decimals"?, "prefix"?, "suffix"?, "size", "font", "weight", "color" } — animate with "count-up"
+- icon: { "set"?: lucide|phosphor, "name": e.g. ${ICONS.slice(0, 60).join(", ")} …, "color": role, "w" } — one consistent icon set per video
+- emoji: { "name": ${EMOJI.join("|")}, "w" } — social / engagement beats only
+- character: { "doodle": ${DOODLES.join("|")} } OR { "peep": { "body": ${PEEP_BODIES.join("|")}, "head": ${PEEP_HEADS.slice(0, 20).join("|")}…, "face": ${PEEP_FACES.join("|")} } }, "color": role (outline), "accent"?: role, "w", "h" — people for stories (use Hijab/Turban heads for Gulf audiences when fitting)
+- map: { "countries": [ISO3 of Arab states: ${COUNTRIES.join(", ")}], "highlight"?: [ISO3…], "route"?: [ISO3… in order], "fill"?, "highlightFill"?, "stroke"?: roles, "w", "h" } — fitted to the box; draw the route with "stroke-draw"
+- flag: { "code": ISO 3166-1 alpha-2 lowercase e.g. "sa", "eg", "ae", "w" }
+- chart: { "kind": bar|line|area|donut, "values": [relative numbers, never printed], "colors": [role…], "w", "h" } — animate with "count-up" (bars grow / line draws / donut sweeps)
+- shape "sketch": true → hand-drawn Rough.js look (hachure fill, wobbly outline) — great for underlines, circles around a word, arrows
+- VECTOR TEXT (text elements, Arabic shaped correctly, words never split): "text-stroke-draw" (calligraphy reveal right→left), "particles-to-text" / "text-to-particles", "kashida-stretch" (elongates joins on a hit), "text-morph" (to: another line ref or the brand name)
 - custom (rare escape hatch): { "tsx": a ≤150-line TSX file default-exporting a React component ({ t, frame, width, height, palette, fonts }) importing only react/remotion/@motiongx/primitives, "note": what it does, "w", "h" } — ONLY for an effect no behavior combination can express. Prefer behaviors.
 BEHAVIOR: { "fx": name, "at"?: time (default: element "in"; exits default to just before "out"), "dur"?: seconds, …params } — on a group: "stagger": seconds (+ "order": start|center|end|edges|random) applies it to each child in turn
 ${catalogueText()}
@@ -117,10 +127,11 @@ async function layoutFacts(b: MotionBrief, plan: Plan) {
 
 function specPrompt(b: MotionBrief, plan: Plan, facts: Awaited<ReturnType<typeof layoutFacts>>, refs: MotionRef[] = []) {
   return `Canvas ${b.width}×${b.height} (${b.format}), ${b.lengthS}s @30fps, ${plan.energy.bpm} BPM (beat = ${(60 / plan.energy.bpm).toFixed(3)}s), language ${b.dialect === "en" ? "English (LTR)" : "Arabic (RTL)"}, palette is ${facts.dark ? "dark" : "light"}. Brand: ${b.brand.name} (${b.brand.url}); logo ${b.brand.hasLogo ? "yes" : "no — the logo element renders a wordmark"}; brand images: ${b.brand.imageCount}.
-TREATMENT: ${plan.concept} | motion language: ${plan.motion_language} | music: ${plan.music_mood}
+TREATMENT: ${plan.concept} | motion language: ${plan.motion_language} | music: ${plan.music_mood}${plan.metaphor ? `
+METAPHOR — THE HERO OF THE FILM (build it literally, big, in most shots): "${plan.metaphor.object}" stands for ${plan.metaphor.stands_for}. Its arc: ${plan.metaphor.transformation}. A viewer must be able to say the idea in one sentence after watching.` : ""}
 SHOTS (use every line once, during its shot):
-${plan.shots.map((s) => `- ${s.id} ${s.start_s}–${s.end_s}s: ${s.visual} | lines: ${s.lines.map((l, i) => `${s.id}:${i} "${l}"`).join(", ")}`).join("\n")}
-ENERGY: sections ${plan.energy.sections.map((s) => `${s.kind} ${s.start_s}–${s.end_s}`).join(", ")} | hits ${plan.energy.hits.map((h) => `${h.kind}@${h.t}`).join(", ")}
+${plan.shots.map((s) => `- ${s.id} ${s.start_s}–${s.end_s}s: ${s.visual}${s.hero ? ` | HERO: ${s.hero}` : ""} | lines: ${s.lines.map((l, i) => `${s.id}:${i} "${l}"`).join(", ")}`).join("\n")}
+ENERGY: sections ${plan.energy.sections.map((s) => `${s.kind} ${s.start_s}–${s.end_s}`).join(", ")} | hits ${plan.energy.hits.map((h) => `${h.kind}@${h.t}${(h as { understand?: string }).understand ? ` (viewer gets: ${(h as { understand?: string }).understand})` : ""}`).join(", ")}
 MAX TEXT SIZE PER LINE (one line, fits the safe width): ${facts.maxSizes.join(" | ")}
 CONTRAST (≥ 4.5 needed for body text, ≥ 3 for size ≥ 4.5): ${facts.table.join(" | ")}${refs.length ? `\nREFERENCE TECHNIQUES the director chose (borrow the motion craft, never the content):\n${refs.map((r, i) => refBrief(r, i)).join("\n")}` : ""}`;
 }
@@ -303,6 +314,9 @@ export type SpecRun = {
   model: string;
 };
 
+/** spec writer model: MOTIONGX_SPEC_MODEL=sonnet|haiku (default haiku; Phase 3E A/B) */
+export const specWriterModel = () => (process.env.MOTIONGX_SPEC_MODEL === "sonnet" ? SONNET : HAIKU);
+
 /** Spec call → validate → auto-fix → ≤ 2 JSON-Patch rounds. */
 export async function writeSpec(b: MotionBrief, plan: Plan, vctx: ValidateCtx, refs: MotionRef[] = [], note?: string): Promise<SpecRun> {
   const rounds: SpecRun["rounds"] = [];
@@ -314,11 +328,13 @@ export async function writeSpec(b: MotionBrief, plan: Plan, vctx: ValidateCtx, r
     return r.success ? [] : r.error.issues.slice(0, 20).map((i) => ({ path: `/${i.path.join("/")}`, msg: i.message }));
   };
   let t0 = Date.now();
-  let model: string = HAIKU;
+  // A/B switch: the spec writer model (patch rounds stay on Haiku)
+  const writer = specWriterModel();
+  let model: string = writer;
   // one Haiku call; a schema slip is patched, never regenerated (a full re-write repeats the mistake and costs 10×)
-  const first = await callTool({ workspaceId: b.workspaceId, kind: "motion_spec", model: HAIKU, strict: false, cache: true, system, prompt, tool: specTool, schema: z.object({ spec: z.record(z.string(), z.unknown()) }), maxTokens: 9000, retries: 1 });
+  const first = await callTool({ workspaceId: b.workspaceId, kind: "motion_spec", model: writer, strict: false, cache: true, ...(writer === SONNET ? { effort: "low" as const } : {}), system, prompt, tool: specTool, schema: z.object({ spec: z.record(z.string(), z.unknown()) }), maxTokens: writer === SONNET ? 12000 : 9000, retries: 1 });
   let raw: unknown = first.value?.spec ?? null;
-  rounds.push({ stage: "spec", model: HAIKU, issues: raw ? zodProblems(raw).length : 1, ms: Date.now() - t0 });
+  rounds.push({ stage: "spec", model: writer, issues: raw ? zodProblems(raw).length : 1, ms: Date.now() - t0 });
   for (let k = 1; raw && k <= 2 && zodProblems(raw).length; k++) {
     t0 = Date.now();
     const probs = zodProblems(raw);

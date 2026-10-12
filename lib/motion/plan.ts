@@ -7,6 +7,7 @@ import { callTool, SONNET } from "@/lib/ai/claude";
 import { AiError } from "@/lib/ai/usage";
 import type { EnergyMap, ScriptBeat } from "@motiongx/primitives";
 import { BEHAVIOR_NAMES } from "@/remotion/behaviors";
+import { DISPLAY_FONTS } from "@/remotion/asset-names";
 import { cosine, embed } from "./embed";
 import { ARABIC_CREATOR_WEIGHTS, selectRefs, type MotionRef, type MotionStore, type TreatmentRecord } from "./store";
 import type { MotionBrief } from "./types";
@@ -25,6 +26,16 @@ export const planSchema = z.object({
   summary_en: z.string().min(10).transform((x) => x.trim().slice(0, 300)),
   motion_language: z.string().min(3).transform((x) => x.trim().slice(0, 60)),
   music_mood: z.enum(MOODS),
+  /** expressive Arabic display face for headlines (Arabic videos), or "none" to keep the brand font */
+  display_font: z.enum([...DISPLAY_FONTS, "none"]).optional(),
+  /** the visual metaphor broken down for the spec writer */
+  metaphor: z
+    .object({
+      object: z.string().min(2).transform((x) => x.trim().slice(0, 160)),
+      stands_for: z.string().min(2).transform((x) => x.trim().slice(0, 160)),
+      transformation: z.string().min(2).transform((x) => x.trim().slice(0, 240)),
+    })
+    .optional(),
   shots: z
     .array(
       z.object({
@@ -32,6 +43,8 @@ export const planSchema = z.object({
         start_s: z.number().min(0),
         end_s: z.number().positive(),
         visual: z.string().min(3).max(160),
+        /** what the metaphor object concretely does in this shot */
+        hero: z.string().max(200).optional(),
         lines: z.array(z.string().trim().min(1).max(48)).min(1).max(3),
       }),
     )
@@ -40,7 +53,7 @@ export const planSchema = z.object({
   energy: z.object({
     sections: z.array(z.object({ kind: sectionKind, start_s: z.number().min(0), end_s: z.number().positive(), energy: z.number().min(0).max(1) })).min(3).max(10),
     // optional: derived from the sections when omitted (cheaper than a retry)
-    hits: z.array(z.object({ t: z.number().min(0), kind: hitKind })).max(16).optional(),
+    hits: z.array(z.object({ t: z.number().min(0), kind: hitKind, understand: z.string().max(200).optional() })).max(16).optional(),
   }),
 });
 export type PlanRaw = z.infer<typeof planSchema>;
@@ -58,6 +71,12 @@ const tool = {
       summary_en: { type: "string", description: "ONE English sentence: the concept + how it moves (used to keep every video different)" },
       motion_language: { type: "string", description: "2–5 English words, e.g. 'kinetic grid', 'liquid morphs'" },
       music_mood: { type: "string", enum: [...MOODS] },
+      display_font: { type: "string", enum: [...DISPLAY_FONTS, "none"], description: "Arabic videos: ONE expressive Google display face for headlines that matches the tone (Lalezar/Rakkas/Blaka bold & loud, Reem Kufi/El Messiri elegant, Aref Ruqaa/Amiri calligraphic, Marhey/Lemonada playful, Changa/Alexandria/Cairo/Tajawal/Almarai clean); body copy keeps the brand font. English videos: \"none\"" },
+      metaphor: obj({
+        object: { type: "string", description: "the ONE concrete object that stands for the idea, built from engine elements (e.g. 'a glass jar', 'a delivery route with 4 stations', 'a stack of cards')" },
+        stands_for: { type: "string", description: "what that object means for this brand, in plain words" },
+        transformation: { type: "string", description: "how the object changes from the first shot to the logo (its arc)" },
+      }),
       shots: {
         type: "array",
         description: "6–9 contiguous shots from 0 to the video length",
@@ -66,12 +85,13 @@ const tool = {
           start_s: { type: "number" },
           end_s: { type: "number" },
           visual: { type: "string", description: "≤ 10 words: what is on screen and how it moves" },
+          hero: { type: "string", description: "≤ 20 words: what the metaphor object concretely does in this shot (drawable: shapes, paths, morphs, particles, camera)" },
           lines: { type: "array", items: { type: "string" }, description: "1–3 on-screen lines, ≤ 7 words each, in the video language" },
         }),
       },
       energy: obj({
         sections: { type: "array", description: "3–8 contiguous sections", items: obj({ kind: { type: "string", enum: sectionKind.options }, start_s: { type: "number" }, end_s: { type: "number" }, energy: { type: "number" } }) },
-        hits: { type: "array", items: obj({ t: { type: "number" }, kind: { type: "string", enum: hitKind.options } }) },
+        hits: { type: "array", items: obj({ t: { type: "number" }, kind: { type: "string", enum: hitKind.options }, understand: { type: "string", description: "≤ 12 words: what the viewer understands at this hit" } }) },
       }),
     }),
   } as { type: "object"; properties: Record<string, unknown>; required: string[]; additionalProperties: false },
@@ -90,7 +110,7 @@ const DIALECT_GUIDE: Record<string, string> = {
 const SYSTEM = `You are an award-winning motion-design creative director AND a native copywriter for Arab-market and global brands. In one pass you design a bespoke motion-graphics promo for one brand and write its on-screen copy. Never templates: every film has its own concept, motion language, typographic idea and rhythm, so no two look alike.
 
 WHAT THE ENGINE CAN BUILD (design only from these; there is no stock footage or 3D modelling):
-- Elements: kinetic text (Arabic/English, brand fonts), shapes (rect, circle, pill, ring, star, polygon, triangle, organic blob, line, mouse cursor) that can morph into each other, hand-drawn SVG paths that draw on and morph into other paths, routes/journeys with station dots that draw and that elements can travel along, the brand logo (on a plate when needed), brand images from the site (a long page can scroll inside a device frame), device frames (phone, browser, laptop, tablet), particle fields (dots, squares, sparks, confetti, rain, bubbles, stars, dust), groups that act as masks or 3D carousels, live counters, liquid-filling vessels, backgrounds (solid, gradient, radial glow, grid, dots, stripes, noise, stars, geometric star pattern).
+- Elements: kinetic text (Arabic/English, brand fonts), shapes (rect, circle, pill, ring, star, polygon, triangle, organic blob, line, mouse cursor) that can morph into each other, hand-drawn SVG paths that draw on and morph into other paths, routes/journeys with station dots that draw and that elements can travel along, the brand logo (on a plate when needed), brand images from the site (a long page can scroll inside a device frame), device frames (phone, browser, laptop, tablet), particle fields (dots, squares, sparks, confetti, rain, bubbles, stars, dust), groups that act as masks or 3D carousels, live counters, liquid-filling vessels, line icons (lucide/phosphor), emoji, illustrated people (Open Peeps, incl. hijab/turban) and doodles, maps of the Arab world with routes between countries, flags, bar/line/donut charts, hand-drawn sketch shapes (Rough.js), Arabic vector text (calligraphy stroke reveal, text↔particles, continuous kashida, word-to-word morph), backgrounds (solid, gradient, radial glow, grid, dots, stripes, noise, stars, geometric star pattern, paper/plaster texture, dunes, waves).
 - Motion vocabulary (behaviors): ${BEHAVIOR_NAMES.join(", ")}.
 - Real 3D: cards flip/swing/tilt with perspective, extruded type, 3D carousels, a camera that tilts/orbits (rx/ry). Shutter motion blur, echo trails, RGB split, wave distortion, stop-motion stepping.
 - Camera: push/pull zoom, pans, rotation, 3D tilt/orbit, drift, shake on hits, parallax depth. Cuts between shots: hard, flash, whip, wipe, zoom punch, glitch, iris, blinds, pixels, layered colour wipe, diagonal, slices.
@@ -116,6 +136,7 @@ MOTION PATTERN VOCABULARY (name the pattern in each shot's visual; these are wha
 CREATIVE RULES
 - Make it unmistakably about THIS brand: its product, audience and tone. A viewer should feel it was hand-made for them.
 - Pick ONE strong visual metaphor and ONE motion language and commit to them across every shot.
+- Make the metaphor buildable and legible: name the ONE object (metaphor.object), what it stands for, and its arc; give every shot a concrete HERO action for that object, and say what the viewer understands at each hit. A viewer must be able to state the idea in one sentence.
 - Use only the brand palette (by role) and brand fonts. The logo is used as-is, never redrawn.
 - Music: sections intro / build / drop / breakdown / outro, and hits (drop, impact, reveal, logo, cta). A build leads into every drop; a breakdown comes right before the logo reveal; the CTA lands on the final, biggest drop; the video ends cleanly on its last frame.
 - Shots are contiguous from 0 to the video length; sections too. Hits sit on whole beats, after 0 and at least 2 beats before the end. Include exactly one "logo" hit and one "cta" hit (CTA after the logo, in the last third).

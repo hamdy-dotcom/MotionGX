@@ -12,14 +12,15 @@ import type { RuntimeInput } from "@/remotion/runtime-input";
 import { compileComposition } from "./compile";
 import { deriveEvents } from "./events";
 import { encodeMp3, renderMusic, type MusicResult } from "./music";
-import { makePlan, type Plan } from "./plan";
+import { makePlan, type Plan, type PlanResult } from "./plan";
 import { editSpec, writeSpec, type SpecRun } from "./spec-gen";
 import { envFor } from "./inspect";
 import { slideshowRisk, type SlideshowRisk } from "./slideshow";
 import { runSpecJob } from "./spec-runner";
+import { prepareAssets } from "./assets";
 import type { MotionSpec, SoundEvent } from "./spec";
 import type { MotionRef, MotionStore } from "./store";
-import { tasteQa, type Taste } from "./taste";
+import { TASTE_FRAMES, tasteQa, type Taste } from "./taste";
 import type { MotionBrief } from "./types";
 import type { ValidateCtx } from "./validate";
 
@@ -49,10 +50,19 @@ export type Generation = {
   background: Promise<{ taste: Taste | null; mixMp3: string | null; sfxMp3: string | null; stills: { t: number; path: string }[]; usage: UsageEntry[]; costUsd: number }>;
 };
 
+/** the director's Arabic display face (Arabic videos only; ≤ 2 Arabic families per video) */
+export const displayFont = (b: MotionBrief, plan: Plan) => (b.dialect !== "en" && plan.display_font && plan.display_font !== "none" && plan.display_font !== b.brand.fonts.arabic ? plan.display_font : null);
+
+/** runtime input + the glyph runs and assets this spec needs (Node-side; the renderer stays pure) */
+export async function runtimeInputWithAssets(b: MotionBrief, plan: Plan, spec: MotionSpec): Promise<RuntimeInput> {
+  const input = runtimeInputFor(b, plan);
+  return { ...input, ...(await prepareAssets(spec, input)) };
+}
+
 export function runtimeInputFor(b: MotionBrief, plan: Plan): RuntimeInput {
   return {
     brand: { name: b.brand.name, url: b.brand.url, logoUrl: b.brand.logoUrl, logoPlate: b.brand.logoPlate, imageUrls: b.brand.imageUrls, colors: b.brand.colors },
-    fontFamilies: { arabic: b.brand.fonts.arabic, latin: b.brand.fonts.latin },
+    fontFamilies: { arabic: b.brand.fonts.arabic, latin: b.brand.fonts.latin, display: displayFont(b, plan) },
     lang: b.dialect === "en" ? "en" : "ar",
     dir: b.dialect === "en" ? "ltr" : "rtl",
     width: b.width,
@@ -107,18 +117,19 @@ async function compileCustom(spec: MotionSpec, library: () => Promise<{ name: st
 
 export type GenerationStage = "plan" | "spec" | "music" | "ready";
 
-export async function generateVideo(b: MotionBrief, store: MotionStore, workDir: string, opts: { avoid?: string[]; capUsd?: number; printCost?: boolean; tasteQa?: boolean; progress?: (stage: GenerationStage) => void; customLibrary?: () => Promise<{ name: string; js: string }[]> } = {}): Promise<Generation> {
+export async function generateVideo(b: MotionBrief, store: MotionStore, workDir: string, opts: { avoid?: string[]; capUsd?: number; printCost?: boolean; tasteQa?: boolean; progress?: (stage: GenerationStage) => void; planned?: { result: PlanResult; ms: number }; customLibrary?: () => Promise<{ name: string; js: string }[]> } = {}): Promise<Generation> {
   const ctx: RunContext = { videoId: b.videoId, usage: [], capUsd: opts.capUsd ?? GENERATION_CAP_USD, printCost: opts.printCost };
   return withRun(ctx, async () => {
     const T0 = Date.now();
     const timings: Record<string, number> = {};
     let t = Date.now();
     opts.progress?.("plan");
-    const planned = await makePlan(b, store, { avoid: opts.avoid });
+    // A/B harness: a plan made once (with its own duration) can be reused for several spec writers
+    const planned = opts.planned?.result ?? (await makePlan(b, store, { avoid: opts.avoid }));
     opts.progress?.("spec");
-    timings.plan = Date.now() - t;
+    timings.plan = opts.planned ? opts.planned.ms : Date.now() - t;
     const { plan } = planned;
-    const vctx: ValidateCtx = { width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: b.brand.fonts, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo, allowedNumbers: allowedNumbers(b), treatment: treatmentText(plan) };
+    const vctx: ValidateCtx = { width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: { ...b.brand.fonts, display: displayFont(b, plan) }, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo, allowedNumbers: allowedNumbers(b), treatment: treatmentText(plan) };
 
     // spec ‖ music bed
     t = Date.now();
@@ -175,11 +186,11 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
     const events = deriveEvents(spec, env);
     const audio = await renderMusic({ energy: plan.energy, mood: plan.music_mood, events, outDir: path.join(workDir, "audio"), bed: bed.mix });
     timings.sfx = Date.now() - t;
-    const toPreviewMs = Date.now() - T0;
+    const toPreviewMs = Date.now() - T0 + (opts.planned?.ms ?? 0);
     opts.progress?.("ready");
     timings.toPreview = toPreviewMs;
     const status = specRun.issues.length ? "needs_direction" : "ready";
-    const input = runtimeInputFor(b, plan);
+    const input = await runtimeInputWithAssets(b, plan, spec);
 
     // background: never blocks the preview
     const bgCtx: RunContext = { videoId: b.videoId, usage: [], capUsd: 0.01, printCost: opts.printCost };
@@ -188,7 +199,7 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
       let taste: Taste | null = null;
       let stills: { t: number; path: string }[] = [];
       if (opts.tasteQa !== false && status === "ready") {
-        const times = [0.18, 0.42, 0.66, 0.9].map((f) => Number((f * b.lengthS).toFixed(2)));
+        const times = TASTE_FRAMES.map((f) => Number((f * b.lengthS).toFixed(2)));
         const r = await runSpecJob({ task: "stills", props: { spec, input, audio: { music: null, sfx: null, voiceover: null }, custom: compiled.custom }, times, outDir: path.join(workDir, "taste"), scale: 0.4 });
         if (r.ok && r.stills) {
           stills = r.stills;

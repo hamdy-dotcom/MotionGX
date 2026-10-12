@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
 import { exportCostUsd, getFxRate, getPrices } from "@/lib/pricing";
-import { briefFor, runtimeInputFor } from "@/lib/motion/app";
+import { briefFor, runtimeInputWithAssets } from "@/lib/motion/app";
 import type { Plan } from "@/lib/motion/plan";
 import type { MotionSpec } from "@/lib/motion/spec";
 import { specRevision, type VersionHistory } from "@/lib/motion/revision";
@@ -48,7 +48,7 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
         canUndo: Boolean(history?.parent_version && history.inverse_patch),
         spec: v.spec as MotionSpec,
         custom: (v.custom_js ?? {}) as Record<string, string>,
-        input: runtimeInputFor(brief, plan),
+        input: await runtimeInputWithAssets(brief, plan, v.spec as MotionSpec),
         plan,
         beats: plan.beats,
         qa: (v.qa ?? {}) as StudioVersion["qa"],

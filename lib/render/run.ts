@@ -4,7 +4,7 @@ import { readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { briefFor, runtimeInputFor } from "@/lib/motion/app";
+import { briefFor, runtimeInputWithAssets } from "@/lib/motion/app";
 import { runSpecJob } from "@/lib/motion/spec-runner";
 import { verifyMp4 } from "@/lib/motion/verify-mp4";
 import type { Plan } from "@/lib/motion/plan";
@@ -53,7 +53,7 @@ export async function runRender(renderId: string, opts: { forceFailure?: boolean
         writeFileSync(audioFile, Buffer.from(await blob.arrayBuffer()));
       }
     }
-    const props: SpecVideoProps = { spec: version.spec as MotionSpec, input: runtimeInputFor(brief, plan), audio: { music: null, sfx: null, voiceover: null }, custom: (version.custom_js ?? {}) as Record<string, string> };
+    const props: SpecVideoProps = { spec: version.spec as MotionSpec, input: await runtimeInputWithAssets(brief, plan, version.spec as MotionSpec), audio: { music: null, sfx: null, voiceover: null }, custom: (version.custom_js ?? {}) as Record<string, string> };
     const res = await runSpecJob({ task: "render", props, output: out, audioFile });
     if (audioFile) await rm(audioFile, { force: true });
     if (!res.ok) throw new Error(`render: ${res.errors.join("; ")}`);
