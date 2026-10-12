@@ -3,7 +3,8 @@
 On-brand motion-graphics videos for company marketing teams. Arabic (RTL, default) + English (LTR).
 
 **Phase 1:** app shell, database, auth and all screens.
-**Phase 2:** real brand extraction (Firecrawl + Claude Haiku) and AI scripts/edits (Claude Haiku). Rendering, voiceover and payments are still mocked (`// PHASE 3/4` in code).
+**Phase 2:** real brand extraction (Firecrawl + Claude Haiku).
+**Phase 3:** Remotion motion engine (`remotion/`), generated music library, brand facts, Sonnet scripts, live preview, server-side MP4 render. Voiceover and payments are still mocked (`// PHASE 4`).
 
 ## Setup
 
@@ -26,7 +27,8 @@ pnpm dev                     # http://localhost:3000
 
 ### Supabase
 
-1. Run the migrations in order in the SQL editor (or `supabase db push`): `0001_init.sql`, `0002_ai_usage.sql`.
+1. Run the migrations in order in the SQL editor (or `supabase db push`): `0001_init.sql`, `0002_ai_usage.sql`, `0003_motion.sql`.
+2. Music library: `pnpm music:generate` (needs `python3 -m venv .venv && .venv/bin/pip install numpy scipy`), encode to MP3, then `pnpm music:upload`.
 2. Auth → URL Configuration → add `http://localhost:3000/**` (and your Vercel URL) to Redirect URLs.
 3. Magic-link emails land on `/auth/callback`, which handles both the PKCE `code` and `token_hash` flows.
 
@@ -55,6 +57,15 @@ The first user to sign in becomes owner of the seeded demo workspace (منتوج
 - Every Claude or Firecrawl call is logged to `ai_usage` (tokens per call) and counts toward **30 calls per workspace per hour**.
 - AI calls are free to the user; only exports touch the wallet.
 - Brand extraction streams NDJSON from `POST /api/brand/extract` (one line per step). The raw Firecrawl payload is cached in `brand_profiles.raw`; adding the same website again reuses it, and only "أعد القراءة" re-scrapes.
+
+## Motion engine
+
+- `remotion/BrandVideo.tsx` — one composition rendered entirely from props (`lib/video/kit.ts`): brand, scenes, format, fps, music, voiceover.
+- Brand tokens (`lib/video/tokens.ts`) come from the company's colors; text color by WCAG contrast; gradient = primary → accent.
+- Beat grid (`lib/video/timeline.ts`): pace sets BPM (90/110/128), scenes snap to whole beats, the last scene absorbs the remainder so the video is exactly `length_s`.
+- `pnpm remotion:studio` opens Remotion Studio with every scene type (`remotion/preview-props.ts`).
+- Export: `export_video()` charges the wallet → render runs in `after()` → MP4 uploaded to `renders/{workspace_id}/{render_id}.mp4` → `done`. On Vercel it renders in a Vercel Sandbox (`@remotion/vercel`, bundle prebuilt in `pnpm build`); locally with `@remotion/renderer`. Any failure calls `refund_render()`.
+- Test scripts: `scripts/video/render-slllr.ts` (end-to-end sample render), `scripts/video/test-refund.ts` (forced failure → refund), `scripts/video/qa-stills.ts` (one still per scene).
 
 ## Money rules
 
