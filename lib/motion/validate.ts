@@ -297,6 +297,26 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
         const ov = inter(b, boxes.get(o.el.id)!);
         if (ov > 0.15 * area(b) && (solidBehind(o) || o.el.type === "svgPath")) add(r.el.id, "covered", `"${o.el.id}" (${o.el.type}, box ${pct(boxes.get(o.el.id)!)}) is drawn on top of this text (box ${pct(b)}) — give the text a higher z or move it`, t, { z: Math.min(100, (o.el.z ?? 0) + 1) });
       }
+      // outline-only shapes (rings, stroked outlines, lines) crossing the label: the text must sit fully
+      // inside the inner area or fully outside the shape
+      for (const o of vis) {
+        if (o.el.type !== "shape" || o.opacity < 0.4 || o === r) continue;
+        const se = o.el;
+        const outline = se.shape === "ring" || se.shape === "line" || (!se.fill && !se.gradient && !!se.stroke);
+        if (!outline) continue;
+        const ob = boxes.get(o.el.id)!;
+        if (!inter(b, ob)) continue;
+        const sw = se.shape === "ring" || se.shape === "line" ? Math.max(((se.strokeW ?? 0) / 100) * Math.max(ob.x1 - ob.x0, ob.y1 - ob.y0) * 4, Math.min(ob.x1 - ob.x0, ob.y1 - ob.y0) * 0.06) : ((se.strokeW ?? 0) / 100) * Math.max(ob.x1 - ob.x0, ob.y1 - ob.y0) * 4;
+        let inside: boolean;
+        if (se.shape === "ring" || se.shape === "circle") {
+          const cx = (ob.x0 + ob.x1) / 2;
+          const cy = (ob.y0 + ob.y1) / 2;
+          const rIn = Math.min(ob.x1 - ob.x0, ob.y1 - ob.y0) / 2 - sw;
+          inside = [[b.x0, b.y0], [b.x1, b.y0], [b.x0, b.y1], [b.x1, b.y1]].every(([x, y]) => Math.hypot(x - cx, y - cy) < rIn);
+        } else inside = b.x0 > ob.x0 + sw && b.x1 < ob.x1 - sw && b.y0 > ob.y0 + sw && b.y1 < ob.y1 - sw;
+        if (!inside && se.shape !== "line") add(r.el.id, "line_through_text", `the outline of "${o.el.id}" (${se.shape}, box ${pct(ob)}) crosses this text (box ${pct(b)}) — put the text fully inside it or clear of it`, t);
+        if (se.shape === "line" && inter(b, ob) > 0) add(r.el.id, "line_through_text", `line "${o.el.id}" (box ${pct(ob)}) crosses this text (box ${pct(b)}) — move one of them`, t);
+      }
       // a route/line stroke crossing the label (even underneath) makes it hard to read
       for (const o of vis) {
         if (o.el.type !== "route" || o.opacity < 0.4) continue;

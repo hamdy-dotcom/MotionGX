@@ -6,6 +6,7 @@ import { callTool, HAIKU, SONNET } from "@/lib/ai/claude";
 import { AiError } from "@/lib/ai/usage";
 import { buildTokens, contrast } from "@/packages/primitives/src/palette";
 import { catalogueText } from "./catalogue";
+import { EXAMPLE_PLAN, EXAMPLE_SPEC } from "./spec-example";
 import { loadFont, measureLine } from "./fonts-node";
 import { applyPatch, type PatchOp } from "./patch";
 import type { Plan } from "./plan";
@@ -62,11 +63,9 @@ DESIGN DIRECTION (taste — what separates a promo from a slideshow):
 - Anything that looks like a button (a filled pill/card) carries a label on top of it. Never blink or flicker real copy.
 - The logo reveal is a moment: build-up → hit → logo with a ring/ripple/burst; the CTA sits on the final drop, big and clear.
 
-MINI EXAMPLE (structure only — invent your own design):
-{"version":1,"canvas":{"bg":[{"kind":"solid","colors":["bg"]},{"kind":"radial","colors":["glowA"],"alpha":0.5,"drift":1}]},"camera":{"shake":0.4,"keys":[{"t":0,"zoom":1.06},{"t":"s2","zoom":1}]},"cuts":[{"t":"s2","kind":"flash"}],
-"elements":[{"id":"h1","type":"text","line":"s1:0","x":50,"y":42,"size":9,"font":"head","weight":800,"color":"text","in":0.2,"out":"s1e","fx":[{"fx":"per-word"},{"fx":"breathe"},{"fx":"fade-out"}]},
-{"id":"blob","type":"shape","shape":"blob","fill":"primary","alpha":0.35,"x":50,"y":42,"w":70,"z":-1,"fx":[{"fx":"pop"},{"fx":"noise-drift","amp":2}]},
-{"id":"logo","type":"image","src":"logo","x":50,"y":45,"w":36,"in":"s6","fx":[{"fx":"pop"},{"fx":"float"}]}]}
+QUALITY REFERENCE — a complete spec for an unrelated fictional brand. It shows the bar (literal metaphor, 3 layers, varied composition per shot, labelled plates, a route, a staged logo reveal, a labelled CTA). NEVER copy its layout, shapes or concept: invent your own from the treatment.
+${EXAMPLE_PLAN}
+${EXAMPLE_SPEC}
 
 Respond only by calling save_spec with the full spec.`;
 
@@ -170,7 +169,7 @@ export function finish(spec: MotionSpec, issues: SpecIssue[], ctx: ValidateCtx):
         existing.alpha = 0.95;
         existing.w = Math.min(96, (existing.w ?? 20) + 4);
         existing.h = (existing.h ?? 8) * 1.15;
-        existing.z = Math.max(existing.z ?? 0, (el.z ?? 0) - 1);
+        existing.z = Math.min(98, Math.max(existing.z ?? 0, ...out.elements.filter((e) => !e.id.endsWith("_scrim") && e.id !== el.id).map((e) => (e.z ?? 0) + 1)));
         el.z = (existing.z ?? 0) + 1;
         if (el.type === "text") {
           el.color = onScrim;
@@ -181,7 +180,9 @@ export function finish(spec: MotionSpec, issues: SpecIssue[], ctx: ValidateCtx):
       }
       const wPct = i.box.x1 - i.box.x0;
       const hPx = ((i.box.y1 - i.box.y0) / 100) * ctx.height;
-      const z = el.z ?? 0;
+      // scrimmed labels go to the top layer (above whatever crossed or covered them), scrim just beneath
+      const top = Math.max(...out.elements.filter((e) => !e.id.endsWith("_scrim")).map((e) => e.z ?? 0));
+      const z = Math.min(98, Math.max(el.z ?? 0, top + 1));
       const enterExit = (el.fx ?? []).filter((f) => ["fade", "rise", "pop", "zoom-in", "blur-in", "slide", "fade-out", "rise-out", "blur-out", "slide-out", "shrink-out", "stamp", "spring-in", "drop-in"].includes(f.fx));
       out.elements.push({
         id: `${el.id}_scrim`,
@@ -206,10 +207,46 @@ export function finish(spec: MotionSpec, issues: SpecIssue[], ctx: ValidateCtx):
       applied.push(`scrim:${el.id}`);
       continue;
     }
+    // lines from different shots colliding: the earlier one ends when the later shot begins
+    if (el && el.type === "text" && i.code === "text_overlap" && !i.fix) {
+      const otherId = i.msg.match(/overlaps text "([^"]+)"/)?.[1];
+      const other = out.elements.find((e) => e.id === otherId);
+      const shotOf = (e: MotionSpec["elements"][number] | undefined) => (e && e.type === "text" && e.line ? Number(e.line.split(":")[0].slice(1)) : null);
+      const [a, bShot] = [shotOf(el), shotOf(other)];
+      if (other && a !== null && bShot !== null && a !== bShot) {
+        const earlier = a < bShot ? el : other;
+        earlier.out = `s${Math.max(a, bShot)}`;
+        applied.push(`end:${earlier.id}`);
+        continue;
+      }
+    }
+    // the CTA shot's lines stay on screen from the cta hit to the end
+    if (i.code === "cta_missing") {
+      const hit = ctx.energy.hits.find((h) => h.kind === "cta");
+      const beat = hit ? ctx.beats.find((x) => hit.t >= x.start_s - 0.01 && hit.t < x.end_s) ?? ctx.beats.at(-1) : undefined;
+      const ctaTexts = out.elements.filter((e) => e.type === "text" && beat && e.line?.startsWith(`${beat.id}:`));
+      for (const e of ctaTexts) {
+        e.out = undefined;
+        if (hit && typeof e.in === "number" && e.in > hit.t) e.in = hit.t;
+        e.fx = (e.fx ?? []).filter((f) => !["fade-out", "rise-out", "blur-out", "slide-out", "shrink-out", "wipe-out", "scatter-out", "drop-out"].includes(f.fx));
+      }
+      if (ctaTexts.length) {
+        applied.push(`cta:${ctaTexts.map((e) => e.id).join(",")}`);
+        continue;
+      }
+    }
     if (el && (el.type === "text" || el.type === "counter") && (i.code === "offscreen" || i.code === "text_overlap" || i.code === "text_overflow") && !i.fix) {
       el.size = Number((el.size * 0.82).toFixed(2));
       if (i.box && i.code === "offscreen") el.x = 50;
       applied.push(`shrink:${el.id}`);
+      continue;
+    }
+    // in ≥ out (usually "out": "s4" where "s4e" was meant): end at the end of the shot it starts in
+    if (i.code === "bad_time" && el && /must be after in/.test(i.msg)) {
+      const inT = Number(i.msg.match(/in \(([\d.]+)s\)/)?.[1] ?? 0);
+      const shot = ctx.beats.find((x) => inT >= x.start_s - 0.01 && inT < x.end_s - 0.05);
+      el.out = shot && shot.end_s - inT >= 0.6 ? shot.end_s : Math.min(ctx.duration, inT + 1.5);
+      applied.push(`out:${el.id}`);
       continue;
     }
     if (i.code === "empty_button" && el) {
