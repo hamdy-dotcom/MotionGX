@@ -75,8 +75,17 @@ export type BState = {
   extrude?: number;
   /** shared-element morph: move/resize toward another element's box */
   toward?: { id: string; p: number };
-  /** svgPath: GSAP DrawSVG window [start, end] in 0–1 */
+  /** svgPath/route: draw window [start, end] in 0–1 */
   segment?: [number, number];
+  // ── Phase 3E vector text (HarfBuzz-shaped glyph paths) ──
+  /** calligraphy reveal 0–1: glyph outlines draw in reading order (right→left for Arabic), then fill */
+  textDraw?: number;
+  /** text ↔ particles: "out" dissolves the glyphs into points, "in" gathers points into the glyphs */
+  textParticles?: { p: number; mode: "in" | "out" };
+  /** continuous kashida: scale of the one shaped tatweel per long Arabic word (0 = plain word) */
+  kstretch?: number;
+  /** morph this line's glyphs into another line (line ref "s3:0" or literal text) */
+  textMorph?: { to: string; p: number };
 };
 
 export const IDENTITY: BState = { dx: 0, dy: 0, scale: 1, sx: 1, sy: 1, rot: 0, skewX: 0, opacity: 1, blur: 0, brightness: 1, hue: 0, glow: 0 };
@@ -119,6 +128,10 @@ export function combine(a: BState, b: Partial<BState>): BState {
     extrude: b.extrude !== undefined || a.extrude !== undefined ? Math.max(a.extrude ?? 0, b.extrude ?? 0) : undefined,
     toward: b.toward ?? a.toward,
     segment: b.segment ?? a.segment,
+    textDraw: b.textDraw ?? a.textDraw,
+    textParticles: b.textParticles ?? a.textParticles,
+    kstretch: b.kstretch !== undefined || a.kstretch !== undefined ? Math.max(a.kstretch ?? 0, b.kstretch ?? 0) : undefined,
+    textMorph: b.textMorph ?? a.textMorph,
   };
 }
 

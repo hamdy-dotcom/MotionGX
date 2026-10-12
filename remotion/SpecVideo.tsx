@@ -17,6 +17,26 @@ import { clamp01, hash, rand, type Overlay } from "./behaviors";
 import { drawSegment, morphPath } from "./behaviors/path-lib";
 import { lerpPoints, shapePoints, smoothPath, toPath, type ShapeKind } from "./behaviors/shapes";
 import type { RuntimeInput } from "./runtime-input";
+import { ChartBody, InlineSvg, MapBody, organicBands, PeepBody, sketchPaths, VectorText } from "./elements3e";
+import { runKey, vectorFamily } from "./vector-types";
+import { formatHex, interpolate as culoriInterpolate } from "culori";
+
+/** gradient stops interpolated in OKLCH (culori): no muddy grey midpoint between two brand colours */
+const stopCache = new Map<string, string>();
+function oklchStops(colors: string[]) {
+  const key = colors.join(">");
+  let v = stopCache.get(key);
+  if (!v) {
+    try {
+      const f = culoriInterpolate(colors, "oklch");
+      v = Array.from({ length: 5 }, (_, i) => formatHex(f(i / 4)) ?? colors[0]).join(", ");
+    } catch {
+      v = colors.join(", ");
+    }
+    stopCache.set(key, v);
+  }
+  return v;
+}
 
 export type SpecVideoProps = {
   spec: MotionSpec;
@@ -134,15 +154,35 @@ const OverlayLayer: React.FC<{ o: Overlay; w: number; h: number; P: Palette; bas
 };
 
 // ── element bodies ─────────────────────────────────────────────────────────
-function TextBody({ el, r, P, fonts, env, t }: { el: Extract<SpecElement, { type: "text" | "counter" }>; r: Resolved; P: Palette; fonts: MotionInput["fonts"]; env: EvalEnv; t: number }) {
+function TextBody({ el, r, P, fonts, env, t, input }: { el: Extract<SpecElement, { type: "text" | "counter" }>; r: Resolved; P: Palette; fonts: MotionInput["fonts"]; env: EvalEnv; t: number; input: RuntimeInput }) {
   const s = r.state;
+  // vector text (HarfBuzz glyph paths shaped in Node) while a vector behavior is active
+  const vectorOn = el.type === "text" && (s.textDraw !== undefined || s.textParticles !== undefined || (s.kstretch ?? 0) > 0.001 || (s.textMorph !== undefined && s.textMorph.p > 0));
+  if (vectorOn && el.type === "text") {
+    const fam = vectorFamily(el.font, input.fontFamilies, input.lang);
+    const px = (el.size / 100) * env.width;
+    const run = input.glyphs?.[runKey(fam, el.weight, px, r.text ?? "")];
+    if (run) {
+      const toText = s.textMorph ? (/^[\w-]+:\d+$/.test(s.textMorph.to) ? env.lineText(s.textMorph.to) ?? s.textMorph.to : s.textMorph.to) : null;
+      const morphTo = toText ? input.glyphs?.[runKey(fam, el.weight, px, toText)] ?? null : null;
+      const maxW = el.w !== undefined ? (el.w / 100) * env.width : env.width * 0.88;
+      const fit = run.w > maxW ? maxW / run.w : 1;
+      return (
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ transform: fit < 1 ? `scale(${fit})` : undefined }}>
+            <VectorText run={run} morphTo={morphTo} morphKey={`${el.id}>${toText}`} s={s} color={color(P, el.color)} sizePx={px} seed={el.id.length * 97} />
+          </div>
+        </div>
+      );
+    }
+  }
   let text = r.text ?? "";
   if (el.type === "counter") {
     const v = el.from + (el.to - el.from) * (s.count ?? 1);
     text = `${el.prefix ?? ""}${v.toLocaleString("en-US", { minimumFractionDigits: el.decimals, maximumFractionDigits: el.decimals })}${el.suffix ?? ""}`;
   }
   const arabic = ARABIC.test(text);
-  const family = el.font === "latin" ? fonts.latin : el.font === "body" ? fonts.body : fonts.head;
+  const family = el.font === "latin" ? fonts.latin : el.font === "body" ? fonts.body : el.font === "display" ? fonts.display ?? fonts.head : fonts.head;
   const fontSize = (el.size / 100) * env.width;
   const style: React.CSSProperties = {
     fontFamily: family,
@@ -161,7 +201,7 @@ function TextBody({ el, r, P, fonts, env, t }: { el: Extract<SpecElement, { type
     const base = color(P, el.color);
     style.textShadow = Array.from({ length: n }, (_, k) => `${((k + 1) * 0.6).toFixed(1)}px ${k + 1}px 0 color-mix(in srgb, ${base} 45%, black)`).join(", ");
   }
-  if (el.type === "text" && el.gradient) Object.assign(style, { backgroundImage: `linear-gradient(90deg, ${P.gradA}, ${P.gradB})`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" });
+  if (el.type === "text" && el.gradient) Object.assign(style, { backgroundImage: `linear-gradient(90deg, ${oklchStops([P.gradA, P.gradB])})`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" });
   if (el.type === "text" && el.outline) Object.assign(style, { color: "transparent", WebkitTextStroke: `${Math.max(1.5, fontSize * 0.03)}px ${color(P, el.outline)}` });
   if (s.typed !== undefined) text = [...text].slice(0, Math.round([...text].length * clamp01(s.typed))).join("");
   // decode (scramble): Latin characters resolve left→right through random glyphs; Arabic decodes whole
@@ -294,6 +334,17 @@ function ShapeBody({ el, r, P, t }: { el: Extract<SpecElement, { type: "shape" }
       </svg>
     );
   }
+  if (el.sketch) {
+    // hand-drawn (Rough.js, deterministic per element); draw-on still works through pathLength
+    const paths = sketchPaths(d, fill === "none" || fill.startsWith("url") ? (el.gradient ? P.gradA : null) : fill, stroke === "none" ? (el.fill ? color(P, el.fill) : P.primary) : stroke, Math.max(2, strokeWidth || Math.min(w, h) * 0.02), el.id.length * 131 + Math.round(w));
+    return (
+      <svg width={w} height={h} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+        {paths.map((p, i) => (
+          <path key={i} d={p.d} fill={p.fill ?? "none"} stroke={p.stroke} strokeWidth={p.strokeWidth} fillOpacity={el.alpha ?? 1} strokeLinecap="round" {...(draw !== undefined ? { pathLength: 1, strokeDasharray: 1, strokeDashoffset: 1 - draw } : {})} />
+        ))}
+      </svg>
+    );
+  }
   const ext = r.state.extrude && r.state.extrude > 0.5 ? Math.min(16, Math.round(r.state.extrude)) : 0;
   return (
     <svg width={w} height={h} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
@@ -379,7 +430,7 @@ function loadCustom(code: string): React.ComponentType<{ t: number; frame: numbe
   return C as never;
 }
 
-function Background({ spec, P, env, t }: { spec: MotionSpec; P: Palette; env: EvalEnv; t: number }) {
+function Background({ spec, P, env, t, input }: { spec: MotionSpec; P: Palette; env: EvalEnv; t: number; input: RuntimeInput }) {
   return (
     <>
       {spec.canvas.bg.map((b, i) => {
@@ -393,7 +444,7 @@ function Background({ spec, P, env, t }: { spec: MotionSpec; P: Palette; env: Ev
           case "solid":
             return <div key={i} style={{ ...base, background: c[0] }} />;
           case "gradient":
-            return <div key={i} style={{ ...base, background: `linear-gradient(${(b.angle ?? 160) + drift * 0.5}deg, ${c.join(", ")}${c.length === 1 ? `, ${P.bg}` : ""})` }} />;
+            return <div key={i} style={{ ...base, background: `linear-gradient(${(b.angle ?? 160) + drift * 0.5}deg, ${oklchStops(c.length === 1 ? [c[0], P.bg] : c)})` }} />;
           case "radial":
             return <div key={i} style={{ ...base, background: `radial-gradient(circle at ${50 + Math.sin(t * 0.3) * 8 * (b.drift ?? 0)}% ${40 + Math.cos(t * 0.25) * 8 * (b.drift ?? 0)}%, ${c[0]}, transparent 60%)` }} />;
           case "grid": {
@@ -421,6 +472,19 @@ function Background({ spec, P, env, t }: { spec: MotionSpec; P: Palette; env: Ev
                 ))}
               </svg>
             );
+          case "texture": {
+            const src = b.texture ? input.assets?.[`texture:${b.texture}`] : undefined;
+            return src ? <div key={i} style={{ ...base, backgroundImage: `url(${src})`, backgroundSize: `${40 * sc}%`, mixBlendMode: "soft-light", backgroundPosition: `${drift}px ${drift * 0.4}px` }} /> : null;
+          }
+          case "dunes":
+          case "waves": {
+            const bands = organicBands(b.kind, env.width, env.height, t, c, b.drift ?? 1);
+            return (
+              <svg key={i} width={env.width} height={env.height} style={base}>
+                {bands.map((band, k) => <path key={k} d={band.d} fill={band.color} opacity={band.opacity} />)}
+              </svg>
+            );
+          }
           case "pattern": {
             // 8-point star (khatam) tiling
             const s = 120 * sc;
@@ -656,7 +720,7 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
       zIndex: el.z ?? 0,
     };
     let body: React.ReactNode = null;
-    if (el.type === "text" || el.type === "counter") body = <TextBody el={el} r={r} P={P} fonts={stacks} env={env} t={t} />;
+    if (el.type === "text" || el.type === "counter") body = <TextBody el={el} r={r} P={P} fonts={stacks} env={env} t={t} input={input} />;
     else if (el.type === "shape") body = <ShapeBody el={el} r={r} P={P} t={t} />;
     else if (el.type === "particles") body = <ParticlesBody el={el} r={r} P={P} t={t} />;
     else if (el.type === "route") body = <RouteBody el={el} r={r} P={P} env={env} />;
@@ -685,6 +749,33 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
           {children.sort((a, b) => (a.el.z ?? 0) - (b.el.z ?? 0)).map((c) => renderEl(c, r))}
         </div>
       );
+    } else if (el.type === "icon") {
+      const svg = input.assets?.[`icon:${el.set}:${el.name}`];
+      body = svg ? <InlineSvg svg={svg} w={r.w} h={r.h} color={color(P, el.color)} strokeWidth={el.set === "lucide" ? spec.iconStroke ?? 2 : undefined} /> : null;
+    } else if (el.type === "emoji") {
+      const svg = input.assets?.[`emoji:${el.name}`];
+      body = svg ? <InlineSvg svg={svg} w={r.w} h={r.h} /> : null;
+    } else if (el.type === "character") {
+      if (el.doodle) {
+        const svg = input.assets?.[`doodle:${el.doodle}`];
+        body = svg ? <InlineSvg svg={svg} w={r.w} h={r.h} color={color(P, el.color)} accent={color(P, el.accent, P.accent)} /> : null;
+      } else if (el.peep) body = <PeepBody peep={el.peep} w={r.w} h={r.h} color={color(P, el.color)} accent={color(P, el.accent, P.accent)} />;
+    } else if (el.type === "flag") {
+      const svg = input.assets?.[`flag:${el.code}`];
+      body = svg ? <InlineSvg svg={svg} w={r.w} h={r.h} fit="cover" radius={((el.radius ?? 8) / 100) * Math.min(r.w, r.h)} /> : null;
+    } else if (el.type === "map") {
+      const geo = (iso: string) => {
+        const g = input.assets?.[`geo:${iso}`];
+        return g ? (JSON.parse(g) as { d: string; c: [number, number] }) : null;
+      };
+      const countries = el.countries.flatMap((iso) => {
+        const g = geo(iso);
+        return g ? [{ iso, d: g.d, c: g.c }] : [];
+      });
+      const route = (el.route ?? []).flatMap((iso) => geo(iso)?.c ?? []).reduce<[number, number][]>((acc, v, i, arr) => (i % 2 ? acc : [...acc, [v, arr[i + 1]] as [number, number]]), []);
+      body = <MapBody countries={countries} highlight={new Set(el.highlight ?? [])} route={route} w={r.w} h={r.h} fill={color(P, el.fill)} highlightFill={color(P, el.highlightFill)} stroke={color(P, el.stroke)} draw={r.state.draw} routeColor={P.accent} />;
+    } else if (el.type === "chart") {
+      body = <ChartBody kind={el.kind} values={el.values} colors={el.colors.map((c) => color(P, c))} w={r.w} h={r.h} p={r.state.count ?? r.state.draw ?? 1} track={P.surface2} />;
     } else if (el.type === "custom") {
       const C = customs.get(el.id) as React.ComponentType<{ t: number; frame: number; width: number; height: number; palette: BrandTokens; fonts: MotionInput["fonts"] }> | undefined;
       body = C ? <C t={t - sec(el.in, env)} frame={frame} width={r.w} height={r.h} palette={P} fonts={stacks} /> : null;
@@ -724,7 +815,7 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
       {audio.music ? <Html5Audio src={audio.music} volume={musicVolume} /> : null}
       {audio.sfx ? <Html5Audio src={audio.sfx} volume={0.9} /> : null}
       {audio.voiceover ? <Html5Audio src={audio.voiceover} /> : null}
-      <Background spec={spec} P={P} env={env} t={t} />
+      <Background spec={spec} P={P} env={env} t={t} input={input} />
       {ready ? (
         <MotionProvider value={full}>
           <AbsoluteFill

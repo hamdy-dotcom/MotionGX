@@ -23,7 +23,7 @@ export type ScriptBeat = {
   voiceover_line: string | null;
 };
 
-export type FontStacks = { head: string; body: string; latin: string; arabic: string };
+export type FontStacks = { head: string; body: string; latin: string; arabic: string; display?: string };
 
 export type MotionInput = {
   brand: {

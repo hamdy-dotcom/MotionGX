@@ -5,6 +5,7 @@
 // anchor: "s<n>" = start of shot n, "s<n>e" = its end.
 import { z } from "zod";
 import { EASE, type EaseName } from "@/remotion/behaviors/core";
+import { COUNTRIES, DOODLES, EMOJI, PEEP_BODIES, PEEP_FACES, PEEP_HEADS, TEXTURES } from "@/remotion/asset-names";
 
 export const COLOR_ROLES = ["bg", "bg2", "surface", "surface2", "border", "text", "textMuted", "primary", "onPrimary", "accent", "gradA", "gradB", "glowA", "glowB", "white", "black"] as const;
 export type ColorRole = (typeof COLOR_ROLES)[number];
@@ -69,7 +70,8 @@ const textEl = z.object({
   text: z.string().max(120).optional(),
   /** … or a script line: "<beatId>:<lineIndex>", e.g. "b2:0" (preferred: edits to the script flow through) */
   line: z.string().regex(/^[\w-]+:\d+$/).optional(),
-  font: z.enum(["head", "body", "latin"]).default("head"),
+  /** display = the director's expressive Arabic display face (headlines only) */
+  font: z.enum(["head", "body", "latin", "display"]).default("head"),
   weight: z.number().int().min(100).max(900).default(700),
   /** font size, % of canvas width */
   size: z.number().min(1).max(40),
@@ -100,6 +102,8 @@ const shapeEl = z.object({
   glow: role.optional(),
   /** morph target for the "morph" behavior */
   to: z.enum(["rect", "circle", "polygon", "star", "blob", "triangle", "cursor"]).optional(),
+  /** hand-drawn look (Rough.js): sketchy outline + hachure fill */
+  sketch: z.boolean().optional(),
 });
 
 const pathEl = z.object({
@@ -186,12 +190,60 @@ const customEl = z.object({
   note: z.string().max(200).optional(),
 });
 
-export const elementSchema = z.discriminatedUnion("type", [textEl, shapeEl, pathEl, routeEl, imageEl, particlesEl, groupEl, counterEl, customEl]);
+const iconEl = z.object({
+  ...base,
+  type: z.literal("icon"),
+  /** lucide (stroke) or phosphor (filled weights) icon name, e.g. "rocket", "shield-check" */
+  set: z.enum(["lucide", "phosphor"]).default("lucide"),
+  name: z.string().min(1).max(60),
+  color: role.default("text"),
+});
+
+const emojiEl = z.object({ ...base, type: z.literal("emoji"), name: z.enum(EMOJI) });
+
+const characterEl = z.object({
+  ...base,
+  type: z.literal("character"),
+  /** an Open Doodles scene … */
+  doodle: z.enum(DOODLES).optional(),
+  /** … or an Open Peeps person, mixed and matched */
+  peep: z.object({ body: z.enum(PEEP_BODIES), head: z.enum(PEEP_HEADS), face: z.enum(PEEP_FACES) }).optional(),
+  color: role.default("text"),
+  accent: role.optional(),
+});
+
+const mapEl = z.object({
+  ...base,
+  type: z.literal("map"),
+  /** ISO 3166-1 alpha-3 codes of Arab countries to draw (fitted to the box) */
+  countries: z.array(z.enum(COUNTRIES)).min(1).max(22),
+  highlight: z.array(z.enum(COUNTRIES)).max(22).optional(),
+  fill: role.default("surface2"),
+  highlightFill: role.default("primary"),
+  stroke: role.default("border"),
+  /** a route drawn between country centroids, in order (draw with stroke-draw / path-draw) */
+  route: z.array(z.enum(COUNTRIES)).max(12).optional(),
+});
+
+const flagEl = z.object({ ...base, type: z.literal("flag"), code: z.string().regex(/^[a-z]{2}$/), radius: z.number().min(0).max(50).optional() });
+
+const chartEl = z.object({
+  ...base,
+  type: z.literal("chart"),
+  kind: z.enum(["bar", "line", "area", "donut"]),
+  /** relative values (shapes only — never printed as numbers) */
+  values: z.array(z.number().min(0)).min(2).max(12),
+  colors: z.array(role).min(1).max(4).default(["primary"]),
+});
+
+export const elementSchema = z.discriminatedUnion("type", [textEl, shapeEl, pathEl, routeEl, imageEl, particlesEl, groupEl, counterEl, customEl, iconEl, emojiEl, characterEl, mapEl, flagEl, chartEl]);
 export type SpecElement = z.infer<typeof elementSchema>;
 export type ElementOf<T extends SpecElement["type"]> = Extract<SpecElement, { type: T }>;
 
 export const bgLayer = z.object({
-  kind: z.enum(["solid", "gradient", "radial", "grid", "dots", "noise", "stripes", "stars", "pattern"]),
+  kind: z.enum(["solid", "gradient", "radial", "grid", "dots", "noise", "stripes", "stars", "pattern", "texture", "dunes", "waves"]),
+  /** texture name for kind "texture" (paper / plaster / grain, CC0) */
+  texture: z.enum(TEXTURES).optional(),
   colors: z.array(role).min(1).max(3),
   angle: z.number().optional(),
   alpha: z.number().min(0).max(1).optional(),
@@ -227,6 +279,8 @@ export const specSchema = z.object({
   cuts: z.array(cutSchema).max(30).optional(),
   /** shutter motion blur strength 0–1 (default 0.5): fast movers smear along their direction of travel */
   motionBlur: z.number().min(0).max(1).optional(),
+  /** one stroke width for every icon in the video (lucide px at 24; phosphor weight is derived) */
+  iconStroke: z.number().min(1).max(3).optional(),
   /** a seamless loop: the last frame must match the first (checked by the validator) */
   loop: z.boolean().optional(),
 });

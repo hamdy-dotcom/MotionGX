@@ -57,12 +57,12 @@ const stack = (...families: (string | null | undefined)[]) =>
 
 /** Blocks the frame (delayRender) until the brand fonts are ready, then returns CSS font stacks. */
 export function useBrandFonts(
-  fonts: { arabic?: string | null; latin?: string | null },
+  fonts: { arabic?: string | null; latin?: string | null; display?: string | null },
   files: { family: string; url: string }[] = [],
   lang: "ar" | "en",
 ): { ready: boolean; stacks: FontStacks } {
   const [handle] = useState(() => delayRender("Loading brand fonts", { timeoutInMilliseconds: 60_000 }));
-  const [result, setResult] = useState<{ ready: boolean; arabic: boolean; latin: boolean }>({ ready: false, arabic: false, latin: false });
+  const [result, setResult] = useState<{ ready: boolean; arabic: boolean; latin: boolean; display: boolean }>({ ready: false, arabic: false, latin: false, display: false });
 
   useEffect(() => {
     let cancelled = false;
@@ -70,21 +70,22 @@ export function useBrandFonts(
       load(FALLBACK_FAMILY, files),
       fonts.arabic ? load(fonts.arabic, files) : Promise.resolve(false),
       fonts.latin ? load(fonts.latin, files) : Promise.resolve(false),
+      fonts.display ? load(fonts.display, files) : Promise.resolve(false),
     ])
-      .then(([, arabic, latin]) => document.fonts.ready.then(() => [arabic, latin] as const))
-      .then(([arabic, latin]) => {
-        if (!cancelled) setResult({ ready: true, arabic, latin });
+      .then(([, arabic, latin, display]) => document.fonts.ready.then(() => [arabic, latin, display] as const))
+      .then(([arabic, latin, display]) => {
+        if (!cancelled) setResult({ ready: true, arabic, latin, display });
         continueRender(handle);
       })
       .catch(() => {
-        if (!cancelled) setResult({ ready: true, arabic: false, latin: false });
+        if (!cancelled) setResult({ ready: true, arabic: false, latin: false, display: false });
         continueRender(handle);
       });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per font pair
-  }, [fonts.arabic, fonts.latin]);
+  }, [fonts.arabic, fonts.latin, fonts.display]);
 
   const arabic = result.arabic ? fonts.arabic : null;
   const latin = result.latin ? fonts.latin : null;
@@ -95,6 +96,8 @@ export function useBrandFonts(
       latin: stack(latin, FALLBACK_FAMILY),
       head: lang === "ar" ? stack(arabic, FALLBACK_FAMILY, latin) : stack(latin, FALLBACK_FAMILY),
       body: lang === "ar" ? stack(arabic, FALLBACK_FAMILY, latin) : stack(latin, FALLBACK_FAMILY),
+      // the director's display face for headlines (falls back to the head stack)
+      display: result.display && fonts.display ? stack(fonts.display, arabic, FALLBACK_FAMILY, latin) : lang === "ar" ? stack(arabic, FALLBACK_FAMILY, latin) : stack(latin, FALLBACK_FAMILY),
     },
   };
 }

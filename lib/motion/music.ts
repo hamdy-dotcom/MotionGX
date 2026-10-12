@@ -15,6 +15,12 @@ import type { SoundEvent } from "./spec";
 
 const run = promisify(execFile);
 const FFMPEG = () => projectPath("node_modules", ".bin", "remotion");
+const KENNEY_DIR = () => projectPath("data", "assets", "sfx", "kenney");
+const KENNEY = {
+  click: ["click_001", "click_002", "click_003", "click_004", "click_005", "switch_001", "switch_002"],
+  pop: ["drop_001", "drop_002", "drop_003", "drop_004", "pluck_001", "pluck_002"],
+  impact: ["impactPunch_medium_000", "impactPunch_medium_001", "impactSoft_medium_000", "impactGeneric_light_000"],
+};
 export const STEMS_DIR = () => process.env.MOTIONGX_STEMS_DIR ?? projectPath(".stems");
 const BPMS = [90, 110, 128];
 
@@ -97,11 +103,22 @@ export function arrange(energy: EnergyMap, mood: string, events: SoundEvent[], s
     music.push({ file: one("subdrop"), at: h.t, dur: 1, gain: 0.95 * g });
   }
   const sfxGain: Record<SoundEvent["kind"], [string, number]> = { whoosh: ["whoosh", 0.45], pop: ["pop", 0.5], click: ["click", 0.35], riser: ["riser", 0.5], impact: ["impact", 0.35], subdrop: ["subdrop", 0.35] };
+  // Kenney CC0 one-shots (data/assets/sfx/kenney) give clicks / pops / impacts natural variation; the
+  // pick is a pure function of the event time, so the same timeline always sounds the same
+  const kenney = (names: string[], t: number) => {
+    const file = path.join(KENNEY_DIR(), `${names[Math.floor(Math.abs(Math.sin(t * 12.9898) * 43758.5453) % 1 * names.length)]}.wav`);
+    return existsSync(file) ? file : null;
+  };
   const sfx: Placement[] = events
     .filter((e) => e.t < L - 0.05)
-    .map((e) => {
+    .flatMap((e) => {
       const [name, g] = sfxGain[e.kind];
-      return { file: name === "riser" ? f("riser_1") : one(name), at: e.t, dur: Math.min(2, L - e.t), gain: g };
+      const dur = Math.min(2, L - e.t);
+      const k = e.kind === "click" ? kenney(KENNEY.click, e.t) : e.kind === "pop" ? kenney(KENNEY.pop, e.t) : null;
+      if (k) return [{ file: k, at: e.t, dur, gain: g * 1.1 }];
+      const base = { file: name === "riser" ? f("riser_1") : one(name), at: e.t, dur, gain: g };
+      const punch = e.kind === "impact" ? kenney(KENNEY.impact, e.t) : null;
+      return punch ? [base, { file: punch, at: e.t, dur, gain: 0.3 }] : [base];
     });
   // keep everything inside the video
   const clip = (p: Placement) => ({ ...p, dur: Math.max(0.01, Math.min(p.dur, L - p.at)) });

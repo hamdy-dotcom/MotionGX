@@ -27,7 +27,7 @@ export type ValidateCtx = {
   energy: EnergyMap;
   beats: ScriptBeat[];
   colors: BrandColorInput[];
-  fonts: { arabic: string | null; latin: string | null };
+  fonts: { arabic: string | null; latin: string | null; display?: string | null };
   lang: "ar" | "en";
   hasLogo: boolean;
   /** treatment text (concept + metaphor + shot visuals): what it promises must be delivered */
@@ -78,11 +78,12 @@ async function measurer(ctx: ValidateCtx, spec: MotionSpec) {
   const fallback = "Readex Pro";
   const weights = new Set<number>([700]);
   for (const e of spec.elements) if (e.type === "text" || e.type === "counter") weights.add(e.weight);
-  const families = [...new Set([ctx.fonts.arabic, ctx.fonts.latin, fallback].filter((f): f is string => !!f))];
+  const families = [...new Set([ctx.fonts.arabic, ctx.fonts.latin, ctx.fonts.display, fallback].filter((f): f is string => !!f))];
   const fonts = new Map<string, Awaited<ReturnType<typeof loadFont>>>();
   await Promise.all(families.flatMap((f) => [...weights].map(async (w) => fonts.set(`${f}:${w}`, await loadFont(f, w)))));
   // the same stacks as useBrandFonts: head/body = arabic font first for Arabic videos
-  const stackFor = (role: "head" | "body" | "latin") => (role === "latin" ? [ctx.fonts.latin, fallback] : ctx.lang === "ar" ? [ctx.fonts.arabic, fallback, ctx.fonts.latin] : [ctx.fonts.latin, fallback]).filter((f): f is string => !!f);
+  const stackFor = (role: "head" | "body" | "latin" | "display") =>
+    (role === "latin" ? [ctx.fonts.latin, fallback] : role === "display" && ctx.fonts.display ? [ctx.fonts.display, ctx.fonts.arabic, fallback, ctx.fonts.latin] : ctx.lang === "ar" ? [ctx.fonts.arabic, fallback, ctx.fonts.latin] : [ctx.fonts.latin, fallback]).filter((f): f is string => !!f);
   return (el: Extract<SpecElement, { type: "text" | "counter" }>, text: string, kashida = 0) => {
     const size = (el.size / 100) * ctx.width;
     for (const fam of stackFor(el.font)) {
