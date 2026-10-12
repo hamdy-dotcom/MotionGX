@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: "4mb" },
   },
+  // Server-side rendering of MP4s: keep the renderer / bundler / sandbox SDK out of the server bundle.
+  serverExternalPackages: ["@remotion/bundler", "@remotion/renderer", "@remotion/vercel", "@vercel/sandbox", "esbuild"],
+  // The prebuilt Remotion bundle ships with the studio route (renders run in `after()` of its export action).
+  outputFileTracingIncludes: {
+    "/[locale]/videos/*": ["./.remotion-bundle/**/*"],
+  },
 };
 
 export default withNextIntl(nextConfig);

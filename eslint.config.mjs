@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // local design reference + generated output
+    "reference/**",
+    ".remotion-bundle/**",
+    "out/**",
+    "scripts/music/out/**",
+    ".venv/**",
   ]),
 ]);
 

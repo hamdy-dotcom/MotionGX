@@ -4,10 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "pnpm remotion:bundle && next build",
     "start": "next start",
     "lint": "eslint && node scripts/check-logical.mjs",
-    "i18n:check": "node scripts/i18n-check.mjs"
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "remotion:bundle": "remotion bundle remotion/index.ts --out-dir .remotion-bundle",
+    "remotion:studio": "remotion studio remotion/index.ts",
+    "music:generate": ".venv/bin/python scripts/music/generate.py --library --length 70",
+    "music:upload": "tsx --env-file=.env.local --tsconfig tsconfig.scripts.json scripts/music/upload.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",
@@ -20,6 +24,7 @@
     "@remotion/vercel": "4.0.534",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "^2.117.3",
+    "@vercel/sandbox": "^3.6.1",
     "next": "16.4.0",
     "next-intl": "4.14.9",
     "react": "19.3.0",
@@ -36,6 +41,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "tailwindcss": "^4",
+    "tsx": "4.20.3",
     "typescript": "^5"
   },
   "packageManager": "pnpm@12.11.2"
