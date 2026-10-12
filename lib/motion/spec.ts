@@ -277,7 +277,8 @@ const cameraKey = z.object({ t: time, zoom: z.number().min(0.3).max(4).optional(
 
 export const specSchema = z.object({
   version: z.literal(1).default(1),
-  canvas: z.object({ bg: z.array(bgLayer).min(1).max(6) }),
+  /** tone: the palette is derived for a light (editorial off-white) or dark canvas — set from the director's plan */
+  canvas: z.object({ tone: z.enum(["light", "dark"]).optional(), bg: z.array(bgLayer).min(1).max(6) }),
   elements: z.array(elementSchema).min(3).max(140),
   camera: z
     .object({

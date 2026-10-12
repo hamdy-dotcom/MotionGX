@@ -618,7 +618,7 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const t = frame / fps;
-  const P = useMemo(() => ({ ...buildTokens(input.brand.colors), white: "#FFFFFF", black: "#0A0A0A" }) as Palette, [input.brand.colors]);
+  const P = useMemo(() => ({ ...buildTokens(input.brand.colors, spec.canvas.tone ?? "auto"), white: "#FFFFFF", black: "#0A0A0A" }) as Palette, [input.brand.colors, spec.canvas.tone]);
   const { ready, stacks } = useBrandFonts(input.fontFamilies, [], input.lang);
   const full: MotionInput = { ...input, palette: P, fonts: stacks };
   const lines = useMemo(() => new Map<string, string>(input.script.beats.flatMap((b) => b.lines.map((l, i): [string, string] => [`${b.id}:${i}`, l]))), [input.script.beats]);

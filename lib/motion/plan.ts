@@ -37,6 +37,10 @@ export const planSchema = z.object({
       transformation: z.string().min(2).transform((x) => x.trim().slice(0, 240)),
     })
     .optional(),
+  /** the canvas: light (editorial off-white, ink lines) or dark (the brand's darkest neutral) */
+  canvas_tone: z.enum(["light", "dark"]),
+  /** the ONE connective element that runs through every shot (a route line, a conveyor, a string of lights) */
+  thread: z.string().min(3).transform((x) => x.trim().slice(0, 200)),
   /** ONE illustration style for every hero illustration in this video, chosen to fit the brand */
   illustration_style: z.enum(ILLUSTRATION_STYLES),
   /** the 3–6 hero illustrations the story needs (drawn for it, or reused from the library in this style) */
@@ -94,6 +98,8 @@ const tool = {
       motion_language: { type: "string", description: "2–5 English words, e.g. 'kinetic grid', 'liquid morphs'" },
       music_mood: { type: "string", enum: [...MOODS] },
       display_font: { type: "string", enum: [...DISPLAY_FONTS, "none"], description: "Arabic videos: ONE expressive Google display face for headlines that matches the tone (Lalezar/Rakkas/Blaka bold & loud, Reem Kufi/El Messiri elegant, Aref Ruqaa/Amiri calligraphic, Marhey/Lemonada playful, Changa/Alexandria/Cairo/Tajawal/Almarai clean); body copy keeps the brand font. English videos: \"none\"" },
+      canvas_tone: { type: "string", enum: ["light", "dark"], description: "light = clean editorial off-white canvas with ink lines and brand-colour accents (great for line / flat / hand-drawn / paper-cut); dark = premium night canvas (great for neon / clay / isometric glow). Fit the brand's own site and tone" },
+      thread: { type: "string", description: "≤ 20 words: the ONE connective element that runs through EVERY shot and ties the illustrations together (e.g. 'a green route line that drops from the pin, through the warehouse, past each team station'). The illustrations are stations on it" },
       illustration_style: { type: "string", enum: [...ILLUSTRATION_STYLES], description: "ONE illustration style for every hero illustration in this video, chosen to fit the brand's tone and audience" },
       illustrations: {
         type: "array",
@@ -169,6 +175,7 @@ MOTION PATTERN VOCABULARY (name the pattern in each shot's visual; these are wha
 HERO ILLUSTRATIONS (the heart of the film — this is what makes it look hand-made):
 - Pick ONE illustration_style for the whole video that fits the brand (never the default out of habit — a playful snack brand ≠ a bank ≠ a dev tool): ${ILLUSTRATION_STYLES.map((s) => `${s} (${STYLE_GUIDE[s as IllustrationStyle].split(":")[0]})`).join("; ")}.
 - List the 3–6 concrete objects/scenes the story needs as illustrations (a warehouse, a phone with a sales chart, a parcel, a delivery truck, a support headset…), each with 1–3 animatable parts (doors open, bars grow, lid closes, needle turns, route draws). No text inside them — on-screen copy stays in the shots.
+- Choose canvas_tone for the brand (light editorial vs dark premium) and ONE thread: a connective element (route line, conveyor, cable, string of lights) that runs through every shot so the film reads as one journey, not separate slides; the illustrations are stations on it.
 - Tell the story THROUGH them: a continuous visual thread from shot to shot, one idea per shot, and the hero object changes state on each hit (the box closes on the drop, the truck leaves on the impact, the chart grows on the reveal).
 
 CREATIVE RULES

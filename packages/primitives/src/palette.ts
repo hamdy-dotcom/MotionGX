@@ -103,7 +103,10 @@ export type BrandTokens = {
   dark: boolean;
 };
 
-export function buildTokens(colors: BrandColorInput[]): BrandTokens {
+/** canvas tone: "auto" = the brand's darkest neutral (the default since Phase 1); "light" = an editorial off-white canvas with ink text */
+export type CanvasTone = "auto" | "light" | "dark";
+
+export function buildTokens(colors: BrandColorInput[], tone: CanvasTone = "auto"): BrandTokens {
   const list = colors.filter((c) => valid(c.hex));
   const primary = pick(list, "primary") ?? list[0]?.hex ?? "#5558E3";
   const inkRaw = pick(list, "ink") ?? list.find((c) => luminance(c.hex) < 0.15 && c.hex !== primary)?.hex;
@@ -113,11 +116,14 @@ export function buildTokens(colors: BrandColorInput[]): BrandTokens {
   // Canvas: the brand's darkest neutral (ink or a dark background); otherwise a deep shade of primary.
   // Dark canvases carry the glow treatment; text color is chosen by contrast either way.
   const darkCandidates = [inkRaw, background].filter(valid).filter((c) => luminance(c) < 0.12);
-  const bg = darkCandidates.sort((a, b) => luminance(a) - luminance(b))[0] ?? mix(primary, "#05060A", 0.86);
+  // light: the brand's own light background, else a warm off-white barely tinted with primary
+  const lightBg = background && valid(background) && luminance(background) > 0.85 ? (luminance(background) > 0.97 ? mix(background, primary, 0.025) : background) : mix("#FAFAF7", primary, 0.03);
+  const bg = tone === "light" ? lightBg : (darkCandidates.sort((a, b) => luminance(a) - luminance(b))[0] ?? mix(primary, "#05060A", 0.86));
   const dark = luminance(bg) < 0.4;
 
-  const textCandidates = ["#FFFFFF", "#0B0D12", ...(background ? [background] : [])];
-  const text = textCandidates.sort((a, b) => contrast(b, bg) - contrast(a, bg))[0];
+  // on a light canvas the brand's ink is the text colour when it reads well
+  const textCandidates = ["#FFFFFF", "#0B0D12", ...(background ? [background] : []), ...(tone === "light" && inkRaw && valid(inkRaw) && contrast(inkRaw, bg) >= 7 ? [inkRaw] : [])];
+  const text = tone === "light" && textCandidates.includes(inkRaw ?? "") ? inkRaw! : textCandidates.sort((a, b) => contrast(b, bg) - contrast(a, bg))[0];
 
   const accentBase = accentRaw && contrast(accentRaw, primary) > 1.15 ? accentRaw : rotateHue(primary, 38);
   const gradA = ensureContrast(shade(primary, dark ? 0.08 : -0.04), bg, 3.2);

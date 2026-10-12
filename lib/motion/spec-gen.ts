@@ -75,6 +75,8 @@ LAYOUT RULES (the validator enforces these; violations are sent back to you):
 - Make it look custom-made for the brand: layered depth, a consistent motion language, purposeful transitions. Avoid plain "title on gradient" shots.
 
 DESIGN DIRECTION (taste — what separates a promo from a slideshow):
+- THE THREAD: build the plan's thread as ONE long-lived element (a route / svgPath alive from 0 to the logo hit, drawn on progressively with stroke-draw across shots, or extended shot by shot) and hang every illustration on it as a station; move the camera along it (camera keys x/y/zoom) so each shot feels like the next stop on one journey.
+- LIGHT CANVAS ("tone": "light"): bg = bg + a faint dots/grid layer, no glows; illustrations read as ink line art; headlines in text with ONE word highlighted in primary (highlight). DARK: glow/radial depth is welcome.
 - TELL THE STORY THROUGH THE ILLUSTRATIONS: they are the heroes, big (w 40–75), one per shot (two when they interact). A continuous visual thread: the same hero carries across shots (move-to / shared-morph / camera push) instead of being swapped for a new layout. One idea per shot. On EVERY hit the hero changes state — a part animation lands exactly on the hit time (the box lid closes on the drop, the truck drives off on the impact, the bars grow on the reveal).
 - Supporting elements (route lines, rings, particles, small icons) connect the illustrations; don't redraw objects that exist as illustrations. Keep the spec lean: about 25–45 elements.
 - BUILD THE METAPHOR LITERALLY. If the concept is a balance scale, draw the scale (beam = line/rect, pans = shapes, pivot = triangle) and animate it tilting and settling; a tower → stacked blocks; a journey → a route with stations. The metaphor is the HERO of most shots (3–8 elements each), not a small icon.
@@ -85,7 +87,7 @@ DESIGN DIRECTION (taste — what separates a promo from a slideshow):
 - The logo is used as-is: animate it with pop / scale / float / punch / ring reveals — never glow, blur, hue, flicker or glitch it.
 - The logo reveal is a moment: build-up → hit → logo with a ring/ripple/burst; the CTA sits on the final drop, big and clear.
 
-QUALITY REFERENCE — a complete spec for an unrelated fictional brand. It shows the bar: the hero illustration is ONE element carried across shots with keys (a continuous thread, not a new card per shot), a part animation lands on every hit, the next illustration interacts with it (the bag pours INTO the cup), 3 layers of depth, labels beside the drawings, a route the truck rides, a staged logo reveal and a labelled CTA. NEVER copy its layout, illustrations or concept: invent your own from the treatment and use only YOUR illustrations.
+QUALITY REFERENCE — a complete spec for an unrelated fictional brand. It shows the bar: a light editorial canvas, ONE thread line alive from the first shot to the logo, the hero illustration is ONE element carried across shots with keys (a continuous thread, not a new card per shot), a part animation lands on every hit, the next illustration interacts with it (the bag pours INTO the cup), 3 layers of depth, labels beside the drawings, a route the truck rides, a staged logo reveal and a labelled CTA. NEVER copy its layout, illustrations or concept: invent your own from the treatment and use only YOUR illustrations.
 ${EXAMPLE_PLAN}
 ${EXAMPLE_SPEC}
 
@@ -114,7 +116,7 @@ const patchSchema = z.object({ ops: z.array(z.object({ op: z.enum(["add", "remov
 
 /** Facts the writer would otherwise guess: per-line max font size (real metrics) + role contrast table. */
 async function layoutFacts(b: MotionBrief, plan: Plan) {
-  const T = { ...buildTokens(b.brand.colors), white: "#FFFFFF", black: "#0A0A0A" } as unknown as Record<string, string>;
+  const T = { ...buildTokens(b.brand.colors, plan.canvas_tone ?? "auto"), white: "#FFFFFF", black: "#0A0A0A" } as unknown as Record<string, string>;
   const fam = b.dialect === "en" ? b.brand.fonts.latin ?? "Readex Pro" : b.brand.fonts.arabic ?? "Readex Pro";
   const font = (await loadFont(fam, 800)) ?? (await loadFont("Readex Pro", 800));
   const maxSizes = plan.beats.flatMap((beat) =>
@@ -127,7 +129,7 @@ async function layoutFacts(b: MotionBrief, plan: Plan) {
   const fgs = ["text", "textMuted", "primary", "accent", "onPrimary", "white", "black"];
   const bgs = ["bg", "bg2", "surface", "primary", "accent", "white"];
   const table = bgs.map((bg) => `on ${bg}: ${fgs.filter((f) => f !== bg).map((f) => `${f} ${contrast(T[f], T[bg]).toFixed(1)}`).join(", ")}`);
-  return { maxSizes, table, dark: buildTokens(b.brand.colors).dark };
+  return { maxSizes, table, dark: buildTokens(b.brand.colors, plan.canvas_tone ?? "auto").dark };
 }
 
 /** the illustrations block of the brief: name, what it shows, its parts (the prop schema the spec animates) */
@@ -136,7 +138,9 @@ const illustrationBrief = (illos: IllustrationNeed[], style: string) =>
 
 function specPrompt(b: MotionBrief, plan: Plan, facts: Awaited<ReturnType<typeof layoutFacts>>, refs: MotionRef[] = [], illos: IllustrationNeed[] = plan.illustration_assets ?? []) {
   return `Canvas ${b.width}×${b.height} (${b.format}), ${b.lengthS}s @30fps, ${plan.energy.bpm} BPM (beat = ${(60 / plan.energy.bpm).toFixed(3)}s), language ${b.dialect === "en" ? "English (LTR)" : "Arabic (RTL)"}, palette is ${facts.dark ? "dark" : "light"}. Brand: ${b.brand.name} (${b.brand.url}); logo ${b.brand.hasLogo ? "yes" : "no — the logo element renders a wordmark"}; brand images: ${b.brand.imageCount}.
-TREATMENT: ${plan.concept} | motion language: ${plan.motion_language} | music: ${plan.music_mood}${plan.metaphor ? `
+TREATMENT: ${plan.concept} | motion language: ${plan.motion_language} | music: ${plan.music_mood}${plan.canvas_tone ? `
+CANVAS: ${plan.canvas_tone} (set "canvas": { "tone": "${plan.canvas_tone}", … } — the palette roles and the contrast table below are for this canvas)` : ""}${plan.thread ? `
+THE THREAD (one element alive from the first shot to the logo — never rebuilt per shot): ${plan.thread}` : ""}${plan.metaphor ? `
 METAPHOR — THE HERO OF THE FILM (build it literally, big, in most shots): "${plan.metaphor.object}" stands for ${plan.metaphor.stands_for}. Its arc: ${plan.metaphor.transformation}. A viewer must be able to say the idea in one sentence after watching.` : ""}
 ${illustrationBrief(illos, plan.illustration_style)}
 SHOTS (use every line once, during its shot):
@@ -190,7 +194,7 @@ const SCRIM_FX = new Set(["fade", "rise", "pop", "zoom-in", "blur-in", "slide", 
 export function finish(spec: MotionSpec, issues: SpecIssue[], ctx: ValidateCtx): { spec: MotionSpec; applied: string[] } {
   const out = structuredClone(spec) as MotionSpec;
   // the most legible text role on the scrim (bg)
-  const T = { ...buildTokens(ctx.colors), white: "#FFFFFF", black: "#0A0A0A" } as unknown as Record<string, string>;
+  const T = { ...buildTokens(ctx.colors, spec.canvas.tone ?? "auto"), white: "#FFFFFF", black: "#0A0A0A" } as unknown as Record<string, string>;
   const onScrim = (["text", "white", "black", "onPrimary", "primary", "accent"] as const).map((role) => ({ role, c: contrast(T[role], T.bg) })).sort((a, b) => b.c - a.c)[0].role;
   const applied: string[] = [];
   const scrimmed = new Set<string>();
@@ -380,6 +384,11 @@ export async function writeSpec(b: MotionBrief, plan: Plan, vctx: ValidateCtx, r
     rounds.push({ stage: "spec-fallback", model: SONNET, issues: res.value ? 0 : 1, ms: Date.now() - t0 });
     if (!res.value) throw new AiError("ai_invalid", `spec failed schema: ${res.problem}`);
     raw = res.value.spec;
+  }
+  // the director's canvas tone is binding (the palette and contrast facts were computed for it)
+  if (plan.canvas_tone && raw && typeof raw === "object") {
+    const r = raw as { canvas?: Record<string, unknown> };
+    r.canvas = { ...(r.canvas ?? {}), tone: plan.canvas_tone };
   }
   const res = { value: { spec: raw } };
 

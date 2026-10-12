@@ -242,7 +242,7 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
   if (issues.some((i) => ["duplicate_id", "bad_parent"].includes(i.code))) return { spec, issues };
 
   // ── geometry over time ──────────────────────────────────────────────────
-  const P = { ...buildTokens(ctx.colors), white: "#FFFFFF", black: "#0A0A0A" } as unknown as Record<string, string>;
+  const P = { ...buildTokens(ctx.colors, spec.canvas.tone ?? "auto"), white: "#FFFFFF", black: "#0A0A0A" } as unknown as Record<string, string>;
   const times = new Set<number>();
   for (let t = 0; t <= ctx.duration; t += 0.2) times.add(Number(t.toFixed(2)));
   for (const h of ctx.energy.hits) times.add(h.t);
