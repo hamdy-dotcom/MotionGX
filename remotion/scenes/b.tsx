@@ -5,7 +5,7 @@ import { rgba } from "../../lib/video/tokens";
 import { beatFrame, useVideo } from "../context";
 import { Cross, Icon } from "../icons";
 import { beatPulse, lerp, progress, punch, snap } from "../motion";
-import { BrandArt, Card, Center, Chip, Glow, Label, Lines, Logo, Ltr, Pop, Rise, Scene, Wipe } from "../parts";
+import { BrandArt, Card, Center, Chip, displayUrl, Fit, Glow, Label, Lines, Logo, Ltr, Pop, Rise, Scene, Wipe } from "../parts";
 import { Flash, type SceneProps } from "./a";
 
 const lastEm = (lines: string[]) => (lines.length > 1 ? lines.length - 1 : undefined);
@@ -115,7 +115,7 @@ export const QuoteScene: React.FC<SceneProps<"quote">> = ({ scene, dur }) => {
 export const ComparisonScene: React.FC<SceneProps<"comparison">> = ({ scene, dur }) => {
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const { u, fpb, T } = useVideo();
+  const { u, fpb, T, CW } = useVideo();
   const b = (k: number) => beatFrame(fpb, k);
   const col = 200 * u;
   return (
@@ -138,7 +138,9 @@ export const ComparisonScene: React.FC<SceneProps<"comparison">> = ({ scene, dur
             return (
               <Rise key={i} at={at} distance={24}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 * u, padding: `${32 * u}px 0`, borderTop: `${2 * u}px solid ${T.border}` }}>
-                  <div style={{ flex: 1, fontSize: 50 * u, fontWeight: 700, whiteSpace: "nowrap" }}>{row}</div>
+                  <div style={{ flex: 1 }}>
+                    <Fit text={row} max={50 * u} width={CW - 2 * col - 120 * u} />
+                  </div>
                   <div style={{ width: col, display: "flex", justifyContent: "center", transform: `scale(${lerp(tick, 0.3, 1)})` }}>
                     <div style={{ width: 80 * u, height: 80 * u, borderRadius: "50%", background: T.gradient, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 ${36 * u}px ${rgba(T.gradA, 0.4)}` }}>
                       <Icon name="check" size={46 * u} color={T.onPrimary} strokeWidth={3} />
@@ -161,7 +163,7 @@ export const ComparisonScene: React.FC<SceneProps<"comparison">> = ({ scene, dur
 export const ChipsCloudScene: React.FC<SceneProps<"chips_cloud">> = ({ scene, dur }) => {
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const { u, fpb, T } = useVideo();
+  const { u, fpb, T, CW } = useVideo();
   const b = (k: number) => beatFrame(fpb, k);
   const chips = scene.props.chips;
   const half = Math.round(fpb / 2);
@@ -180,8 +182,8 @@ export const ChipsCloudScene: React.FC<SceneProps<"chips_cloud">> = ({ scene, du
             const on = f > allIn && i === lit;
             return (
               <div key={i} style={{ opacity: Math.min(1, s * 1.4), transform: `translateY(${float}px) scale(${lerp(s, 0.3, 1) * (on ? 1.08 : 1)}) rotate(${lerp(s, (i % 2 ? 1 : -1) * 16, 0)}deg)` }}>
-                <Chip solid={on} color={T.gradA} style={{ fontSize: 50 * u, padding: `${22 * u}px ${40 * u}px`, fontWeight: 700 }}>
-                  {chip}
+                <Chip solid={on} color={T.gradA} style={{ padding: `${22 * u}px ${40 * u}px`, fontWeight: 700 }}>
+                  <Fit text={chip} max={50 * u} width={CW * 0.8} />
                 </Chip>
               </div>
             );
@@ -284,7 +286,7 @@ export const CtaScene: React.FC<SceneProps<"cta">> = ({ scene, dur, last }) => {
           </div>
         </div>
         <Rise at={b(2)}>
-          <Ltr style={{ fontWeight: 700, fontSize: 70 * u, backgroundImage: T.gradient, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>{scene.props.url}</Ltr>
+          <Ltr style={{ fontWeight: 700, fontSize: 70 * u, backgroundImage: T.gradient, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>{displayUrl(scene.props.url)}</Ltr>
         </Rise>
       </Center>
     </Scene>
@@ -310,7 +312,7 @@ export const OutroLogoScene: React.FC<SceneProps<"outro_logo">> = ({ scene, dur,
           {scene.props.url ? (
             <Rise at={b(2)}>
               <div style={{ textAlign: "center", marginTop: 34 * u }}>
-                <Ltr style={{ fontWeight: 600, fontSize: 54 * u, color: T.textMuted }}>{scene.props.url}</Ltr>
+                <Ltr style={{ fontWeight: 600, fontSize: 54 * u, color: T.textMuted }}>{displayUrl(scene.props.url)}</Ltr>
               </div>
             </Rise>
           ) : null}

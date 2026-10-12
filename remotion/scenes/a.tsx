@@ -7,7 +7,7 @@ import { AnimatedNumber } from "../AnimatedNumber";
 import { beatFrame, useVideo } from "../context";
 import { Cross, Icon } from "../icons";
 import { beatPulse, clampI, lerp, progress, punch, snap } from "../motion";
-import { BrandArt, Card, Center, Glow, Lines, Logo, Pop, Rise, Scene, Slide, Wipe } from "../parts";
+import { BrandArt, Card, Center, Fit, Glow, Lines, Logo, Pop, Rise, Scene, Slide, Wipe } from "../parts";
 
 export type SceneProps<T extends SceneType> = {
   scene: KitSceneOf<T>;
@@ -63,7 +63,7 @@ export const HookScene: React.FC<SceneProps<"hook">> = ({ scene, dur }) => {
 /* ═══ problem — pains slide in on the beat, then get struck through ═══ */
 export const ProblemScene: React.FC<SceneProps<"problem">> = ({ scene, dur }) => {
   const f = useCurrentFrame();
-  const { u, fpb, T } = useVideo();
+  const { u, fpb, T, CW } = useVideo();
   const b = (k: number) => beatFrame(fpb, k);
   return (
     <Scene dur={dur}>
@@ -84,7 +84,6 @@ export const ProblemScene: React.FC<SceneProps<"problem">> = ({ scene, dur }) =>
                     borderRadius: 34 * u,
                     background: T.surface,
                     border: `${2 * u}px solid ${strike > 0.5 ? T.border : rgba(T.text, 0.16)}`,
-                    fontSize: 56 * u,
                     fontWeight: 700,
                     color: strike > 0.5 ? T.textMuted : T.text,
                     whiteSpace: "nowrap",
@@ -94,7 +93,7 @@ export const ProblemScene: React.FC<SceneProps<"problem">> = ({ scene, dur }) =>
                     <Cross size={58 * u} color={T.gradB} />
                   </span>
                   <span style={{ position: "relative" }}>
-                    {pain}
+                    <Fit text={pain} max={56 * u} width={CW - 200 * u} />
                     <span style={{ position: "absolute", top: "54%", insetInlineStart: 0, height: 6 * u, width: `${strike * 100}%`, borderRadius: 4 * u, background: T.gradB }} />
                   </span>
                 </div>
@@ -134,8 +133,9 @@ export const LogoRevealScene: React.FC<SceneProps<"logo_reveal">> = ({ scene, du
 export const FeatureListScene: React.FC<SceneProps<"feature_list">> = ({ scene, dur }) => {
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const { u, fpb, T, landscape } = useVideo();
+  const { u, fpb, T, landscape, CW } = useVideo();
   const b = (k: number) => beatFrame(fpb, k);
+  const textWidth = (landscape ? (CW - 28 * u) / 2 : CW) - 236 * u;
   return (
     <Scene dur={dur}>
       <Center>
@@ -174,7 +174,7 @@ export const FeatureListScene: React.FC<SceneProps<"feature_list">> = ({ scene, 
                   >
                     <Icon name={item.icon} size={66 * u} color={T.onPrimary} />
                   </div>
-                  <span style={{ fontSize: (landscape ? 46 : 56) * u, fontWeight: 700, whiteSpace: "nowrap" }}>{item.text}</span>
+                  <Fit text={item.text} max={(landscape ? 46 : 56) * u} width={textWidth} />
                 </div>
               </Slide>
             );
@@ -281,7 +281,7 @@ export const StepsScene: React.FC<SceneProps<"steps">> = ({ scene, dur }) => {
                 >
                   {i + 1}
                 </div>
-                <span style={{ fontSize: 60 * u, fontWeight: 800, whiteSpace: "nowrap" }}>{step}</span>
+                <Fit text={step} max={60 * u} width={landscape ? CW / 3 - 40 * u : CW - circle - 50 * u} weight={800} />
               </div>
             </Pop>
           ))}
@@ -325,7 +325,7 @@ export const PhoneMockScene: React.FC<SceneProps<"phone_mock">> = ({ scene, dur 
     >
       <Rise at={b(0.5)} distance={20}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 18 * u }}>
-          <div style={{ fontFamily: F.head, fontWeight: 800, fontSize: 40 * u, whiteSpace: "nowrap" }}>{scene.props.screen_title}</div>
+          <Fit text={scene.props.screen_title} max={40 * u} width={pw - 260 * u} weight={800} font={F.head} />
           <Logo size={110} />
         </div>
       </Rise>
@@ -351,7 +351,7 @@ export const PhoneMockScene: React.FC<SceneProps<"phone_mock">> = ({ scene, dur 
                 fontWeight: 700,
               }}
             >
-              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item}</span>
+              <Fit text={item} max={36 * u} width={pw - 200 * u} />
               <span style={{ width: 50 * u, height: 50 * u, borderRadius: 25 * u, background: on > 0.5 ? T.gradient : rgba(T.text, 0.1), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transform: `scale(${lerp(on, 0.6, 1)})` }}>
                 {on > 0.5 ? <Icon name="check" size={30 * u} color={T.onPrimary} strokeWidth={3} /> : null}
               </span>
@@ -394,15 +394,16 @@ export const PhoneMockScene: React.FC<SceneProps<"phone_mock">> = ({ scene, dur 
 /* ═══ before_after — dim "before", glowing "after" that lands on beat 2 ═══ */
 export const BeforeAfterScene: React.FC<SceneProps<"before_after">> = ({ scene, dur }) => {
   const f = useCurrentFrame();
-  const { u, fpb, T, landscape } = useVideo();
+  const { u, fpb, T, landscape, CW } = useVideo();
   const b = (k: number) => beatFrame(fpb, k);
   const { before_label, before, after_label, after } = scene.props;
+  const itemWidth = (landscape ? (CW - 34 * u) / 2 : CW) - 190 * u;
   const list = (items: string[], good: boolean, at: number) =>
     items.map((t, i) => (
       <Rise key={i} at={at + i * 4} distance={20}>
         <div style={{ display: "flex", alignItems: "center", gap: 22 * u, fontSize: 50 * u, fontWeight: good ? 800 : 600, color: good ? T.text : T.textMuted, marginTop: 24 * u, whiteSpace: "nowrap" }}>
           {good ? <Icon name="check" size={52 * u} color={T.gradA} strokeWidth={3} /> : <Cross size={46 * u} color={T.textDim} />}
-          <span style={{ textDecoration: good ? "none" : "line-through", textDecorationColor: T.textDim }}>{t}</span>
+          <Fit text={t} max={50 * u} width={itemWidth} weight={good ? 800 : 600} style={{ textDecoration: good ? "none" : "line-through", textDecorationColor: T.textDim }} />
         </div>
       </Rise>
     ));

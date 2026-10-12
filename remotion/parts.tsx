@@ -92,7 +92,7 @@ export const KLine: React.FC<{
 }> = ({ text, at, max, mode = "stagger", grad, color, width, weight = 800, align = "start", font, stagger }) => {
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const { T, F, u, CW, lang } = useVideo();
+  const { T, F, u, CW, lang, dir } = useVideo();
   const family = font ?? F.head;
   const within = width ?? CW;
   let size = max * u;
@@ -104,7 +104,11 @@ export const KLine: React.FC<{
   const gradStyle: React.CSSProperties = grad
     ? { backgroundImage: T.gradient, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }
     : {};
-  const arabic = /[؀-ۿ]/.test(text);
+  const arabic = /[\u0600-\u06FF]/.test(text);
+  // Each line runs in its own script direction (a Latin-only line inside an RTL video stays LTR,
+  // so per-character staggering never reverses it); alignment still follows the scene direction.
+  const lineDir = arabic ? "rtl" : /[A-Za-z0-9]/.test(text) ? "ltr" : dir;
+  const startSide = lineDir === dir ? "flex-start" : "flex-end";
   const base: React.CSSProperties = {
     fontFamily: family,
     fontWeight: weight,
@@ -113,7 +117,8 @@ export const KLine: React.FC<{
     color: color ?? T.text,
     whiteSpace: "nowrap",
     display: "flex",
-    justifyContent: align === "center" ? "center" : "flex-start",
+    direction: lineDir,
+    justifyContent: align === "center" ? "center" : startSide,
     letterSpacing: arabic ? 0 : "-0.02em",
   };
 
@@ -157,6 +162,32 @@ export const KLine: React.FC<{
     </Rise>
   );
 };
+
+/** Largest font size (<= max px) at which a single line fits `width` px. */
+export function fitSize(text: string, max: number, width: number, family: string, weight = 700) {
+  try {
+    return Math.min(max, fitText({ text, withinWidth: Math.max(10, width), fontFamily: family, fontWeight: weight }).fontSize);
+  } catch {
+    return max;
+  }
+}
+
+/** Single-line text that shrinks to fit (never wraps, never clips). */
+export const Fit: React.FC<{ text: string; max: number; width: number; weight?: number; font?: string; style?: React.CSSProperties }> = ({
+  text,
+  max,
+  width,
+  weight = 700,
+  font,
+  style,
+}) => {
+  const { F } = useVideo();
+  const family = font ?? F.body;
+  return <span style={{ fontSize: fitSize(text, max, width, family, weight), fontWeight: weight, fontFamily: family, whiteSpace: "nowrap", ...style }}>{text}</span>;
+};
+
+/** Display form of a URL: host + path, no protocol, no trailing slash. */
+export const displayUrl = (url: string) => url.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
 
 /** A stack of explicit lines (the script pre-splits them). `emphasis` gets the gradient. */
 export const Lines: React.FC<{

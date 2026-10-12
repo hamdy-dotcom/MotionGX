@@ -7,7 +7,7 @@ import { buildTokens } from "../lib/video/tokens";
 import { Background } from "./Background";
 import { VideoContext, type VideoCtx } from "./context";
 import { useBrandFonts } from "./fonts";
-import { Logo, Ltr } from "./parts";
+import { displayUrl, Logo, Ltr } from "./parts";
 import {
   BeforeAfterScene,
   FeatureListScene,
@@ -67,7 +67,7 @@ export const BrandVideo: React.FC<BrandVideoProps> = ({ brand, scenes, lengthS, 
 
   const current = timeline.find((t) => frame >= t.startFrame && frame < t.startFrame + t.durationFrames) ?? timeline[timeline.length - 1];
   const chromeHidden = !current || LOGO_SCENES.has(scenes[current.index]?.type);
-  const host = (brand.url ?? "").replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const host = displayUrl(brand.url ?? "");
 
   // Music: quick fade-in, 1 s fade-out to the exact end; ducked to 30% under a voiceover.
   const musicBase = voiceover ? 0.3 : 0.9;
