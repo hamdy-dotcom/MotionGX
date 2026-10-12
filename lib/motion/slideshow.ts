@@ -143,11 +143,11 @@ export function slideshowRisk(spec: MotionSpec, env: EvalEnv): SlideshowRisk {
 
 /** treatment words → what the spec must contain to deliver them */
 const PROMISES: { key: string; words: RegExp; delivered: (s: MotionSpec) => boolean }[] = [
-  { key: "morph", words: /\bmorph|\btransform(s|ing)? into|\bbecomes? (a|the)\b|تتحول|يتحول/i, delivered: (s) => s.elements.some((e) => (e.fx ?? []).some((f) => ["morph", "gsap-morph", "shared-morph", "liquid-move"].includes(f.fx))) },
+  { key: "morph", words: /\bmorph|\btransform(s|ing)? into|\bbecomes? (a|the)\b|تتحول|يتحول/i, delivered: (s) => s.elements.some((e) => (e.fx ?? []).some((f) => ["morph", "gsap-morph", "path-morph", "shared-morph", "liquid-move"].includes(f.fx))) },
   { key: "particles", words: /particle|confetti|sparks?\b|dust|bubbles|جزيئات|شرار/i, delivered: (s) => s.elements.some((e) => e.type === "particles" || (e.fx ?? []).some((f) => ["confetti-burst", "spark-burst", "dot-burst", "dissolve", "assemble"].includes(f.fx))) },
   { key: "camera", words: /\bcamera|push[- ]in|pull[- ]out|\bzoom|dolly|\borbit|\bpan\b|كاميرا|زووم/i, delivered: (s) => (s.camera?.keys ?? []).length >= 2 },
   { key: "3d", words: /\b3d\b|three-dimensional|perspective|flip|تلت أبعاد|ثلاثي/i, delivered: (s) => (s.camera?.keys ?? []).some((k) => k.rx || k.ry) || s.elements.some((e) => (e.fx ?? []).some((f) => ["flip-3d", "swing-in", "tilt-3d", "card-flip", "carousel", "extrude", "slit-in", "tilt-in", "flip-out", "swing-out", "flip-in"].includes(f.fx))) },
-  { key: "route", words: /\broute|journey|\bpath\b|\btrack(ing)?\b|map\b|رحلة|مسار|طريق/i, delivered: (s) => s.elements.some((e) => e.type === "route" || e.type === "svgPath" || (e.fx ?? []).some((f) => ["route-follow", "gsap-path"].includes(f.fx))) },
+  { key: "route", words: /\broute|journey|\bpath\b|\btrack(ing)?\b|map\b|رحلة|مسار|طريق/i, delivered: (s) => s.elements.some((e) => e.type === "route" || e.type === "svgPath" || (e.fx ?? []).some((f) => ["route-follow", "gsap-path", "path-follow"].includes(f.fx))) },
   { key: "cursor", words: /cursor|\bclick|\btap\b|\bdrag|pointer|ماوس|يضغط|سحب/i, delivered: (s) => s.elements.some((e) => (e.type === "shape" && e.shape === "cursor") || (e.fx ?? []).some((f) => ["press", "cursor-move"].includes(f.fx))) },
   { key: "liquid fill", words: /liquid|\bfill(s|ing)? (up|with)|vessel|\bjar\b|\bpours?\b|تملأ|يملأ|سائل|وعاء/i, delivered: (s) => s.elements.some((e) => (e.fx ?? []).some((f) => f.fx === "liquid-fill")) },
   { key: "text decoding", words: /decod|scrambl|فك الشفرة/i, delivered: (s) => s.elements.some((e) => (e.fx ?? []).some((f) => f.fx === "scramble")) },

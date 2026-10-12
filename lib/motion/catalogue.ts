@@ -36,7 +36,7 @@ export function catalogueText() {
   for (const kind of ORDER) {
     lines.push(`# ${kind}`);
     for (const [name, b] of Object.entries(BEHAVIORS)) {
-      if (b.kind !== kind) continue;
+      if (b.kind !== kind || b.alias) continue;
       const p = paramText(b.params);
       const dur = Number.isFinite(b.dur) ? `${b.dur}s` : "∞";
       lines.push(`- ${name} (${dur}${b.textOnly ? ", text" : ""}${b.perLetter ? ", Latin only" : ""}) ${b.desc}${p ? ` [${p}]` : ""}`);

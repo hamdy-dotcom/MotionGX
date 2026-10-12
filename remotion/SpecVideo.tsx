@@ -14,7 +14,7 @@ import { useBrandFonts } from "../packages/primitives/src/fonts";
 import { cameraAt, elementText, pointAlong, resolveAt, routePoints, sec, type EvalEnv, type Resolved } from "../lib/motion/spec-eval";
 import type { ColorRole, MotionSpec, SpecElement } from "../lib/motion/spec";
 import { clamp01, hash, rand, type Overlay } from "./behaviors";
-import { drawSegment, morphPath } from "./behaviors/gsap-lib";
+import { drawSegment, morphPath } from "./behaviors/path-lib";
 import { lerpPoints, shapePoints, smoothPath, toPath, type ShapeKind } from "./behaviors/shapes";
 import type { RuntimeInput } from "./runtime-input";
 
@@ -663,11 +663,11 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
     else if (el.type === "svgPath") {
       const draw = r.state.draw;
       const seg = r.state.segment;
-      let pd = el.to && r.state.morph !== undefined ? morphPath(el.d, el.to, r.state.morph) : el.d;
-      if (seg) pd = drawSegment(pd, seg[0], seg[1]);
+      const morphed = el.to && r.state.morph !== undefined ? morphPath(el.d, el.to, r.state.morph) : el.d;
+      const pd = seg ? drawSegment(morphed, seg[0], seg[1]) : morphed;
       body = (
         <svg width={r.w} height={r.h} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, overflow: "visible" }}>
-          <path d={pd} fill={el.fill ? color(P, el.fill) : "none"} stroke={color(P, el.stroke)} strokeWidth={el.strokeW} vectorEffect="non-scaling-stroke" strokeLinecap={el.cap ?? "round"} strokeLinejoin="round" {...(draw !== undefined ? { pathLength: 1, strokeDasharray: 1, strokeDashoffset: 1 - draw } : {})} />
+          <path d={pd} fill={el.fill ? color(P, el.fill) : "none"} stroke={color(P, el.stroke)} strokeWidth={el.strokeW} vectorEffect="non-scaling-stroke" strokeLinecap={el.cap ?? "round"} strokeLinejoin="round" {...(!seg && draw !== undefined ? { pathLength: 1, strokeDasharray: 1, strokeDashoffset: 1 - draw } : {})} />
         </svg>
       );
     } else if (el.type === "image") {

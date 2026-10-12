@@ -2,7 +2,7 @@
 // the renderer every frame and by the validator at sample times — so what we validate is what renders.
 import { stagger as motionStagger } from "motion";
 import { BEHAVIORS, combine, EASE, hash, IDENTITY, noise1, strSeed, type BCtx, type BState, type EaseName } from "@/remotion/behaviors";
-import { pathPoint } from "@/remotion/behaviors/gsap-lib";
+import { pathPoint } from "@/remotion/behaviors/path-lib";
 import { toSeconds, type MotionSpec, type SpecElement, type SpecTime } from "./spec";
 
 export type EvalEnv = {
@@ -204,7 +204,7 @@ export function resolveAt(spec: MotionSpec, env: EvalEnv, tIn: number, opts: { c
       const r = byId.get(state.follow.route);
       if (r?.type === "route") [cx, cy] = pointAlong(routePoints(r, env), state.follow.p);
       else if (r?.type === "svgPath") {
-        // GSAP MotionPath on the path's 0–100 box mapped onto its element box
+        // path-follow (svg-path-properties) on the path's 0–100 box mapped onto its element box
         const pw = ((r.w ?? 20) / 100) * env.width;
         const ph = r.h !== undefined ? (r.h / 100) * env.width : pw;
         const pt = pathPoint(r.d, state.follow.p);

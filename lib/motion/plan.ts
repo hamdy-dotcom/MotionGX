@@ -101,10 +101,10 @@ MOTION PATTERN VOCABULARY (name the pattern in each shot's visual; these are wha
 3 pinned sequence — a hero stays fixed while content changes around it
 4 parallax depth — layers at different depths under camera moves (depth, camera keys)
 5 staggered / cascading entrance — (group stagger with order center/edges/random, panel-stack, depth-assemble)
-6 morph — shape or SVG path into another, incl. symbol → brand mark (morph, gsap-morph)
+6 morph — shape or SVG path into another, incl. symbol → brand mark (morph, path-morph)
 7 overshoot / spring — (spring-pop, spring-in, spring-move, liquid-move)
 8 spring follow / cursor — a pointer moves, presses and drags UI (cursor shape, cursor-move, press)
-9 split text — per-word (Arabic) / per-letter (Latin) staggers (gsap-split, per-word, blur-words, slam-words, roll-text, tracking-in)
+9 split text — per-word (Arabic) / per-letter (Latin) staggers (split-stagger, per-word, blur-words, slam-words, roll-text, tracking-in)
 10 text scramble / decode — (scramble)
 11 marquee / ticker — a looping strip of words or logos (move-to on a long group, echo)
 12 page wipe / curtain / blinds / iris — cut kinds layers, blinds, pixels, iris, diagonal

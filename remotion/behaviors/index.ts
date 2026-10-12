@@ -97,13 +97,14 @@ export const BEHAVIORS: Record<string, Behavior> = {
   "bar-grow": { kind: "data", desc: "bar grows from its base (stagger a group of bars for a bar race)", dur: 0.8, params: P({ axis: z.enum(["x", "y"]).default("y"), ease: easeParam.default("backOut") }), apply: (c) => { const e = Math.max(0.001, EASE[g(c, "ease", "backOut") as EaseName](c.p)); return g(c, "axis", "y") === "y" ? { sy: e, dy: (1 - e) * c.bh / 2 } : { sx: e, dx: -(1 - e) * c.bw / 2 }; } },
   "route-follow": { kind: "data", desc: "moves along a route element (params: route = its id)", dur: 2, params: P({ route: z.string(), ease: easeParam.default("inOut") }), apply: (c) => ({ follow: { route: g(c, "route", ""), p: EASE[g(c, "ease", "inOut") as EaseName](c.p) } }) },
 
-  // ── Phase 3D: Animista / genmotion / Motion / Codrops / GSAP / mined techniques ──
+  // ── Phase 3D: Animista / genmotion / Motion / Codrops / path / mined techniques ──
   ...PRESETS,
 };
 
 /** camera behaviors (spec.camera.keys handles explicit moves; these are the reusable gestures) */
 export const CAMERA_FX = ["push", "pull", "whip", "shake", "parallax", "dolly"] as const;
 
-export const BEHAVIOR_NAMES = Object.keys(BEHAVIORS);
+/** names offered to the AI (hidden aliases excluded) */
+export const BEHAVIOR_NAMES = Object.keys(BEHAVIORS).filter((n) => !BEHAVIORS[n].alias);
 
 export type { Overlay };

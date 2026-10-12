@@ -3,13 +3,13 @@
 //  • genmotion motion recipes (MIT, github.com/Afnanksalal/genmotion) as behaviors
 //  • Motion (motion.dev, MIT) springs / inertia / easings sampled at t — never animate()
 //  • Codrops-inspired effects (our own implementations of the ideas; no demo code)
-//  • GSAP (frame-seeked timelines + static path maths, see gsap-lib.ts)
+//  • path morph / draw / follow + split timing (MIT: flubber, svg-path-properties, Motion — see path-lib.ts)
 //  • techniques mined from prompt-motion.com prompts (cursor, scroll capture, karaoke, liquid fill…)
 import { z } from "zod";
 import { inertia } from "motion";
 import { clamp01, EASE, lerp, noise1, rand, springAt, type BState, type EaseName } from "./core";
 import { dir8, easeParam, ev, g, none, P, vec, wipeClip, type BCtx, type Behavior } from "./helpers";
-import { gsapStagger, GSAP_EASES } from "./gsap-lib";
+import { splitProgress, SPLIT_EASES, type SplitEase, type StaggerFrom } from "./path-lib";
 
 const ORIGINS = { center: "50% 50%", top: "50% 0%", bottom: "50% 100%", left: "0% 50%", right: "100% 50%", topLeft: "0% 0%", topRight: "100% 0%", bottomLeft: "0% 100%", bottomRight: "100% 100%" } as const;
 const origin = z.enum(Object.keys(ORIGINS) as [keyof typeof ORIGINS, ...(keyof typeof ORIGINS)[]]);
@@ -33,7 +33,7 @@ function inertiaAt(t: number, tau: number) {
   return clamp01((gen.next(t * 1000).value as number) / 1000);
 }
 
-const gsapEase = z.enum(GSAP_EASES);
+const splitEase = z.enum(Object.keys(SPLIT_EASES) as [SplitEase, ...SplitEase[]]);
 const staggerFrom = z.enum(["start", "center", "end", "edges", "random"]);
 
 export const PRESETS: Record<string, Behavior> = {
@@ -104,11 +104,11 @@ export const PRESETS: Record<string, Behavior> = {
   "echo-trail": { kind: "loop", desc: "fading ghost copies trail behind a moving element (motion echo)", dur: Infinity, params: P({ n: z.number().int().min(1).max(6).default(4), gap: z.number().min(0.01).max(0.2).default(0.045) }), apply: (c) => ({ trail: { n: g(c, "n", 4), gap: g(c, "gap", 0.045) } }) },
   "slice-shift": { kind: "emphasis", desc: "element splits into horizontal bands that shift sideways and re-align", dur: 0.6, params: P({ n: z.number().int().min(2).max(12).default(6), amount: z.number().min(0).max(30).default(8) }), apply: (c) => (c.p <= 0 || c.p >= 1 ? {} : { slices: { n: g(c, "n", 6), amount: Math.sin(c.p * Math.PI) * g(c, "amount", 8) * c.w / 100, seed: c.seed } }) },
 
-  // ── GSAP (frame-seeked) ──────────────────────────────────────────────────
-  "gsap-split": { kind: "enter", desc: "GSAP-timed split-text stagger (letters for Latin, whole words for Arabic) with GSAP eases and stagger origin", dur: 1.0, textOnly: true, params: P({ split: z.enum(["letter", "word"]).default("word"), ease: gsapEase.default("back.out(1.7)"), each: z.number().min(0.01).max(0.3).default(0.05), from: staggerFrom.default("start"), dist: z.number().min(0).max(3).default(0.8) }), apply: (c) => { const split = c.arabic ? "word" : (g(c, "split", "word") as "letter" | "word"); return { units: { split, fn: (i, n) => { const p = gsapStagger(n, c.local, { dur: 0.6, each: g(c, "each", 0.05), ease: g(c, "ease", "back.out(1.7)"), from: g(c, "from", "start"), seed: c.seed })[i] ?? 1; return { dy: (1 - p) * c.bh * g(c, "dist", 0.8), opacity: clamp01(p * 2.5), rx: (1 - clamp01(p)) * -50 }; } } }; } },
-  "gsap-morph": { kind: "morph", desc: "GSAP MorphSVG: an svgPath morphs into its `to` path (any shape → any shape, e.g. a symbol into the brand mark)", dur: 0.9, params: P({ ease: easeParam.default("inOut") }), apply: (c) => ({ morph: EASE[g(c, "ease", "inOut") as EaseName](c.p) }) },
-  "gsap-draw": { kind: "enter", desc: "GSAP DrawSVG on an svgPath/route: draws from the start, the centre outward, or the end", dur: 1.0, params: P({ from: z.enum(["start", "center", "end"]).default("center"), ease: easeParam.default("inOut") }), apply: (c) => { const e = EASE[g(c, "ease", "inOut") as EaseName](c.p); const f = g<string>(c, "from", "center"); return { segment: f === "start" ? [0, e] : f === "end" ? [1 - e, 1] : [0.5 - e / 2, 0.5 + e / 2] }; } },
-  "gsap-path": { kind: "data", desc: "GSAP MotionPath: travels along an svgPath element (path = its id), optionally turning with the curve (align)", dur: 2, params: P({ path: z.string(), align: z.boolean().default(false), ease: easeParam.default("inOut") }), apply: (c) => ({ follow: { route: g(c, "path", ""), p: EASE[g(c, "ease", "inOut") as EaseName](c.p), align: g(c, "align", false) } }) },
+  // ── split / path (MIT: our splitter + Motion timing, flubber, native SVG, svg-path-properties) ──
+  "split-stagger": { kind: "enter", desc: "split-text stagger (letters for Latin, whole words for Arabic — never inside a word) with an ease and a stagger origin", dur: 1.0, textOnly: true, params: P({ split: z.enum(["letter", "word"]).default("word"), ease: splitEase.default("backOut"), each: z.number().min(0.01).max(0.3).default(0.05), from: staggerFrom.default("start"), dist: z.number().min(0).max(3).default(0.8) }), apply: (c) => { const split = c.arabic ? "word" : (g(c, "split", "word") as "letter" | "word"); return { units: { split, fn: (i, n) => { const p = splitProgress(n, c.local, { dur: 0.6, each: g(c, "each", 0.05), ease: g<SplitEase>(c, "ease", "backOut"), from: g<StaggerFrom>(c, "from", "start"), seed: c.seed })[i] ?? 1; return { dy: (1 - p) * c.bh * g(c, "dist", 0.8), opacity: clamp01(p * 2.5), rx: (1 - clamp01(p)) * -50 }; } } }; } },
+  "path-morph": { kind: "morph", desc: "an svgPath morphs into its `to` path (any shape → any shape, e.g. a symbol into the brand mark)", dur: 0.9, params: P({ ease: easeParam.default("inOut") }), apply: (c) => ({ morph: EASE[g(c, "ease", "inOut") as EaseName](c.p) }) },
+  "path-draw": { kind: "enter", desc: "draws an svgPath/route from the start, the centre outward, or the end", dur: 1.0, params: P({ from: z.enum(["start", "center", "end"]).default("center"), ease: easeParam.default("inOut") }), apply: (c) => { const e = EASE[g(c, "ease", "inOut") as EaseName](c.p); const f = g<string>(c, "from", "center"); return { segment: f === "start" ? [0, e] : f === "end" ? [1 - e, 1] : [0.5 - e / 2, 0.5 + e / 2] }; } },
+  "path-follow": { kind: "data", desc: "travels along an svgPath element (path = its id), optionally turning with the curve (align)", dur: 2, params: P({ path: z.string(), align: z.boolean().default(false), ease: easeParam.default("inOut") }), apply: (c) => ({ follow: { route: g(c, "path", ""), p: EASE[g(c, "ease", "inOut") as EaseName](c.p), align: g(c, "align", false) } }) },
 
   // ── mined from prompt-motion.com prompts ─────────────────────────────────
   "cursor-move": { kind: "emphasis", desc: "a cursor (or the thing it drags) travels by (dx, dy)% on a natural arc with a spring arrival — apply the same move to a slider knob to show a drag", dur: 0.9, params: P({ dx: z.number().default(0), dy: z.number().default(0), arc: z.number().min(-40).max(40).default(10) }), apply: (c) => { const s = springAt(c.local, Math.max(0.2, c.dur * 0.7), 0.12); const DX = g(c, "dx", 0) * c.w / 100; const DY = g(c, "dy", 0) * c.h / 100; const len = Math.hypot(DX, DY) || 1; const bow = Math.sin(clamp01(s) * Math.PI) * g(c, "arc", 10) / 100 * len; return { dx: s * DX + (-DY / len) * bow, dy: s * DY + (DX / len) * bow }; } },
@@ -118,3 +118,6 @@ export const PRESETS: Record<string, Behavior> = {
   "slam-words": { kind: "enter", desc: "each word slams down from big, one after another, landing on the beat", dur: 1.0, textOnly: true, params: P({ step: z.number().min(0.03).max(0.6).default(0.14) }), apply: (c) => ({ units: { split: "word", fn: (i) => { const p = clamp01((c.local - i * g(c, "step", 0.14)) / 0.22); return { scale: p >= 1 ? 1 : lerp(2.6, 1, EASE.in(p)), opacity: c.local - i * g(c, "step", 0.14) < 0 ? 0 : clamp01(p * 4) }; } } }) },
   "liquid-fill": { kind: "data", desc: "a shape fills with liquid up to a level (to 0–1) with a moving wave surface", dur: 1.6, params: P({ to: z.number().min(0).max(1).default(1), ease: easeParam.default("out") }), apply: (c) => ({ fill: (c.local < 0 ? 0 : EASE[g(c, "ease", "out") as EaseName](c.p)) * g(c, "to", 1) }) },
 };
+
+/** Phase 3D GSAP names kept as hidden aliases so saved specs still render (GSAP itself was removed) */
+for (const [old, now] of [["gsap-split", "split-stagger"], ["gsap-morph", "path-morph"], ["gsap-draw", "path-draw"], ["gsap-path", "path-follow"]] as const) PRESETS[old] = { ...PRESETS[now], alias: now };

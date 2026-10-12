@@ -17,7 +17,7 @@ import type { SpecVideoProps } from "../../remotion/SpecVideo";
 const run = promisify(execFile);
 
 export type SpecJob =
-  | { task: "stills"; props: SpecVideoProps; times: number[]; outDir: string; scale?: number }
+  | { task: "stills"; props: SpecVideoProps; times: number[]; outDir: string; scale?: number; format?: "jpeg" | "png" }
   | { task: "render"; props: SpecVideoProps; output: string; audioFile?: string | null; chunks?: number; crf?: number };
 
 export type SpecResult = { ok: true; stills?: { t: number; path: string }[]; output?: string; timings: Record<string, number> } | { ok: false; errors: string[] };
@@ -75,8 +75,8 @@ async function main() {
         job.times.map(async (t, i) => {
           const frame = Math.min(composition.durationInFrames - 1, Math.max(0, Math.round(t * composition.fps)));
           const dup = job.times.findIndex((x) => Math.round(x * composition.fps) === frame) !== i;
-          const out = path.join(job.outDir, `still-${String(frame).padStart(4, "0")}${dup ? `-${i}` : ""}.jpeg`);
-          await renderStill({ serveUrl: url, composition, inputProps, frame, output: out, imageFormat: "jpeg", jpegQuality: 85, scale: job.scale ?? 0.5, puppeteerInstance: browser });
+          const out = path.join(job.outDir, `still-${String(frame).padStart(4, "0")}${dup ? `-${i}` : ""}.${job.format ?? "jpeg"}`);
+          await renderStill({ serveUrl: url, composition, inputProps, frame, output: out, imageFormat: job.format ?? "jpeg", ...(job.format === "png" ? {} : { jpegQuality: 85 }), scale: job.scale ?? 0.5, puppeteerInstance: browser });
           return { t: frame / composition.fps, path: out };
         }),
       );

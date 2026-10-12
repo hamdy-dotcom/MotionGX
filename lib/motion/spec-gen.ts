@@ -41,7 +41,7 @@ TYPES:
 - text: { "line": "s3:0" (shot 3, line 0 — ALWAYS use this for script copy) | "text": "literal" (brand name / URL only), "size", "font", "weight", "color": role, "gradient"?: bool, "outline"?: role, "align"?: center|start|end, "highlight"?: { "word": n, "color": role }, "w"?: max width }
   One line per text element (never \\n). Never exceed the max size given for that line.
 - shape: { "shape": rect|circle|pill|ring|star|polygon|triangle|blob|line|cursor (a mouse pointer — tip at its top-left), "w", "h"?, "fill"?: role, "gradient"?: bool, "stroke"?: role, "strokeW"?, "radius"?, "sides"?, "points"?, "alpha"?, "glow"?: role, "to"?: shape (morph target; needs the "morph" behavior) }
-- svgPath: { "d": SVG path in a 0–100 box, "w", "h", "stroke": role, "strokeW", "fill"?, "to"?: a second path (gsap-morph target) } — draw with "stroke-draw" / "gsap-draw"; morph with "gsap-morph"; others travel it with "gsap-path" (path: id)
+- svgPath: { "d": SVG path in a 0–100 box, "w", "h", "stroke": role, "strokeW", "fill"?, "to"?: a second path (path-morph target) } — draw with "stroke-draw" / "path-draw"; morph with "path-morph"; others travel it with "path-follow" (path: id)
 - route: { "points": [[x,y],…] in canvas %, "stroke": role, "strokeW", "nodes"?: role (station dots), "dashed"?, "smooth"? } — draw with "stroke-draw"; others ride it with "route-follow" (route: id)
 - image: { "src": "logo" | "image:0", "w", "fit"?, "frame"?: phone|browser|laptop|tablet, "radius"? }
 - particles: { "kind": dots|squares|sparks|confetti|rain|bubbles|stars|dust, "count", "colors": [role…], "w", "h", "speed"?, "dir"?, "size"? }

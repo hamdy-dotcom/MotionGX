@@ -111,7 +111,7 @@ const pathEl = z.object({
   strokeW: z.number().min(0.1).max(10).default(1),
   fill: role.optional(),
   cap: z.enum(["round", "butt", "square"]).optional(),
-  /** morph target path (same 0–100 box) for gsap-morph */
+  /** morph target path (same 0–100 box) for path-morph */
   to: z.string().min(3).max(2000).optional(),
 });
 

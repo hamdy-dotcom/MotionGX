@@ -9,12 +9,13 @@
 | Codrops articles | technique cards in our own words + links; no demo code | — (ideas only) |
 | Animista | preset ideas re-implemented in our own code | — (ideas only) |
 | OpenMontage | the idea of a slideshow-risk score only; no code | AGPL (not used) |
-| GSAP `gsap@3.13.0` (MorphSVG, MotionPath paths, timelines) | path morph/draw/follow + frame-seeked timelines | GSAP Standard "No Charge" License (Webflow) |
+| flubber `0.4.2` | path-morph (any shape → any shape), sampled per frame | MIT |
+| svg-path-properties `2.1.0` | path-draw window + path-follow (point + tangent at length) | MIT (LICENSE file; package.json says ISC) |
 
-## GSAP license — needs a legal decision before public launch
-The Standard "No Charge" GSAP License (effective 30 Apr 2025, © Webflow) allows commercial use, but its
-Prohibited Uses include using GSAP "in tools that allow users to build visual animations without code"
-that compete with Webflow's visual animation builder. MotionGX lets users create animations through a
-UI, so this clause may apply. The FAQ says AI-generated code is not a "Prohibited Use", but MotionGX
-ships GSAP inside the product's renderer. Removal is contained: GSAP is only used in
-remotion/behaviors/gsap-lib.ts (4 behaviors + svgPath morph/draw and path-follow).
+## GSAP — removed (Phase 3E)
+GSAP's Standard "No Charge" License prohibits use in no-code tools that let users build visual
+animations, which MotionGX is. The `gsap` dependency and `remotion/behaviors/gsap-lib.ts` are gone.
+Replacements (all MIT): `path-morph` (flubber), `path-draw` (sampled polyline of the visible stretch),
+`path-follow` (svg-path-properties), `split-stagger` (our word-safe splitter + Motion stagger/easings).
+The old names gsap-split / gsap-morph / gsap-draw / gsap-path stay as hidden aliases so saved specs
+still render. Determinism: the same frame renders to byte-identical PNGs (scripts/motion/behaviors-smoke.ts).

@@ -40,6 +40,8 @@ export type Behavior = {
   /** splits by letter — forbidden for Arabic (breaks letter joins) */
   perLetter?: boolean;
   apply: (c: BCtx) => Partial<BState>;
+  /** hidden alias of another behavior (kept for old specs; not offered to the AI) */
+  alias?: string;
 };
 
 export const easeParam = z.enum(Object.keys(EASE) as [EaseName, ...EaseName[]]);
