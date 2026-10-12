@@ -18,6 +18,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "scripts/music/out/**",
     ".venv/**",
+    "public/preview/**",
+    ".motion-check/**",
   ]),
 ]);
 

@@ -4,5 +4,10 @@ allowBuilds:
   "@parcel/watcher": false
   "@swc/core": false
   esbuild: false
+  onnxruntime-node: true
+  protobufjs: false
 minimumReleaseAgeExclude:
-  - zod@4.5.4
+  - zod@4.5.4 || 4.6.6
+overrides:
+  # 1.23+ ship no darwin-x64 binary (Intel Macs); 1.22 is API-compatible for feature extraction.
+  onnxruntime-node: 1.22.0

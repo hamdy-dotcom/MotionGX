@@ -47,3 +47,5 @@ next-env.d.ts
 /out/
 /.remotion-bundle/
 /scripts/music/out/
+/public/preview/
+/.motion-check/

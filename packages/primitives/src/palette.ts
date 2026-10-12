@@ -1,7 +1,7 @@
-// Brand tokens for the motion engine, derived from the company's brand_profile colors.
+// Brand palette helpers. Every color comes from the company's brand_profile colors.
 // Nothing here is a fixed brand color: canvas, text and gradient all come from the brand,
-// with text picked by WCAG contrast. Relative imports only (bundled by Remotion too).
-import type { BrandColorInput } from "./kit";
+// with text picked by WCAG contrast.
+export type BrandColorInput = { hex: string; role?: string };
 
 type RGB = [number, number, number];
 
@@ -144,4 +144,24 @@ export function buildTokens(colors: BrandColorInput[]): BrandTokens {
     glowB: rgba(accentBase, dark ? 0.22 : 0.15),
     dark,
   };
+}
+
+/** Best text color for a background, from the brand palette plus white/near-black. */
+export function pickTextColor(bg: string, candidates: string[] = []) {
+  return ["#FFFFFF", "#0B0D12", ...candidates].sort((a, b) => contrast(b, bg) - contrast(a, bg))[0];
+}
+
+/** CSS linear-gradient from palette colors (defaults to the brand gradient stops). */
+export function gradient(T: BrandTokens, angle = 90, stops: string[] = [T.gradA, T.gradB]) {
+  return `linear-gradient(${angle}deg, ${stops.join(", ")})`;
+}
+
+/** Gradient-filled text style (spread onto a text element). */
+export function gradientText(T: BrandTokens, angle = 90): { backgroundImage: string; WebkitBackgroundClip: "text"; backgroundClip: "text"; color: "transparent" } {
+  return { backgroundImage: gradient(T, angle), WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" };
+}
+
+/** Every color the composition may use: the brand palette and its derived tints (for QA). */
+export function allowedColors(T: BrandTokens) {
+  return [...new Set([T.bg, T.bg2, T.surface, T.surface2, T.text, T.textMuted, T.textDim, T.primary, T.onPrimary, T.accent, T.gradA, T.gradB])];
 }

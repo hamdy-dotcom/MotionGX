@@ -48,7 +48,9 @@ function load(family: string, files: { family: string; url: string }[]) {
   return loaded.get(key)!;
 }
 
-export type FontStacks = { head: string; body: string; latin: string; arabic: string };
+import type { FontStacks } from "./types";
+
+export type { FontStacks };
 
 const stack = (...families: (string | null | undefined)[]) =>
   [...new Set(families.filter((f): f is string => !!f))].map((f) => `"${f}"`).join(", ") + ", sans-serif";
