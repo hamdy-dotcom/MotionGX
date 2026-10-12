@@ -1,145 +1,109 @@
 import "server-only";
 import { z } from "zod";
-import { callTool } from "@/lib/ai/claude";
+import { callTool, HAIKU, SONNET } from "@/lib/ai/claude";
 import { AiError } from "@/lib/ai/usage";
-import type { Scene } from "@/lib/types";
-import { COLOR_ROLES, MOTIONS } from "@/lib/types";
-import { brandContext, scriptRules, type ScriptInput } from "./generate";
-import { fitDurations, sceneJsonSchema, scriptProblems, scriptSchema, visualSchema, withIds } from "./schema";
+import { PACE_BPM, kitSceneSchema, type KitScene } from "@/lib/video/kit";
+import { brandContext, rulesFor, scriptSystem, scriptTool, type ScriptInput } from "./generate";
+import { scriptProblems, withIds } from "./schema";
 
-type EditContext = Pick<ScriptInput, "workspaceId" | "brief" | "lengthS" | "dialect" | "voiceover" | "brand">;
+type EditContext = Pick<ScriptInput, "workspaceId" | "brief" | "lengthS" | "dialect" | "voiceover" | "brand" | "pace">;
 
-function scenesForPrompt(scenes: Scene[]) {
-  return JSON.stringify(
-    scenes.map((s) => ({ ...s, visual: s.visual ?? { layout: "hero", emphasis_color_role: "primary", motion: "rise" } })),
-    null,
-    1,
-  );
-}
-
-const rewriteSchema = z.object({
-  title: z.string().min(1).max(80),
-  on_screen_text: z.string().min(1).max(200),
-  voiceover_line: z.string().max(600).nullable(),
-  emphasis_color_role: visualSchema.shape.emphasis_color_role,
-  motion: visualSchema.shape.motion,
-});
-
-const rewriteTool = {
-  name: "save_scene",
-  description: "Save the rewritten scene.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      title: sceneJsonSchema.properties.title,
-      on_screen_text: sceneJsonSchema.properties.on_screen_text,
-      voiceover_line: sceneJsonSchema.properties.voiceover_line,
-      emphasis_color_role: { type: "string", enum: [...COLOR_ROLES] },
-      motion: { type: "string", enum: [...MOTIONS] },
-    },
-    required: ["title", "on_screen_text", "voiceover_line", "emphasis_color_role", "motion"],
-    additionalProperties: false,
-  },
-};
-
-/** "أعد كتابة المشهد": fresh copy for one scene; duration and layout stay the same. */
-export async function rewriteOneScene(ctx: EditContext, scenes: Scene[], index: number): Promise<Scene> {
+/** "أعد كتابة المشهد" (Haiku): fresh copy for one scene — same type and duration. */
+export async function rewriteOneScene(ctx: EditContext, scenes: KitScene[], index: number): Promise<KitScene> {
   const target = scenes[index];
   if (!target) throw new AiError("ai_invalid", "scene index out of range");
-  const layout = target.visual?.layout ?? "hero";
+  const bpm = PACE_BPM[ctx.pace];
+  const rules = rulesFor(ctx, false);
 
   const prompt = `${brandContext(ctx.brand)}
 
 Brief: """${ctx.brief}"""
 
 Full script for context:
-${scenesForPrompt(scenes)}
+${JSON.stringify(scenes, null, 1)}
 
-Rewrite scene ${index + 1} ("${target.title}") with fresh wording and a different angle. Keep it ${target.duration_s} seconds long with layout "${layout}", and keep it consistent with the scenes around it. Call save_scene.`;
+Rewrite scene ${index + 1} with fresh wording and a different angle. Keep "type": "${target.type}", "duration_beats": ${target.duration_beats} and "id": "${target.id}". Stay consistent with the scenes around it. Return the whole scene object.`;
+
+  const sceneTool = {
+    name: "save_scene",
+    description: "Save the rewritten scene.",
+    input_schema: { type: "object" as const, properties: { scene: scriptTool.input_schema.properties.scenes.items }, required: ["scene"] },
+  };
 
   const result = await callTool({
     workspaceId: ctx.workspaceId,
     kind: "rewrite_scene",
-    system: scriptRules(ctx),
+    model: HAIKU,
+    strict: false,
+    system: scriptSystem({ dialect: ctx.dialect, voiceover: ctx.voiceover, bpm }),
     prompt,
-    tool: rewriteTool,
-    schema: rewriteSchema,
-    check: (s) => {
-      const problems = scriptProblems(
-        [{ id: target.id, title: s.title, duration_s: target.duration_s, on_screen_text: s.on_screen_text, voiceover_line: s.voiceover_line }],
-        { lengthS: target.duration_s, voiceover: ctx.voiceover },
-      );
+    tool: sceneTool,
+    schema: z.object({ scene: kitSceneSchema }),
+    check: ({ scene }) => {
+      if (scene.type !== target.type) return `keep the scene type "${target.type}"`;
+      const problems = scriptProblems([scene], { ...rules, lengthS: (target.duration_beats * 60) / bpm }).filter((p) => !/different scene types|cta url/.test(p) || scene.type === "cta");
       return problems.length ? problems.join("; ") : null;
     },
-    maxTokens: 2000,
+    maxTokens: 3000,
   });
   if (!result.value) throw new AiError("ai_invalid", result.problem);
-
-  const v = result.value;
-  return {
-    ...target,
-    title: v.title,
-    on_screen_text: v.on_screen_text,
-    voiceover_line: ctx.voiceover ? v.voiceover_line : null,
-    visual: { layout, emphasis_color_role: v.emphasis_color_role, motion: v.motion },
-  };
+  const scene = result.value.scene;
+  return { ...scene, id: target.id, duration_beats: target.duration_beats, voiceover_line: ctx.voiceover ? scene.voiceover_line : null } as KitScene;
 }
 
-const editSchema = scriptSchema.extend({ summary: z.string().min(1).max(400) });
+const editSchema = z.object({ summary: z.string().trim().min(1).max(300), scenes: z.array(kitSceneSchema).min(3).max(12) });
 
-const editTool = {
-  name: "save_edit",
-  description: "Save the full updated script and a one-sentence summary of what changed.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      summary: { type: "string", description: "One short sentence describing what changed, in the requested summary language." },
-      scenes: { type: "array", items: sceneJsonSchema },
-    },
-    required: ["summary", "scenes"],
-    additionalProperties: false,
-  },
-};
-
-/** "اطلب تعديلًا": apply the user's instruction to the whole script. */
-export async function applyEditRequest(
-  ctx: EditContext,
-  scenes: Scene[],
-  instruction: string,
-  uiLocale: "ar" | "en",
-): Promise<{ scenes: Scene[]; summary: string }> {
+/** "اطلب تعديلًا" (Sonnet): apply the user's instruction to the whole script. */
+export async function applyEditRequest(ctx: EditContext, scenes: KitScene[], instruction: string, uiLocale: "ar" | "en"): Promise<{ scenes: KitScene[]; summary: string }> {
+  const bpm = PACE_BPM[ctx.pace];
+  const totalBeats = Math.round((ctx.lengthS * bpm) / 60);
+  const rules = rulesFor(ctx, false, [3, 12]);
   const prompt = `${brandContext(ctx.brand)}
 
 Brief: """${ctx.brief}"""
 
-Current script (${ctx.lengthS} seconds):
-${scenesForPrompt(scenes)}
+Current script (${ctx.lengthS}s = ${totalBeats} beats):
+${JSON.stringify(scenes, null, 1)}
 
-The client asked for this change:
+The client asked for this change (it may be in any language):
 """
 ${instruction}
 """
 
-Apply the change and return the FULL updated script. Leave scenes the request doesn't touch as they are. Durations must still add up to exactly ${ctx.lengthS} seconds. Write "summary" in ${uiLocale === "ar" ? "Arabic (Egyptian, short)" : "English"} — one sentence, max 20 words. Call save_edit.`;
+Apply the change and return the FULL updated script. Leave scenes the request doesn't touch exactly as they are. duration_beats must still add up to ${totalBeats}. Write "summary" in ${uiLocale === "ar" ? "short Egyptian Arabic" : "English"} — one sentence, max 20 words, saying what changed.`;
 
   const result = await callTool({
     workspaceId: ctx.workspaceId,
     kind: "request_edit",
-    system: scriptRules(ctx),
+    model: SONNET,
+    strict: false,
+    system: scriptSystem({ dialect: ctx.dialect, voiceover: ctx.voiceover, bpm }),
     prompt,
-    tool: editTool,
+    tool: {
+      name: "save_edit",
+      description: "Save the full updated script and a one-sentence summary of what changed.",
+      input_schema: {
+        type: "object" as const,
+        properties: { summary: { type: "string" }, scenes: scriptTool.input_schema.properties.scenes },
+        required: ["summary", "scenes"],
+      },
+    },
     schema: editSchema,
     check: ({ scenes: next }) => {
-      const problems = scriptProblems(next, { lengthS: ctx.lengthS, voiceover: ctx.voiceover, sceneRange: [3, 12] });
+      const problems = scriptProblems(next, rules).filter((p) => !/different scene types/.test(p));
       return problems.length ? problems.join("; ") : null;
     },
+    maxTokens: 16000,
   });
 
-  if (result.value) return { scenes: withIds(result.value.scenes), summary: result.value.summary };
-
-  const parsed = editSchema.safeParse(result.lastInput);
-  if (!parsed.success) throw new AiError("ai_invalid", result.problem);
-  let fixed = fitDurations(parsed.data.scenes, ctx.lengthS);
-  if (!ctx.voiceover) fixed = fixed.map((s) => ({ ...s, voiceover_line: null }));
-  return { scenes: withIds(fixed), summary: parsed.data.summary };
+  let value = result.value;
+  if (!value) {
+    // Accept a still-imperfect edit only when what's left is soft (the beat grid snaps durations).
+    const failed = result as { lastInput: unknown; problem: string };
+    const parsed = editSchema.safeParse(failed.lastInput);
+    const hard = parsed.success ? scriptProblems(parsed.data.scenes, rules).filter((p) => !/duration_beats add up|different scene types|scenes \(got/.test(p)) : ["invalid shape"];
+    if (!parsed.success || hard.length) throw new AiError("ai_invalid", failed.problem);
+    value = parsed.data;
+  }
+  return { scenes: withIds(value.scenes).map((s) => (ctx.voiceover ? s : { ...s, voiceover_line: null })), summary: value.summary };
 }
