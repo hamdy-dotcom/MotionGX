@@ -1,0 +1,3860 @@
+[
+ {
+  "id": "gm-recipe-masked-rise",
+  "title": "Masked rise",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "headline",
+   "label",
+   "caption",
+   "restrained",
+   "balanced"
+  ],
+  "prompt_text": "Content rises through a fixed clipping edge and settles without overshoot. Duration 0.35–0.8s; animates y, opacity. Avoid pairing with: elastic-pop. Keep the travel under 12% of frame height.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Content rises through a fixed clipping edge and settles without overshoot.",
+   "motion_language": "masked rise",
+   "techniques": [
+    "masked rise",
+    "y animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "masked-rise",
+    "per-word"
+   ],
+   "pacing": "restrained / balanced",
+   "best_for_roles": [
+    "headline",
+    "label",
+    "caption"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "gm-recipe-confident-slide",
+  "title": "Confident slide",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "panel",
+   "product",
+   "headline",
+   "balanced",
+   "energetic"
+  ],
+  "prompt_text": "Fast initial translation with a long controlled deceleration. Duration 0.3–0.65s; animates x, y, opacity. Avoid pairing with: slow-dissolve. Preserve a stable focal point.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Fast initial translation with a long controlled deceleration.",
+   "motion_language": "confident slide",
+   "techniques": [
+    "confident slide",
+    "x animation",
+    "y animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "confident-slide"
+   ],
+   "pacing": "balanced / energetic",
+   "best_for_roles": [
+    "panel",
+    "product",
+    "headline"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "gm-recipe-scale-lock",
+  "title": "Scale lock",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "logo",
+   "metric",
+   "cta",
+   "balanced",
+   "energetic"
+  ],
+  "prompt_text": "A short overscaled arrival locks exactly onto the layout grid. Duration 0.25–0.55s; animates scale, opacity. Avoid pairing with: ambient-breathe. Limit overshoot to 12%.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A short overscaled arrival locks exactly onto the layout grid.",
+   "motion_language": "scale lock",
+   "techniques": [
+    "scale lock",
+    "scale animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "scale-lock"
+   ],
+   "pacing": "balanced / energetic",
+   "best_for_roles": [
+    "logo",
+    "metric",
+    "cta"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "gm-recipe-editorial-wipe",
+  "title": "Editorial wipe",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "headline",
+   "quote",
+   "image",
+   "restrained",
+   "cinematic"
+  ],
+  "prompt_text": "A hard typographic or color plane reveals content with one deliberate edge. Duration 0.45–1s; animates scale, opacity. Avoid pairing with: glitch-lock. Avoid rapid alternating wipes.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A hard typographic or color plane reveals content with one deliberate edge.",
+   "motion_language": "editorial wipe",
+   "techniques": [
+    "editorial wipe",
+    "scale animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "editorial-wipe",
+    "mask-wipe"
+   ],
+   "pacing": "restrained / cinematic",
+   "best_for_roles": [
+    "headline",
+    "quote",
+    "image"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-word-cascade",
+  "title": "Word cascade",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "headline",
+   "statement",
+   "balanced",
+   "energetic"
+  ],
+  "prompt_text": "Words arrive by importance with a capped total stagger. Duration 0.45–0.9s; animates reveal, y, opacity. Avoid pairing with: character-decode. Keep the complete statement readable for at least 1.2 seconds.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Words arrive by importance with a capped total stagger.",
+   "motion_language": "word cascade",
+   "techniques": [
+    "word cascade",
+    "reveal animation",
+    "y animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "word-cascade",
+    "gsap-split"
+   ],
+   "pacing": "balanced / energetic",
+   "best_for_roles": [
+    "headline",
+    "statement"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-character-decode",
+  "title": "Character decode",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "code",
+   "identifier",
+   "technical-headline",
+   "energetic"
+  ],
+  "prompt_text": "Deterministic glyph substitution resolves into the final value. Duration 0.5–1.2s; animates reveal, opacity. Avoid pairing with: word-cascade. Do not apply to body copy.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Deterministic glyph substitution resolves into the final value.",
+   "motion_language": "character decode",
+   "techniques": [
+    "character decode",
+    "reveal animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "scramble"
+   ],
+   "pacing": "energetic",
+   "best_for_roles": [
+    "code",
+    "identifier",
+    "technical-headline"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-metric-count",
+  "title": "Metric count",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "metric",
+   "stat",
+   "balanced",
+   "energetic"
+  ],
+  "prompt_text": "A numeric value counts with a restrained scale emphasis at completion. Duration 0.6–1.4s; animates scale, progress. Avoid pairing with: —. Hold the final value long enough to read.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A numeric value counts with a restrained scale emphasis at completion.",
+   "motion_language": "metric count",
+   "techniques": [
+    "metric count",
+    "scale animation",
+    "progress animation"
+   ],
+   "behaviors": [
+    "count-up"
+   ],
+   "pacing": "balanced / energetic",
+   "best_for_roles": [
+    "metric",
+    "stat"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-line-route",
+  "title": "Line route",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "diagram",
+   "flow",
+   "relationship",
+   "restrained",
+   "balanced"
+  ],
+  "prompt_text": "A line grows between two real anchors and hands focus to its destination. Duration 0.4–1s; animates progress. Avoid pairing with: —. The connection must communicate a real relationship.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A line grows between two real anchors and hands focus to its destination.",
+   "motion_language": "line route",
+   "techniques": [
+    "line route",
+    "progress animation"
+   ],
+   "behaviors": [
+    "route + stroke-draw",
+    "gsap-draw"
+   ],
+   "pacing": "restrained / balanced",
+   "best_for_roles": [
+    "diagram",
+    "flow",
+    "relationship"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "gm-recipe-focus-rack",
+  "title": "Focus rack",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "product",
+   "comparison",
+   "depth",
+   "cinematic"
+  ],
+  "prompt_text": "Foreground and background exchange sharpness while the camera remains stable. Duration 0.6–1.5s; animates blur, opacity. Avoid pairing with: glitch-lock. Keep the focal subject sharp for the majority of the beat.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Foreground and background exchange sharpness while the camera remains stable.",
+   "motion_language": "focus rack",
+   "techniques": [
+    "focus rack",
+    "blur animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "focus-rack"
+   ],
+   "pacing": "cinematic",
+   "best_for_roles": [
+    "product",
+    "comparison",
+    "depth"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-camera-push",
+  "title": "Camera push",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "product",
+   "detail",
+   "reveal",
+   "balanced",
+   "cinematic"
+  ],
+  "prompt_text": "A controlled scale lands on a meaningful detail. Duration 0.7–2s; animates scale. Avoid pairing with: camera-pull. Avoid more than two large camera moves in ten seconds.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A controlled scale lands on a meaningful detail.",
+   "motion_language": "camera push",
+   "techniques": [
+    "camera push",
+    "scale animation"
+   ],
+   "behaviors": [
+    "camera.keys zoom ↑"
+   ],
+   "pacing": "balanced / cinematic",
+   "best_for_roles": [
+    "product",
+    "detail",
+    "reveal"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-camera-pull",
+  "title": "Camera pull",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "workspace",
+   "system",
+   "context",
+   "balanced",
+   "cinematic"
+  ],
+  "prompt_text": "A detail recedes to reveal the larger system around it. Duration 0.8–2.2s; animates scale. Avoid pairing with: camera-push. End on a stable frame.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A detail recedes to reveal the larger system around it.",
+   "motion_language": "camera pull",
+   "techniques": [
+    "camera pull",
+    "scale animation"
+   ],
+   "behaviors": [
+    "camera.keys zoom ↓"
+   ],
+   "pacing": "balanced / cinematic",
+   "best_for_roles": [
+    "workspace",
+    "system",
+    "context"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-parallax-drift",
+  "title": "Parallax drift",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "atmosphere",
+   "product",
+   "background",
+   "restrained",
+   "cinematic"
+  ],
+  "prompt_text": "Depth layers move at related but distinct rates during the hold. Duration 1.5–8s; animates x, y. Avoid pairing with: kinetic-slam. Keep background drift below 3% of frame size.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Depth layers move at related but distinct rates during the hold.",
+   "motion_language": "parallax drift",
+   "techniques": [
+    "parallax drift",
+    "x animation",
+    "y animation"
+   ],
+   "behaviors": [
+    "depth (parallax)",
+    "noise-drift"
+   ],
+   "pacing": "restrained / cinematic",
+   "best_for_roles": [
+    "atmosphere",
+    "product",
+    "background"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-ambient-breathe",
+  "title": "Ambient breathe",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "atmosphere",
+   "logo",
+   "decorative",
+   "restrained",
+   "balanced"
+  ],
+  "prompt_text": "One finite low-amplitude scale cycle keeps the frame alive. Duration 1.5–4s; animates scale. Avoid pairing with: scale-lock. Keep scale change below 5%.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "One finite low-amplitude scale cycle keeps the frame alive.",
+   "motion_language": "ambient breathe",
+   "techniques": [
+    "ambient breathe",
+    "scale animation"
+   ],
+   "behaviors": [
+    "breathe"
+   ],
+   "pacing": "restrained / balanced",
+   "best_for_roles": [
+    "atmosphere",
+    "logo",
+    "decorative"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "gm-recipe-kinetic-slam",
+  "title": "Kinetic slam",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "headline",
+   "verb",
+   "proof",
+   "energetic"
+  ],
+  "prompt_text": "A phrase lands sharply on a music or narrative beat and immediately resolves. Duration 0.15–0.4s; animates scale, rotation, opacity. Avoid pairing with: parallax-drift, slow-dissolve. Use sparingly and avoid repeated flashes.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A phrase lands sharply on a music or narrative beat and immediately resolves.",
+   "motion_language": "kinetic slam",
+   "techniques": [
+    "kinetic slam",
+    "scale animation",
+    "rotation animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "slam-words",
+    "stamp"
+   ],
+   "pacing": "energetic",
+   "best_for_roles": [
+    "headline",
+    "verb",
+    "proof"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-split-reveal",
+  "title": "Split reveal",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "comparison",
+   "before-after",
+   "choice",
+   "balanced",
+   "energetic"
+  ],
+  "prompt_text": "Opposing planes establish two sides before a shared center line resolves them. Duration 0.5–1s; animates scale, opacity. Avoid pairing with: —. Keep both labels visible together.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Opposing planes establish two sides before a shared center line resolves them.",
+   "motion_language": "split reveal",
+   "techniques": [
+    "split reveal",
+    "scale animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "split-reveal"
+   ],
+   "pacing": "balanced / energetic",
+   "best_for_roles": [
+    "comparison",
+    "before-after",
+    "choice"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-orbit-settle",
+  "title": "Orbit settle",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "ecosystem",
+   "integration",
+   "network",
+   "balanced",
+   "energetic"
+  ],
+  "prompt_text": "Items enter along a shallow arc and settle into a readable system. Duration 0.8–1.8s; animates x, y, rotation, opacity. Avoid pairing with: list-stagger. Do not rotate text itself.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Items enter along a shallow arc and settle into a readable system.",
+   "motion_language": "orbit settle",
+   "techniques": [
+    "orbit settle",
+    "x animation",
+    "y animation",
+    "rotation animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "orbit-settle"
+   ],
+   "pacing": "balanced / energetic",
+   "best_for_roles": [
+    "ecosystem",
+    "integration",
+    "network"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-list-stagger",
+  "title": "List stagger",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "steps",
+   "features",
+   "evidence",
+   "restrained",
+   "balanced"
+  ],
+  "prompt_text": "Items arrive in semantic order with a sub-500ms total sequence. Duration 0.35–0.8s; animates x, opacity. Avoid pairing with: orbit-settle. Preserve list reading order.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Items arrive in semantic order with a sub-500ms total sequence.",
+   "motion_language": "list stagger",
+   "techniques": [
+    "list stagger",
+    "x animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "group stagger + order"
+   ],
+   "pacing": "restrained / balanced",
+   "best_for_roles": [
+    "steps",
+    "features",
+    "evidence"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "gm-recipe-glitch-lock",
+  "title": "Glitch lock",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "error",
+   "transformation",
+   "technical-reveal",
+   "energetic"
+  ],
+  "prompt_text": "A brief deterministic displacement snaps to a clean final state. Duration 0.18–0.5s; animates x, opacity. Avoid pairing with: focus-rack, slow-dissolve. No flashing and no more than 300ms of disruption.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A brief deterministic displacement snaps to a clean final state.",
+   "motion_language": "glitch lock",
+   "techniques": [
+    "glitch lock",
+    "x animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "glitch-in",
+    "rgb-split"
+   ],
+   "pacing": "energetic",
+   "best_for_roles": [
+    "error",
+    "transformation",
+    "technical-reveal"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-slow-dissolve",
+  "title": "Slow dissolve",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "continuity",
+   "reflection",
+   "outro",
+   "restrained",
+   "cinematic"
+  ],
+  "prompt_text": "One visual world gives way to another without changing the focal axis. Duration 0.8–2s; animates opacity, blur. Avoid pairing with: kinetic-slam, glitch-lock. Maintain sufficient contrast throughout the overlap.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "One visual world gives way to another without changing the focal axis.",
+   "motion_language": "slow dissolve",
+   "techniques": [
+    "slow dissolve",
+    "opacity animation",
+    "blur animation"
+   ],
+   "behaviors": [
+    "blur-in",
+    "fade"
+   ],
+   "pacing": "restrained / cinematic",
+   "best_for_roles": [
+    "continuity",
+    "reflection",
+    "outro"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-hard-register-cut",
+  "title": "Hard register cut",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "contrast",
+   "chapter",
+   "reveal",
+   "balanced",
+   "energetic"
+  ],
+  "prompt_text": "A precise hard cut changes scale or register and resets attention. Duration 0–0.05s; animates opacity. Avoid pairing with: slow-dissolve. Do not alternate light and dark frames rapidly.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A precise hard cut changes scale or register and resets attention.",
+   "motion_language": "hard register cut",
+   "techniques": [
+    "hard register cut",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "cuts: hard"
+   ],
+   "pacing": "balanced / energetic",
+   "best_for_roles": [
+    "contrast",
+    "chapter",
+    "reveal"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "gm-recipe-path-follow",
+  "title": "Path follow",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "journey",
+   "process",
+   "routing",
+   "balanced",
+   "cinematic"
+  ],
+  "prompt_text": "A focal object follows a designed curve while context reveals around it. Duration 0.8–2.5s; animates x, y, rotation. Avoid pairing with: —. The path must remain spatially predictable.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A focal object follows a designed curve while context reveals around it.",
+   "motion_language": "path follow",
+   "techniques": [
+    "path follow",
+    "x animation",
+    "y animation",
+    "rotation animation"
+   ],
+   "behaviors": [
+    "gsap-path",
+    "route-follow"
+   ],
+   "pacing": "balanced / cinematic",
+   "best_for_roles": [
+    "journey",
+    "process",
+    "routing"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-panel-stack",
+  "title": "Panel stack",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "workflow",
+   "history",
+   "layers",
+   "balanced"
+  ],
+  "prompt_text": "Panels enter at decreasing depth and form a stable hierarchy. Duration 0.6–1.3s; animates x, y, scale, opacity. Avoid pairing with: —. Do not leave critical text on tilted planes.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Panels enter at decreasing depth and form a stable hierarchy.",
+   "motion_language": "panel stack",
+   "techniques": [
+    "panel stack",
+    "x animation",
+    "y animation",
+    "scale animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "panel-stack"
+   ],
+   "pacing": "balanced",
+   "best_for_roles": [
+    "workflow",
+    "history",
+    "layers"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-cursor-confirm",
+  "title": "Cursor confirm",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "product-proof",
+   "interaction",
+   "cta",
+   "balanced"
+  ],
+  "prompt_text": "A purposeful cursor clicks once and yields to the resulting state. Duration 0.6–1.3s; animates scale. Avoid pairing with: —. Never fake a product action presented as proof.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A purposeful cursor clicks once and yields to the resulting state.",
+   "motion_language": "cursor confirm",
+   "techniques": [
+    "cursor confirm",
+    "scale animation"
+   ],
+   "behaviors": [
+    "cursor shape + cursor-move + press"
+   ],
+   "pacing": "balanced",
+   "best_for_roles": [
+    "product-proof",
+    "interaction",
+    "cta"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-scan-reveal",
+  "title": "Scan reveal",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "analysis",
+   "inspection",
+   "verification",
+   "balanced",
+   "energetic"
+  ],
+  "prompt_text": "A narrow scanning band reveals only information connected to its progress. Duration 0.7–1.6s; animates progress, opacity. Avoid pairing with: —. Avoid bright flickering scan lines.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "A narrow scanning band reveals only information connected to its progress.",
+   "motion_language": "scan reveal",
+   "techniques": [
+    "scan reveal",
+    "progress animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "scan-reveal"
+   ],
+   "pacing": "balanced / energetic",
+   "best_for_roles": [
+    "analysis",
+    "inspection",
+    "verification"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-recipe-depth-assemble",
+  "title": "Depth assemble",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/motions.ts",
+  "creator": "genmotion",
+  "category": "Motion recipe",
+  "tags": [
+   "brand",
+   "system",
+   "logo",
+   "cinematic",
+   "energetic"
+  ],
+  "prompt_text": "Pieces arrive from distinct depth planes and lock into one resolved mark. Duration 0.8–1.8s; animates x, y, scale, rotation, opacity. Avoid pairing with: list-stagger. Keep the final mark static for at least one second.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Pieces arrive from distinct depth planes and lock into one resolved mark.",
+   "motion_language": "depth assemble",
+   "techniques": [
+    "depth assemble",
+    "x animation",
+    "y animation",
+    "scale animation",
+    "rotation animation",
+    "opacity animation"
+   ],
+   "behaviors": [
+    "depth-assemble"
+   ],
+   "pacing": "cinematic / energetic",
+   "best_for_roles": [
+    "brand",
+    "system",
+    "logo"
+   ],
+   "difficulty": "medium"
+  }
+ },
+ {
+  "id": "gm-blueprint-promise-proof-lock",
+  "title": "Promise, proof, lock (scene blueprint)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/blueprints.ts",
+  "creator": "genmotion",
+  "category": "Scene blueprint",
+  "tags": [
+   "hook",
+   "launch",
+   "energetic"
+  ],
+  "prompt_text": "4–8s scene in phases: promise (0–25%): State one sharp promise. [kinetic-slam] → proof (20–72%): Reveal the product or mechanism that earns the promise. [camera-push, cursor-confirm] → lock (70–100%): Resolve on the brand or outcome. [scale-lock]. Signature move: The promise physically hands its accent shape into the proof frame. One claim only. Proof must be observed or sourced.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Promise, proof, lock: promise → proof → lock. The promise physically hands its accent shape into the proof frame.",
+   "motion_language": "promise, proof, lock",
+   "techniques": [
+    "kinetic-slam",
+    "camera-push",
+    "cursor-confirm",
+    "scale-lock"
+   ],
+   "behaviors": [
+    "slam-words",
+    "stamp",
+    "camera.keys zoom ↑",
+    "cursor shape + cursor-move + press",
+    "scale-lock"
+   ],
+   "pacing": "energetic",
+   "best_for_roles": [
+    "hook",
+    "launch"
+   ]
+  }
+ },
+ {
+  "id": "gm-blueprint-detail-to-system",
+  "title": "Detail to system (scene blueprint)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/blueprints.ts",
+  "creator": "genmotion",
+  "category": "Scene blueprint",
+  "tags": [
+   "platform",
+   "architecture",
+   "workflow",
+   "cinematic"
+  ],
+  "prompt_text": "5–10s scene in phases: detail (0–25%): Establish one meaningful detail. [focus-rack] → reveal (20–75%): Pull back to reveal the surrounding system. [camera-pull, panel-stack] → map (70–100%): Connect components into a readable whole. [line-route]. Signature move: One detail stays anchored while the rest of the system unfolds around it. No perspective text below readable size. Every system part needs a real role.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Detail to system: detail → reveal → map. One detail stays anchored while the rest of the system unfolds around it.",
+   "motion_language": "detail to system",
+   "techniques": [
+    "focus-rack",
+    "camera-pull",
+    "panel-stack",
+    "line-route"
+   ],
+   "behaviors": [
+    "focus-rack",
+    "camera.keys zoom ↓",
+    "panel-stack",
+    "route + stroke-draw",
+    "gsap-draw"
+   ],
+   "pacing": "cinematic",
+   "best_for_roles": [
+    "platform",
+    "architecture",
+    "workflow"
+   ]
+  }
+ },
+ {
+  "id": "gm-blueprint-action-result",
+  "title": "Action and result (scene blueprint)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/blueprints.ts",
+  "creator": "genmotion",
+  "category": "Scene blueprint",
+  "tags": [
+   "product-proof",
+   "walkthrough",
+   "balanced"
+  ],
+  "prompt_text": "4–9s scene in phases: orient (0–22%): Show where the action occurs. [camera-push] → act (20–52%): Perform one real interaction. [cursor-confirm] → observe (50–82%): Let the visible result appear. [masked-rise] → confirm (80–100%): Summarize the consequence. [scale-lock]. Signature move: The cursor yields immediately to the resulting product state. Never simulate an unobserved product result. Keep the result visible for at least 1.2 seconds.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Action and result: orient → act → observe → confirm. The cursor yields immediately to the resulting product state.",
+   "motion_language": "action and result",
+   "techniques": [
+    "camera-push",
+    "cursor-confirm",
+    "masked-rise",
+    "scale-lock"
+   ],
+   "behaviors": [
+    "camera.keys zoom ↑",
+    "cursor shape + cursor-move + press",
+    "masked-rise",
+    "per-word",
+    "scale-lock"
+   ],
+   "pacing": "balanced",
+   "best_for_roles": [
+    "product-proof",
+    "walkthrough"
+   ]
+  }
+ },
+ {
+  "id": "gm-blueprint-evidence-chain",
+  "title": "Evidence chain (scene blueprint)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/blueprints.ts",
+  "creator": "genmotion",
+  "category": "Scene blueprint",
+  "tags": [
+   "proof",
+   "case-study",
+   "analysis",
+   "restrained"
+  ],
+  "prompt_text": "6–12s scene in phases: source (0–30%): Present unaltered evidence. [editorial-wipe] → inspect (25–70%): Direct attention to the relevant detail. [scan-reveal, camera-push] → conclude (68–100%): State the supported finding. [masked-rise]. Signature move: A source annotation becomes the underline beneath the finding. Retain provenance. Do not visually alter the meaning of evidence.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Evidence chain: source → inspect → conclude. A source annotation becomes the underline beneath the finding.",
+   "motion_language": "evidence chain",
+   "techniques": [
+    "editorial-wipe",
+    "scan-reveal",
+    "camera-push",
+    "masked-rise"
+   ],
+   "behaviors": [
+    "editorial-wipe",
+    "mask-wipe",
+    "scan-reveal",
+    "camera.keys zoom ↑",
+    "masked-rise",
+    "per-word"
+   ],
+   "pacing": "restrained",
+   "best_for_roles": [
+    "proof",
+    "case-study",
+    "analysis"
+   ]
+  }
+ },
+ {
+  "id": "gm-blueprint-metric-journey",
+  "title": "Metric journey (scene blueprint)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/blueprints.ts",
+  "creator": "genmotion",
+  "category": "Scene blueprint",
+  "tags": [
+   "growth",
+   "metric",
+   "insight",
+   "cinematic"
+  ],
+  "prompt_text": "5–10s scene in phases: context (0–28%): Establish the baseline. [line-route] → journey (20–72%): Travel through the data progression. [path-follow] → resolve (68–100%): Lock the final value and meaning. [metric-count, focus-rack]. Signature move: The moving data marker becomes the decimal point or accent of the final metric. Geometry must derive from real values. State units and time range.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Metric journey: context → journey → resolve. The moving data marker becomes the decimal point or accent of the final metric.",
+   "motion_language": "metric journey",
+   "techniques": [
+    "line-route",
+    "path-follow",
+    "metric-count",
+    "focus-rack"
+   ],
+   "behaviors": [
+    "route + stroke-draw",
+    "gsap-draw",
+    "gsap-path",
+    "route-follow",
+    "count-up",
+    "focus-rack"
+   ],
+   "pacing": "cinematic",
+   "best_for_roles": [
+    "growth",
+    "metric",
+    "insight"
+   ]
+  }
+ },
+ {
+  "id": "gm-blueprint-comparison-decision",
+  "title": "Comparison decision (scene blueprint)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/blueprints.ts",
+  "creator": "genmotion",
+  "category": "Scene blueprint",
+  "tags": [
+   "comparison",
+   "before-after",
+   "differentiation",
+   "balanced"
+  ],
+  "prompt_text": "5–9s scene in phases: establish (0–30%): Introduce both sides fairly. [split-reveal] → contrast (25–72%): Reveal the meaningful differences. [list-stagger] → decision (70–100%): Resolve on the resulting choice or outcome. [scale-lock]. Signature move: The divider becomes a check or directional mark at resolution. Use the same measurement basis on both sides. Keep both labels visible.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Comparison decision: establish → contrast → decision. The divider becomes a check or directional mark at resolution.",
+   "motion_language": "comparison decision",
+   "techniques": [
+    "split-reveal",
+    "list-stagger",
+    "scale-lock"
+   ],
+   "behaviors": [
+    "split-reveal",
+    "group stagger + order",
+    "scale-lock"
+   ],
+   "pacing": "balanced",
+   "best_for_roles": [
+    "comparison",
+    "before-after",
+    "differentiation"
+   ]
+  }
+ },
+ {
+  "id": "gm-blueprint-modular-ecosystem",
+  "title": "Modular ecosystem (scene blueprint)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/blueprints.ts",
+  "creator": "genmotion",
+  "category": "Scene blueprint",
+  "tags": [
+   "features",
+   "integrations",
+   "platform",
+   "balanced"
+  ],
+  "prompt_text": "6–11s scene in phases: core (0–22%): Establish the primary platform capability. [scale-lock] → modules (18–70%): Assemble supporting capabilities by importance. [depth-assemble, panel-stack] → connect (65–100%): Show how the system works together. [line-route, orbit-settle]. Signature move: Module edges extend into the relationship routes. Module size follows importance. Avoid equal card grids.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Modular ecosystem: core → modules → connect. Module edges extend into the relationship routes.",
+   "motion_language": "modular ecosystem",
+   "techniques": [
+    "scale-lock",
+    "depth-assemble",
+    "panel-stack",
+    "line-route",
+    "orbit-settle"
+   ],
+   "behaviors": [
+    "scale-lock",
+    "depth-assemble",
+    "panel-stack",
+    "route + stroke-draw",
+    "gsap-draw",
+    "orbit-settle"
+   ],
+   "pacing": "balanced",
+   "best_for_roles": [
+    "features",
+    "integrations",
+    "platform"
+   ]
+  }
+ },
+ {
+  "id": "gm-blueprint-manifesto-release",
+  "title": "Manifesto release (scene blueprint)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/blueprints.ts",
+  "creator": "genmotion",
+  "category": "Scene blueprint",
+  "tags": [
+   "launch",
+   "brand",
+   "outro",
+   "energetic"
+  ],
+  "prompt_text": "4–8s scene in phases: verbs (0–55%): Build energy through short semantic beats. [kinetic-slam, word-cascade] → silence (52–68%): Create a brief contrast hold. [hard-register-cut] → release (65–100%): Resolve on the product and CTA. [depth-assemble, scale-lock]. Signature move: The final verb fragments assemble into the brand mark. No more than five verb beats. Final CTA remains static for at least one second.",
+  "code_snippet": null,
+  "license_note": "genmotion catalogue, MIT License © 2026 Afnan K Salal (vendored with LICENSE in data/vendor/genmotion).",
+  "card": {
+   "summary": "Manifesto release: verbs → silence → release. The final verb fragments assemble into the brand mark.",
+   "motion_language": "manifesto release",
+   "techniques": [
+    "kinetic-slam",
+    "word-cascade",
+    "hard-register-cut",
+    "depth-assemble",
+    "scale-lock"
+   ],
+   "behaviors": [
+    "slam-words",
+    "stamp",
+    "word-cascade",
+    "gsap-split",
+    "cuts: hard",
+    "depth-assemble",
+    "scale-lock"
+   ],
+   "pacing": "energetic",
+   "best_for_roles": [
+    "launch",
+    "brand",
+    "outro"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-editorial-monument",
+  "title": "Editorial monument (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "hook",
+   "statement",
+   "chapter",
+   "restrained",
+   "editorial",
+   "premium",
+   "editorial",
+   "quiet",
+   "statement",
+   "serif"
+  ],
+  "prompt_text": "Composition: Oversized serif statement anchored to one edge; Small metadata counterweight; Large controlled negative space. Hierarchy: Headline owns 70 percent of attention; Metadata establishes precision. Motion: Masked rise, One slow rule draw, Hard register cut. Pacing: Long hold after a short build; Exit faster than entrance. Typography: High-contrast serif with restrained sans metadata. Surface: Warm paper neutral; Fine grain; Single saturated accent. Borrow: Edge anchoring, Scale contrast, Long breathing hold. Avoid: Magazine masthead imitation, Decorative paragraph copy.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Editorial monument: Oversized serif statement anchored to one edge; Masked rise, One slow rule draw, Hard register cut.",
+   "motion_language": "editorial",
+   "techniques": [
+    "masked rise",
+    "one slow rule draw",
+    "hard register cut"
+   ],
+   "behaviors": [
+    "masked-rise",
+    "per-word",
+    "cuts: hard"
+   ],
+   "pacing": "Long hold after a short build; Exit faster than entrance",
+   "avoid": [
+    "Magazine masthead imitation",
+    "Decorative paragraph copy"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-precision-instrument",
+  "title": "Precision instrument (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "proof",
+   "analysis",
+   "system",
+   "balanced",
+   "technical",
+   "data",
+   "technical",
+   "precise",
+   "dashboard",
+   "verification"
+  ],
+  "prompt_text": "Composition: Dense focal instrument beside a calm explanation field; Aligned measurement rails; Purposeful coordinates. Hierarchy: Live value first; Explanatory label second. Motion: Scan reveal, Line route, Metric count. Pacing: Stepwise evidence build; Stable verification hold. Typography: Tabular grotesk; Monospace only for values. Surface: Tinted dark neutral; Hairline grid; One status hue. Borrow: Measurement rhythm, Exact alignment, Value-to-label hierarchy. Avoid: Fake telemetry, Meaningless HUD decoration.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Precision instrument: Dense focal instrument beside a calm explanation field; Scan reveal, Line route, Metric count.",
+   "motion_language": "technical",
+   "techniques": [
+    "scan reveal",
+    "line route",
+    "metric count"
+   ],
+   "behaviors": [
+    "scan-reveal",
+    "route + stroke-draw",
+    "gsap-draw",
+    "count-up"
+   ],
+   "pacing": "Stepwise evidence build; Stable verification hold",
+   "avoid": [
+    "Fake telemetry",
+    "Meaningless HUD decoration"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-kinetic-manifesto",
+  "title": "Kinetic manifesto (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "hook",
+   "launch",
+   "outro",
+   "energetic",
+   "kinetic-type",
+   "bold",
+   "launch",
+   "type",
+   "fast",
+   "impact"
+  ],
+  "prompt_text": "Composition: Full-frame short phrases; Off-axis accent words; Minimal persistent brand marker. Hierarchy: One phrase per beat; Accent word changes scale or direction. Motion: Kinetic slam, Word cascade, Hard register cut. Pacing: Rapid three-beat build; Sudden quiet resolve. Typography: Heavy grotesk with extreme scale. Surface: Solid high-contrast fields; No ornamental cards. Borrow: Beat discipline, Phrase economy, Contrasting final hold. Avoid: Every word moving differently, Unreadable continuous motion.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Kinetic manifesto: Full-frame short phrases; Kinetic slam, Word cascade, Hard register cut.",
+   "motion_language": "kinetic-type",
+   "techniques": [
+    "kinetic slam",
+    "word cascade",
+    "hard register cut"
+   ],
+   "behaviors": [
+    "slam-words",
+    "stamp",
+    "word-cascade",
+    "gsap-split",
+    "cuts: hard"
+   ],
+   "pacing": "Rapid three-beat build; Sudden quiet resolve",
+   "avoid": [
+    "Every word moving differently",
+    "Unreadable continuous motion"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-product-theater",
+  "title": "Product theater (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "product-proof",
+   "feature",
+   "walkthrough",
+   "balanced",
+   "product",
+   "demo",
+   "product",
+   "ui",
+   "feature",
+   "proof"
+  ],
+  "prompt_text": "Composition: Product surface as the largest object; One supporting caption zone; Foreground callout tied to a real detail. Hierarchy: Product action first; Caption confirms consequence. Motion: Camera push, Cursor confirm, Focus rack. Pacing: Approach, act, observe, hold. Typography: Neutral sans that yields to product UI. Surface: Darkened stage derived from brand color; Soft grounded shadow. Borrow: Action-result pacing, Meaningful camera target, Product-first hierarchy. Avoid: Recreating product UI, Floating arbitrary badges.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Product theater: Product surface as the largest object; Camera push, Cursor confirm, Focus rack.",
+   "motion_language": "product",
+   "techniques": [
+    "camera push",
+    "cursor confirm",
+    "focus rack"
+   ],
+   "behaviors": [
+    "camera.keys zoom ↑",
+    "cursor shape + cursor-move + press",
+    "focus-rack"
+   ],
+   "pacing": "Approach, act, observe, hold",
+   "avoid": [
+    "Recreating product UI",
+    "Floating arbitrary badges"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-spatial-workspace",
+  "title": "Spatial workspace (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "system",
+   "workflow",
+   "ecosystem",
+   "cinematic",
+   "spatial",
+   "workspace",
+   "3d",
+   "system",
+   "depth",
+   "cinematic"
+  ],
+  "prompt_text": "Composition: Multiple depth planes around a central work surface; Edge-anchored labels; One continuous camera path. Hierarchy: Current focal plane sharp; Context remains legible but secondary. Motion: Camera pull, Panel stack, Parallax drift. Pacing: Progressive reveal of scale; Calm final overview. Typography: Medium-weight sans labels on stable planes. Surface: Soft atmospheric depth; Subtle directional lighting. Borrow: Depth hierarchy, Continuous camera logic, Stable landing. Avoid: Random 3D rotation, Unreadable perspective text.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Spatial workspace: Multiple depth planes around a central work surface; Camera pull, Panel stack, Parallax drift.",
+   "motion_language": "spatial",
+   "techniques": [
+    "camera pull",
+    "panel stack",
+    "parallax drift"
+   ],
+   "behaviors": [
+    "camera.keys zoom ↓",
+    "panel-stack",
+    "depth (parallax)",
+    "noise-drift"
+   ],
+   "pacing": "Progressive reveal of scale; Calm final overview",
+   "avoid": [
+    "Random 3D rotation",
+    "Unreadable perspective text"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-signal-flow",
+  "title": "Signal flow (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "process",
+   "integration",
+   "architecture",
+   "balanced",
+   "diagrammatic",
+   "flow",
+   "architecture",
+   "integration",
+   "process",
+   "diagram"
+  ],
+  "prompt_text": "Composition: Three or five meaningful nodes; Routes connect exact anchors; Result zone owns the visual endpoint. Hierarchy: Source, transformation, result. Motion: Line route, Orbit settle, Scan reveal. Pacing: Nodes appear before their connections; Result receives the longest hold. Typography: Compact sans labels with tabular annotations. Surface: Clean neutral field; Distinct route accent. Borrow: Causal sequencing, Anchored connectors, Result emphasis. Avoid: Decorative spaghetti lines, Unlabeled icons.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Signal flow: Three or five meaningful nodes; Line route, Orbit settle, Scan reveal.",
+   "motion_language": "diagrammatic",
+   "techniques": [
+    "line route",
+    "orbit settle",
+    "scan reveal"
+   ],
+   "behaviors": [
+    "route + stroke-draw",
+    "gsap-draw",
+    "orbit-settle",
+    "scan-reveal"
+   ],
+   "pacing": "Nodes appear before their connections; Result receives the longest hold",
+   "avoid": [
+    "Decorative spaghetti lines",
+    "Unlabeled icons"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-quiet-luxury",
+  "title": "Quiet luxury (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "brand",
+   "reveal",
+   "outro",
+   "cinematic",
+   "luxury",
+   "luxury",
+   "premium",
+   "slow",
+   "brand",
+   "cinematic"
+  ],
+  "prompt_text": "Composition: Single crafted object off-center; Restrained wordmark; Tonal depth rather than many elements. Hierarchy: Object silhouette first; Wordmark second. Motion: Slow dissolve, Focus rack, Ambient breathe. Pacing: Very slow arrival; Long tactile hold. Typography: Wide-tracked refined serif or humanist sans. Surface: Deep tinted black; Localized highlight; Fine material texture. Borrow: Restraint, Tonal separation, Deliberate pace. Avoid: Generic gold gradient, Empty black frame.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Quiet luxury: Single crafted object off-center; Slow dissolve, Focus rack, Ambient breathe.",
+   "motion_language": "luxury",
+   "techniques": [
+    "slow dissolve",
+    "focus rack",
+    "ambient breathe"
+   ],
+   "behaviors": [
+    "blur-in",
+    "fade",
+    "focus-rack",
+    "breathe"
+   ],
+   "pacing": "Very slow arrival; Long tactile hold",
+   "avoid": [
+    "Generic gold gradient",
+    "Empty black frame"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-modular-system",
+  "title": "Modular system (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "features",
+   "platform",
+   "ecosystem",
+   "balanced",
+   "geometric",
+   "modular",
+   "platform",
+   "features",
+   "system",
+   "geometric"
+  ],
+  "prompt_text": "Composition: Asymmetric modules sized by importance; Shared alignment rails; One dominant module. Hierarchy: Dominant module establishes promise; Smaller modules supply proof. Motion: Depth assemble, Panel stack, Scale lock. Pacing: Modules arrive by importance; Collective lock at the end. Typography: Structured grotesk with visible weight hierarchy. Surface: Tinted neutral modules; Solid accent planes. Borrow: Unequal modular sizing, Shared lock moment, Alignment discipline. Avoid: Identical card grid, Feature icon wallpaper.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Modular system: Asymmetric modules sized by importance; Depth assemble, Panel stack, Scale lock.",
+   "motion_language": "geometric",
+   "techniques": [
+    "depth assemble",
+    "panel stack",
+    "scale lock"
+   ],
+   "behaviors": [
+    "depth-assemble",
+    "panel-stack",
+    "scale-lock"
+   ],
+   "pacing": "Modules arrive by importance; Collective lock at the end",
+   "avoid": [
+    "Identical card grid",
+    "Feature icon wallpaper"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-documentary-evidence",
+  "title": "Documentary evidence (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "case-study",
+   "proof",
+   "history",
+   "restrained",
+   "documentary",
+   "evidence",
+   "case study",
+   "documentary",
+   "proof",
+   "archive"
+  ],
+  "prompt_text": "Composition: Evidence asset beside a concise annotation; Date or source line; One highlighted detail. Hierarchy: Evidence remains unaltered; Annotation guides attention. Motion: Editorial wipe, Camera push, Line route. Pacing: Give evidence time to be read; Move only to clarify. Typography: Editorial serif paired with factual sans metadata. Surface: Warm neutral; Subtle photocopy or archival texture. Borrow: Source-led credibility, Annotation restraint, Readable holds. Avoid: Invented evidence, Over-stylized source material.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Documentary evidence: Evidence asset beside a concise annotation; Editorial wipe, Camera push, Line route.",
+   "motion_language": "documentary",
+   "techniques": [
+    "editorial wipe",
+    "camera push",
+    "line route"
+   ],
+   "behaviors": [
+    "editorial-wipe",
+    "mask-wipe",
+    "camera.keys zoom ↑",
+    "route + stroke-draw",
+    "gsap-draw"
+   ],
+   "pacing": "Give evidence time to be read; Move only to clarify",
+   "avoid": [
+    "Invented evidence",
+    "Over-stylized source material"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-optimistic-utility",
+  "title": "Optimistic utility (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "explainer",
+   "onboarding",
+   "benefit",
+   "balanced",
+   "friendly",
+   "friendly",
+   "light",
+   "onboarding",
+   "simple",
+   "utility"
+  ],
+  "prompt_text": "Composition: Clear rounded focal panel; One friendly illustrative shape; Short benefit statement. Hierarchy: Outcome first; Mechanism second. Motion: Masked rise, Scale lock, List stagger. Pacing: Quick welcoming build; Comfortable reading hold. Typography: Warm humanist sans. Surface: Light tinted canvas; Strong structural borders; Confident accent. Borrow: Clarity, Friendly geometry, Outcome-first story. Avoid: Pastel sameness, Excessive bouncing.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Optimistic utility: Clear rounded focal panel; Masked rise, Scale lock, List stagger.",
+   "motion_language": "friendly",
+   "techniques": [
+    "masked rise",
+    "scale lock",
+    "list stagger"
+   ],
+   "behaviors": [
+    "masked-rise",
+    "per-word",
+    "scale-lock",
+    "group stagger + order"
+   ],
+   "pacing": "Quick welcoming build; Comfortable reading hold",
+   "avoid": [
+    "Pastel sameness",
+    "Excessive bouncing"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-cinematic-data",
+  "title": "Cinematic data (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "metric",
+   "growth",
+   "insight",
+   "cinematic",
+   "data-cinema",
+   "data",
+   "metric",
+   "cinematic",
+   "growth",
+   "insight"
+  ],
+  "prompt_text": "Composition: One large metric integrated with a spatial data form; Secondary trend at the edge; Deep background field. Hierarchy: Metric and form read as one object. Motion: Metric count, Path follow, Focus rack. Pacing: Data form develops before number resolves; Long result hold. Typography: Large tabular numerals with quiet labels. Surface: Dark tinted field; Luminous but controlled accent. Borrow: Integrated number and graphic, Depth, Measured build. Avoid: Generic dashboard charts, Unsupported statistics.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Cinematic data: One large metric integrated with a spatial data form; Metric count, Path follow, Focus rack.",
+   "motion_language": "data-cinema",
+   "techniques": [
+    "metric count",
+    "path follow",
+    "focus rack"
+   ],
+   "behaviors": [
+    "count-up",
+    "gsap-path",
+    "route-follow",
+    "focus-rack"
+   ],
+   "pacing": "Data form develops before number resolves; Long result hold",
+   "avoid": [
+    "Generic dashboard charts",
+    "Unsupported statistics"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-mechanical-assembly",
+  "title": "Mechanical assembly (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "mechanism",
+   "architecture",
+   "brand",
+   "energetic",
+   "industrial",
+   "assembly",
+   "mechanism",
+   "industrial",
+   "architecture",
+   "build"
+  ],
+  "prompt_text": "Composition: Parts arranged around a central final form; Visible alignment axes; Small material labels. Hierarchy: Assembly destination remains visible. Motion: Depth assemble, Line route, Scale lock. Pacing: Sequential arrival; Satisfying synchronized lock. Typography: Condensed industrial sans for labels. Surface: Metallic neutrals without fake photorealism; Directional shadows. Borrow: Cause-and-effect assembly, Axis discipline, Lock moment. Avoid: Meaningless exploding parts, Excess rotation.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Mechanical assembly: Parts arranged around a central final form; Depth assemble, Line route, Scale lock.",
+   "motion_language": "industrial",
+   "techniques": [
+    "depth assemble",
+    "line route",
+    "scale lock"
+   ],
+   "behaviors": [
+    "depth-assemble",
+    "route + stroke-draw",
+    "gsap-draw",
+    "scale-lock"
+   ],
+   "pacing": "Sequential arrival; Satisfying synchronized lock",
+   "avoid": [
+    "Meaningless exploding parts",
+    "Excess rotation"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-soft-science",
+  "title": "Soft science (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "research",
+   "health",
+   "analysis",
+   "restrained",
+   "organic-data",
+   "science",
+   "organic",
+   "research",
+   "health",
+   "soft"
+  ],
+  "prompt_text": "Composition: Organic field paired with exact labels; One controlled data trace; Soft edge anchoring. Hierarchy: Finding first; Method second. Motion: Parallax drift, Scan reveal, Slow dissolve. Pacing: Gentle discovery; Evidence hold. Typography: Humanist sans with clear numerical companion. Surface: Light mineral palette; Organic translucent layers. Borrow: Blend of warmth and rigor, Soft discovery motion. Avoid: Pseudo-scientific particles, Unreadable translucency.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Soft science: Organic field paired with exact labels; Parallax drift, Scan reveal, Slow dissolve.",
+   "motion_language": "organic-data",
+   "techniques": [
+    "parallax drift",
+    "scan reveal",
+    "slow dissolve"
+   ],
+   "behaviors": [
+    "depth (parallax)",
+    "noise-drift",
+    "scan-reveal",
+    "blur-in",
+    "fade"
+   ],
+   "pacing": "Gentle discovery; Evidence hold",
+   "avoid": [
+    "Pseudo-scientific particles",
+    "Unreadable translucency"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-high-contrast-sport",
+  "title": "High contrast sport (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "performance",
+   "comparison",
+   "launch",
+   "energetic",
+   "sport",
+   "sport",
+   "fast",
+   "performance",
+   "contrast",
+   "energy"
+  ],
+  "prompt_text": "Composition: Diagonal energy axis; Large performance value; Cropped subject or product form. Hierarchy: Performance claim first; Subject confirms it. Motion: Kinetic slam, Glitch lock, Confident slide. Pacing: Fast build; Micro-hold; Sharp resolve. Typography: Condensed heavy sans with tabular numbers. Surface: High-contrast solids; Motion streak used once. Borrow: Directional energy, Strong value scale, Short impact beats. Avoid: Constant shaking, Fake speed lines everywhere.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "High contrast sport: Diagonal energy axis; Kinetic slam, Glitch lock, Confident slide.",
+   "motion_language": "sport",
+   "techniques": [
+    "kinetic slam",
+    "glitch lock",
+    "confident slide"
+   ],
+   "behaviors": [
+    "slam-words",
+    "stamp",
+    "glitch-in",
+    "rgb-split",
+    "confident-slide"
+   ],
+   "pacing": "Fast build; Micro-hold; Sharp resolve",
+   "avoid": [
+    "Constant shaking",
+    "Fake speed lines everywhere"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-calm-enterprise",
+  "title": "Calm enterprise (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "platform",
+   "trust",
+   "workflow",
+   "restrained",
+   "enterprise",
+   "enterprise",
+   "trust",
+   "platform",
+   "clean",
+   "calm"
+  ],
+  "prompt_text": "Composition: Large stable platform view; Concise proof rail; Controlled whitespace. Hierarchy: Core workflow first; Trust signals second. Motion: Confident slide, List stagger, Slow dissolve. Pacing: Steady progressive disclosure; No unnecessary spectacle. Typography: Neutral grotesk with strong labeling. Surface: Cool tinted light or dark neutral; Firm borders. Borrow: Stability, Proof rail, Clear hierarchy. Avoid: Blue gradient SaaS wallpaper, Identical feature cards.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Calm enterprise: Large stable platform view; Confident slide, List stagger, Slow dissolve.",
+   "motion_language": "enterprise",
+   "techniques": [
+    "confident slide",
+    "list stagger",
+    "slow dissolve"
+   ],
+   "behaviors": [
+    "confident-slide",
+    "group stagger + order",
+    "blur-in",
+    "fade"
+   ],
+   "pacing": "Steady progressive disclosure; No unnecessary spectacle",
+   "avoid": [
+    "Blue gradient SaaS wallpaper",
+    "Identical feature cards"
+   ]
+  }
+ },
+ {
+  "id": "gm-study-playful-machine",
+  "title": "Playful machine (reference study)",
+  "source_url": "https://github.com/Afnanksalal/genmotion/blob/ccf2361604ceb3918bba7c5bcb188b9d8e80852a/src/catalog/references.ts",
+  "creator": "genmotion",
+  "category": "Reference study",
+  "tags": [
+   "creator",
+   "consumer",
+   "launch",
+   "energetic",
+   "playful",
+   "playful",
+   "creator",
+   "colorful",
+   "surprise",
+   "consumer"
+  ],
+  "prompt_text": "Composition: One surprising oversized object; Small reactive companions; Clear text anchor. Hierarchy: Surprise serves the message; Text remains readable. Motion: Orbit settle, Scale lock, Path follow. Pacing: Setup, surprise, settle. Typography: Expressive display face paired with simple sans. Surface: Limited saturated palette; Tactile flat shapes. Borrow: Controlled surprise, Tactile timing, Clear settle. Avoid: Random bouncing shapes, Childish default palette.",
+  "code_snippet": null,
+  "license_note": "CC0-1.0 (genmotion reference study: Original Genmotion reference study authored from general motion-design principles; no source artwork included.)",
+  "card": {
+   "summary": "Playful machine: One surprising oversized object; Orbit settle, Scale lock, Path follow.",
+   "motion_language": "playful",
+   "techniques": [
+    "orbit settle",
+    "scale lock",
+    "path follow"
+   ],
+   "behaviors": [
+    "orbit-settle",
+    "scale-lock",
+    "gsap-path",
+    "route-follow"
+   ],
+   "pacing": "Setup, surprise, settle",
+   "avoid": [
+    "Random bouncing shapes",
+    "Childish default palette"
+   ]
+  }
+ },
+ {
+  "id": "md-react-shared-layout-animation",
+  "title": "Shared layout animation",
+  "source_url": "https://motion.dev/examples/react-shared-layout-animation",
+  "creator": "motion.dev",
+  "category": "Layout",
+  "tags": [
+   "Layout",
+   "shared-element transition",
+   "layout interpolation",
+   "spring settle"
+  ],
+  "prompt_text": "One element visibly travels and resizes from its old slot to its new one, so the eye follows a single object across two layouts. Techniques: shared-element transition, layout interpolation, spring settle.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "One element visibly travels and resizes from its old slot to its new one, so the eye follows a single object across two layouts.",
+   "motion_language": "shared-element transition",
+   "techniques": [
+    "shared-element transition",
+    "layout interpolation",
+    "spring settle"
+   ],
+   "behaviors": [
+    "shared-morph"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-modal-shared-layout",
+  "title": "Card expands into a modal",
+  "source_url": "https://motion.dev/examples/react-modal-shared-layout",
+  "creator": "motion.dev",
+  "category": "Layout",
+  "tags": [
+   "Layout",
+   "shared-element morph",
+   "box interpolation",
+   "content crossfade"
+  ],
+  "prompt_text": "A small card grows continuously into a full panel (and back), keeping its corner radius and content anchored. Techniques: shared-element morph, box interpolation, content crossfade.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A small card grows continuously into a full panel (and back), keeping its corner radius and content anchored.",
+   "motion_language": "shared-element morph",
+   "techniques": [
+    "shared-element morph",
+    "box interpolation",
+    "content crossfade"
+   ],
+   "behaviors": [
+    "shared-morph",
+    "blur-in",
+    "blur-out"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-layout-animation",
+  "title": "Layout animation (FLIP)",
+  "source_url": "https://motion.dev/examples/react-layout-animation",
+  "creator": "motion.dev",
+  "category": "Layout",
+  "tags": [
+   "Layout",
+   "FLIP",
+   "layout interpolation"
+  ],
+  "prompt_text": "When size/position changes, the element animates between the two boxes instead of jumping. Techniques: FLIP, layout interpolation.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "When size/position changes, the element animates between the two boxes instead of jumping.",
+   "motion_language": "FLIP",
+   "techniques": [
+    "FLIP",
+    "layout interpolation"
+   ],
+   "behaviors": [
+    "shared-morph",
+    "spring-move"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-layout-anchor",
+  "title": "Layout anchor",
+  "source_url": "https://motion.dev/examples/react-layout-anchor",
+  "creator": "motion.dev",
+  "category": "Layout",
+  "tags": [
+   "Layout",
+   "transform origin",
+   "anchored scale"
+  ],
+  "prompt_text": "During a resize the element grows from a chosen anchor point (corner/edge) rather than its centre. Techniques: transform origin, anchored scale.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "During a resize the element grows from a chosen anchor point (corner/edge) rather than its centre.",
+   "motion_language": "transform origin",
+   "techniques": [
+    "transform origin",
+    "anchored scale"
+   ],
+   "behaviors": [
+    "scale-in",
+    "scale-out"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-reorder-items",
+  "title": "Reorder list",
+  "source_url": "https://motion.dev/examples/react-reorder-items",
+  "creator": "motion.dev",
+  "category": "Layout",
+  "tags": [
+   "Layout",
+   "reorder transition",
+   "spring layout"
+  ],
+  "prompt_text": "List items slide past each other to new positions with springs when the order changes. Techniques: reorder transition, spring layout.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "List items slide past each other to new positions with springs when the order changes.",
+   "motion_language": "reorder transition",
+   "techniques": [
+    "reorder transition",
+    "spring layout"
+   ],
+   "behaviors": [
+    "spring-move",
+    "group stagger + order"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-split-text",
+  "title": "Split text",
+  "source_url": "https://motion.dev/examples/react-split-text",
+  "creator": "motion.dev",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "split text",
+   "per-unit stagger"
+  ],
+  "prompt_text": "A line is split into words or letters that animate in with a stagger. Techniques: split text, per-unit stagger.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A line is split into words or letters that animate in with a stagger.",
+   "motion_language": "split text",
+   "techniques": [
+    "split text",
+    "per-unit stagger"
+   ],
+   "behaviors": [
+    "gsap-split",
+    "per-word",
+    "per-letter"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-split-text-scatter",
+  "title": "Split text scatter",
+  "source_url": "https://motion.dev/examples/react-split-text-scatter",
+  "creator": "motion.dev",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "letter scatter",
+   "random offsets"
+  ],
+  "prompt_text": "Letters fly out to random positions and back, assembling the word. Techniques: letter scatter, random offsets.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Letters fly out to random positions and back, assembling the word.",
+   "motion_language": "letter scatter",
+   "techniques": [
+    "letter scatter",
+    "random offsets"
+   ],
+   "behaviors": [
+    "scatter-in",
+    "scatter-out"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-split-text-wavy",
+  "title": "Wavy text",
+  "source_url": "https://motion.dev/examples/react-split-text-wavy",
+  "creator": "motion.dev",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "phase-offset sine per unit"
+  ],
+  "prompt_text": "A sine wave travels through the letters/words continuously. Techniques: phase-offset sine per unit.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A sine wave travels through the letters/words continuously.",
+   "motion_language": "phase-offset sine per unit",
+   "techniques": [
+    "phase-offset sine per unit"
+   ],
+   "behaviors": [
+    "wave"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-scramble-text",
+  "title": "Scramble text",
+  "source_url": "https://motion.dev/examples/react-scramble-text",
+  "creator": "motion.dev",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "text decode",
+   "glyph cycling"
+  ],
+  "prompt_text": "Characters cycle through random glyphs and resolve left to right into the final copy. Techniques: text decode, glyph cycling.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Characters cycle through random glyphs and resolve left to right into the final copy.",
+   "motion_language": "text decode",
+   "techniques": [
+    "text decode",
+    "glyph cycling"
+   ],
+   "behaviors": [
+    "scramble"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-scramble-text-stagger-center",
+  "title": "Scramble from the centre",
+  "source_url": "https://motion.dev/examples/react-scramble-text-stagger-center",
+  "creator": "motion.dev",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "text decode",
+   "centre stagger"
+  ],
+  "prompt_text": "The decode resolves outward from the middle character. Techniques: text decode, centre stagger.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "The decode resolves outward from the middle character.",
+   "motion_language": "text decode",
+   "techniques": [
+    "text decode",
+    "centre stagger"
+   ],
+   "behaviors": [
+    "scramble",
+    "gsap-split (from center)"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-text-reveal",
+  "title": "Text reveal",
+  "source_url": "https://motion.dev/examples/react-text-reveal",
+  "creator": "motion.dev",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "masked reveal",
+   "baseline mask"
+  ],
+  "prompt_text": "Text rises out of a mask line-by-line. Techniques: masked reveal, baseline mask.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Text rises out of a mask line-by-line.",
+   "motion_language": "masked reveal",
+   "techniques": [
+    "masked reveal",
+    "baseline mask"
+   ],
+   "behaviors": [
+    "masked-rise",
+    "per-word"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-text-scroll-word-reveal",
+  "title": "Scroll word reveal",
+  "source_url": "https://motion.dev/examples/react-text-scroll-word-reveal",
+  "creator": "motion.dev",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "word highlight",
+   "progress-linked opacity"
+  ],
+  "prompt_text": "Words brighten one by one as progress advances — a read-along highlight. Techniques: word highlight, progress-linked opacity.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Words brighten one by one as progress advances — a read-along highlight.",
+   "motion_language": "word highlight",
+   "techniques": [
+    "word highlight",
+    "progress-linked opacity"
+   ],
+   "behaviors": [
+    "karaoke",
+    "blur-words"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-rolling-text-button",
+  "title": "Rolling text",
+  "source_url": "https://motion.dev/examples/react-rolling-text-button",
+  "creator": "motion.dev",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "slot-machine roll",
+   "per-letter stagger"
+  ],
+  "prompt_text": "Letters roll vertically like an odometer to swap one label for another. Techniques: slot-machine roll, per-letter stagger.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Letters roll vertically like an odometer to swap one label for another.",
+   "motion_language": "slot-machine roll",
+   "techniques": [
+    "slot-machine roll",
+    "per-letter stagger"
+   ],
+   "behaviors": [
+    "roll-text"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-typewriter",
+  "title": "Typewriter",
+  "source_url": "https://motion.dev/examples/react-typewriter",
+  "creator": "motion.dev",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "typewriter",
+   "caret blink"
+  ],
+  "prompt_text": "Characters appear one at a time with a blinking caret. Techniques: typewriter, caret blink.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Characters appear one at a time with a blinking caret.",
+   "motion_language": "typewriter",
+   "techniques": [
+    "typewriter",
+    "caret blink"
+   ],
+   "behaviors": [
+    "typewriter (caret)"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-typewriter-natural-typing",
+  "title": "Natural typing",
+  "source_url": "https://motion.dev/examples/react-typewriter-natural-typing",
+  "creator": "motion.dev",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "variable-rate typing"
+  ],
+  "prompt_text": "Typing with human irregular timing. Techniques: variable-rate typing.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Typing with human irregular timing.",
+   "motion_language": "variable-rate typing",
+   "techniques": [
+    "variable-rate typing"
+   ],
+   "behaviors": [
+    "typewriter"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-js-stagger",
+  "title": "Stagger",
+  "source_url": "https://motion.dev/examples/js-stagger",
+  "creator": "motion.dev",
+  "category": "Stagger",
+  "tags": [
+   "Stagger",
+   "stagger",
+   "stagger from centre/edges"
+  ],
+  "prompt_text": "Many children start in sequence; the order can start at the first, last or centre child. Techniques: stagger, stagger from centre/edges.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Many children start in sequence; the order can start at the first, last or centre child.",
+   "motion_language": "stagger",
+   "techniques": [
+    "stagger",
+    "stagger from centre/edges"
+   ],
+   "behaviors": [
+    "group stagger + order"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-staggered-grid",
+  "title": "Staggered grid",
+  "source_url": "https://motion.dev/examples/react-staggered-grid",
+  "creator": "motion.dev",
+  "category": "Stagger",
+  "tags": [
+   "Stagger",
+   "grid stagger",
+   "distance-based delay"
+  ],
+  "prompt_text": "A grid of tiles animates in a wave radiating from one cell. Techniques: grid stagger, distance-based delay.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A grid of tiles animates in a wave radiating from one cell.",
+   "motion_language": "grid stagger",
+   "techniques": [
+    "grid stagger",
+    "distance-based delay"
+   ],
+   "behaviors": [
+    "group stagger + order",
+    "depth-assemble"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-hero-stagger",
+  "title": "Hero stagger",
+  "source_url": "https://motion.dev/examples/react-hero-stagger",
+  "creator": "motion.dev",
+  "category": "Stagger",
+  "tags": [
+   "Stagger",
+   "cascade entrance"
+  ],
+  "prompt_text": "Headline, subline and button arrive in a tight cascade. Techniques: cascade entrance.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Headline, subline and button arrive in a tight cascade.",
+   "motion_language": "cascade entrance",
+   "techniques": [
+    "cascade entrance"
+   ],
+   "behaviors": [
+    "masked-rise",
+    "confident-slide",
+    "spring-pop"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-js-spring",
+  "title": "Springs",
+  "source_url": "https://motion.dev/examples/js-spring",
+  "creator": "motion.dev",
+  "category": "Physics",
+  "tags": [
+   "Physics",
+   "closed-form spring",
+   "visualDuration/bounce"
+  ],
+  "prompt_text": "Motion driven by a damped spring defined by visual duration and bounce instead of easing curves. Techniques: closed-form spring, visualDuration/bounce.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Motion driven by a damped spring defined by visual duration and bounce instead of easing curves.",
+   "motion_language": "closed-form spring",
+   "techniques": [
+    "closed-form spring",
+    "visualDuration/bounce"
+   ],
+   "behaviors": [
+    "spring-pop",
+    "spring-move",
+    "liquid-move"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-js-bounce-easing",
+  "title": "Bounce easing",
+  "source_url": "https://motion.dev/examples/js-bounce-easing",
+  "creator": "motion.dev",
+  "category": "Physics",
+  "tags": [
+   "Physics",
+   "bounce easing"
+  ],
+  "prompt_text": "An easing that hits the end and bounces back like a dropped ball. Techniques: bounce easing.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "An easing that hits the end and bounces back like a dropped ball.",
+   "motion_language": "bounce easing",
+   "techniques": [
+    "bounce easing"
+   ],
+   "behaviors": [
+    "drop-in",
+    "gravity",
+    "bounce-top"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-follow-pointer-with-spring",
+  "title": "Follow pointer with spring",
+  "source_url": "https://motion.dev/examples/react-follow-pointer-with-spring",
+  "creator": "motion.dev",
+  "category": "Physics",
+  "tags": [
+   "Physics",
+   "spring follow",
+   "lag"
+  ],
+  "prompt_text": "An object chases a moving target through a spring, lagging and overshooting naturally. Techniques: spring follow, lag.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "An object chases a moving target through a spring, lagging and overshooting naturally.",
+   "motion_language": "spring follow",
+   "techniques": [
+    "spring follow",
+    "lag"
+   ],
+   "behaviors": [
+    "cursor-move",
+    "spring-move"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-path-drawing",
+  "title": "Path drawing",
+  "source_url": "https://motion.dev/examples/react-path-drawing",
+  "creator": "motion.dev",
+  "category": "SVG",
+  "tags": [
+   "SVG",
+   "SVG path draw"
+  ],
+  "prompt_text": "An SVG stroke draws itself along its length. Techniques: SVG path draw.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "An SVG stroke draws itself along its length.",
+   "motion_language": "SVG path draw",
+   "techniques": [
+    "SVG path draw"
+   ],
+   "behaviors": [
+    "stroke-draw",
+    "gsap-draw"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-path-morphing",
+  "title": "Path morphing",
+  "source_url": "https://motion.dev/examples/react-path-morphing",
+  "creator": "motion.dev",
+  "category": "SVG",
+  "tags": [
+   "SVG",
+   "SVG path morph"
+  ],
+  "prompt_text": "One SVG outline morphs smoothly into a different outline. Techniques: SVG path morph.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "One SVG outline morphs smoothly into a different outline.",
+   "motion_language": "SVG path morph",
+   "techniques": [
+    "SVG path morph"
+   ],
+   "behaviors": [
+    "gsap-morph",
+    "morph"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-motion-path",
+  "title": "Motion path",
+  "source_url": "https://motion.dev/examples/react-motion-path",
+  "creator": "motion.dev",
+  "category": "SVG",
+  "tags": [
+   "SVG",
+   "motion path",
+   "tangent alignment"
+  ],
+  "prompt_text": "An object travels along a curved path, optionally rotating with it. Techniques: motion path, tangent alignment.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "An object travels along a curved path, optionally rotating with it.",
+   "motion_language": "motion path",
+   "techniques": [
+    "motion path",
+    "tangent alignment"
+   ],
+   "behaviors": [
+    "gsap-path",
+    "route-follow"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-dots-morph-button",
+  "title": "Dots morph",
+  "source_url": "https://motion.dev/examples/react-dots-morph-button",
+  "creator": "motion.dev",
+  "category": "SVG",
+  "tags": [
+   "SVG",
+   "shape morph",
+   "merge"
+  ],
+  "prompt_text": "A row of dots squeezes and merges into a new shape (e.g. a check). Techniques: shape morph, merge.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A row of dots squeezes and merges into a new shape (e.g. a check).",
+   "motion_language": "shape morph",
+   "techniques": [
+    "shape morph",
+    "merge"
+   ],
+   "behaviors": [
+    "morph",
+    "liquid-move"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-tilt-card",
+  "title": "Tilt card",
+  "source_url": "https://motion.dev/examples/react-tilt-card",
+  "creator": "motion.dev",
+  "category": "3D",
+  "tags": [
+   "3D",
+   "3D tilt",
+   "perspective"
+  ],
+  "prompt_text": "A card tilts in 3D toward an imaginary pointer with perspective. Techniques: 3D tilt, perspective.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A card tilts in 3D toward an imaginary pointer with perspective.",
+   "motion_language": "3D tilt",
+   "techniques": [
+    "3D tilt",
+    "perspective"
+   ],
+   "behaviors": [
+    "tilt-3d",
+    "flip-3d"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-carousel-coverflow",
+  "title": "Coverflow carousel",
+  "source_url": "https://motion.dev/examples/react-carousel-coverflow",
+  "creator": "motion.dev",
+  "category": "3D",
+  "tags": [
+   "3D",
+   "3D carousel",
+   "depth scaling"
+  ],
+  "prompt_text": "Items sit on a 3D ring; the front one is large and lit, others recede. Techniques: 3D carousel, depth scaling.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Items sit on a 3D ring; the front one is large and lit, others recede.",
+   "motion_language": "3D carousel",
+   "techniques": [
+    "3D carousel",
+    "depth scaling"
+   ],
+   "behaviors": [
+    "carousel"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-cursor-trail",
+  "title": "Cursor trail",
+  "source_url": "https://motion.dev/examples/react-cursor-trail",
+  "creator": "motion.dev",
+  "category": "Cursor",
+  "tags": [
+   "Cursor",
+   "echo trail"
+  ],
+  "prompt_text": "A pointer leaves a fading trail of copies behind it. Techniques: echo trail.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A pointer leaves a fading trail of copies behind it.",
+   "motion_language": "echo trail",
+   "techniques": [
+    "echo trail"
+   ],
+   "behaviors": [
+    "echo-trail"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-material-design-ripple",
+  "title": "Tap ripple",
+  "source_url": "https://motion.dev/examples/react-material-design-ripple",
+  "creator": "motion.dev",
+  "category": "Cursor",
+  "tags": [
+   "Cursor",
+   "tap ripple",
+   "press feedback"
+  ],
+  "prompt_text": "A circular ripple expands from the tap point. Techniques: tap ripple, press feedback.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A circular ripple expands from the tap point.",
+   "motion_language": "tap ripple",
+   "techniques": [
+    "tap ripple",
+    "press feedback"
+   ],
+   "behaviors": [
+    "press",
+    "ripple"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-js-press",
+  "title": "Press",
+  "source_url": "https://motion.dev/examples/js-press",
+  "creator": "motion.dev",
+  "category": "Cursor",
+  "tags": [
+   "Cursor",
+   "press scale"
+  ],
+  "prompt_text": "On press the element squashes down and springs back. Techniques: press scale.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "On press the element squashes down and springs back.",
+   "motion_language": "press scale",
+   "techniques": [
+    "press scale"
+   ],
+   "behaviors": [
+    "press"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-number-counter",
+  "title": "Number counter",
+  "source_url": "https://motion.dev/examples/react-number-counter",
+  "creator": "motion.dev",
+  "category": "Data",
+  "tags": [
+   "Data",
+   "count-up",
+   "digit roll"
+  ],
+  "prompt_text": "A number rolls/ticks to its new value. Techniques: count-up, digit roll.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A number rolls/ticks to its new value.",
+   "motion_language": "count-up",
+   "techniques": [
+    "count-up",
+    "digit roll"
+   ],
+   "behaviors": [
+    "count-up",
+    "roll-text"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-line-graph",
+  "title": "Line graph",
+  "source_url": "https://motion.dev/examples/react-line-graph",
+  "creator": "motion.dev",
+  "category": "Data",
+  "tags": [
+   "Data",
+   "chart draw-on"
+  ],
+  "prompt_text": "A line chart draws on and its values settle. Techniques: chart draw-on.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A line chart draws on and its values settle.",
+   "motion_language": "chart draw-on",
+   "techniques": [
+    "chart draw-on"
+   ],
+   "behaviors": [
+    "route + stroke-draw",
+    "gsap-draw"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-curtains-blinds",
+  "title": "Curtains: blinds",
+  "source_url": "https://motion.dev/examples/react-curtains-blinds",
+  "creator": "motion.dev",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "blinds transition"
+  ],
+  "prompt_text": "A page transition made of slats closing then opening. Techniques: blinds transition.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A page transition made of slats closing then opening.",
+   "motion_language": "blinds transition",
+   "techniques": [
+    "blinds transition"
+   ],
+   "behaviors": [
+    "cuts: blinds"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-curtains-pixels",
+  "title": "Curtains: pixels",
+  "source_url": "https://motion.dev/examples/react-curtains-pixels",
+  "creator": "motion.dev",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "pixel transition"
+  ],
+  "prompt_text": "A transition where squares fill the screen in random order and clear. Techniques: pixel transition.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A transition where squares fill the screen in random order and clear.",
+   "motion_language": "pixel transition",
+   "techniques": [
+    "pixel transition"
+   ],
+   "behaviors": [
+    "cuts: pixels"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-curtains-iris",
+  "title": "Curtains: iris",
+  "source_url": "https://motion.dev/examples/react-curtains-iris",
+  "creator": "motion.dev",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "iris transition"
+  ],
+  "prompt_text": "A circle closes to a point and opens on the next scene. Techniques: iris transition.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "A circle closes to a point and opens on the next scene.",
+   "motion_language": "iris transition",
+   "techniques": [
+    "iris transition"
+   ],
+   "behaviors": [
+    "cuts: iris",
+    "iris-in"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-curtains-stagger-wipe",
+  "title": "Curtains: stagger wipe",
+  "source_url": "https://motion.dev/examples/react-curtains-stagger-wipe",
+  "creator": "motion.dev",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "layered wipe"
+  ],
+  "prompt_text": "Several coloured panels wipe across in a stagger. Techniques: layered wipe.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Several coloured panels wipe across in a stagger.",
+   "motion_language": "layered wipe",
+   "techniques": [
+    "layered wipe"
+   ],
+   "behaviors": [
+    "cuts: layers"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-curtains-doors",
+  "title": "Curtains: doors",
+  "source_url": "https://motion.dev/examples/react-curtains-doors",
+  "creator": "motion.dev",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "split doors"
+  ],
+  "prompt_text": "Two halves part like doors. Techniques: split doors.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Two halves part like doors.",
+   "motion_language": "split doors",
+   "techniques": [
+    "split doors"
+   ],
+   "behaviors": [
+    "split-reveal"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-parallax",
+  "title": "Parallax",
+  "source_url": "https://motion.dev/examples/react-parallax",
+  "creator": "motion.dev",
+  "category": "Camera",
+  "tags": [
+   "Camera",
+   "parallax depth"
+  ],
+  "prompt_text": "Layers move at different speeds to suggest depth. Techniques: parallax depth.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "Layers move at different speeds to suggest depth.",
+   "motion_language": "parallax depth",
+   "techniques": [
+    "parallax depth"
+   ],
+   "behaviors": [
+    "depth (parallax)",
+    "camera keys"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-scroll-zoom-hero",
+  "title": "Zoom hero",
+  "source_url": "https://motion.dev/examples/react-scroll-zoom-hero",
+  "creator": "motion.dev",
+  "category": "Camera",
+  "tags": [
+   "Camera",
+   "zoom push"
+  ],
+  "prompt_text": "The hero image scales up as progress advances, filling the frame. Techniques: zoom push.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "The hero image scales up as progress advances, filling the frame.",
+   "motion_language": "zoom push",
+   "techniques": [
+    "zoom push"
+   ],
+   "behaviors": [
+    "ken-burns",
+    "camera keys"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "md-react-scroll-image-reveal",
+  "title": "Image reveal",
+  "source_url": "https://motion.dev/examples/react-scroll-image-reveal",
+  "creator": "motion.dev",
+  "category": "Masks",
+  "tags": [
+   "Masks",
+   "clip reveal"
+  ],
+  "prompt_text": "An image is unveiled by an expanding clip window. Techniques: clip reveal.",
+  "code_snippet": null,
+  "license_note": "Motion (motion.dev) is MIT-licensed; this card describes the technique in our own words and links the example. No example code copied.",
+  "card": {
+   "summary": "An image is unveiled by an expanding clip window.",
+   "motion_language": "clip reveal",
+   "techniques": [
+    "clip reveal"
+   ],
+   "behaviors": [
+    "clip-morph",
+    "mask-wipe"
+   ],
+   "difficulty": "easy"
+  }
+ },
+ {
+  "id": "cd-blurry-text-reveal-on-scroll",
+  "title": "Blurry text reveal",
+  "source_url": "https://tympanus.net/codrops/2024/04/23/blurry-text-reveal-on-scroll/",
+  "creator": "codrops-study",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "per-word blur reveal"
+  ],
+  "prompt_text": "Words come into focus one after another out of a heavy blur — a soft, premium reveal. Techniques: per-word blur reveal.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Words come into focus one after another out of a heavy blur — a soft, premium reveal.",
+   "motion_language": "per-word blur reveal",
+   "techniques": [
+    "per-word blur reveal"
+   ],
+   "behaviors": [
+    "blur-words"
+   ]
+  }
+ },
+ {
+  "id": "cd-hover-animations-for-terminal-like-typography",
+  "title": "Terminal-like typography",
+  "source_url": "https://tympanus.net/codrops/2024/06/19/hover-animations-for-terminal-like-typography/",
+  "creator": "codrops-study",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "text scramble",
+   "glyph cycling"
+  ],
+  "prompt_text": "Monospace copy flickers through random characters before settling, like a terminal decoding output. Techniques: text scramble, glyph cycling.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Monospace copy flickers through random characters before settling, like a terminal decoding output.",
+   "motion_language": "text scramble",
+   "techniques": [
+    "text scramble",
+    "glyph cycling"
+   ],
+   "behaviors": [
+    "scramble",
+    "typewriter (caret)"
+   ]
+  }
+ },
+ {
+  "id": "cd-some-on-scroll-text-highlight-animations",
+  "title": "Text highlight animations",
+  "source_url": "https://tympanus.net/codrops/2024/04/17/some-on-scroll-text-highlight-animations/",
+  "creator": "codrops-study",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "word highlight",
+   "marker sweep"
+  ],
+  "prompt_text": "A highlight sweeps behind or across words as the reader progresses — marker, underline or colour fill. Techniques: word highlight, marker sweep.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "A highlight sweeps behind or across words as the reader progresses — marker, underline or colour fill.",
+   "motion_language": "word highlight",
+   "techniques": [
+    "word highlight",
+    "marker sweep"
+   ],
+   "behaviors": [
+    "karaoke",
+    "highlight-sweep",
+    "underline-draw"
+   ]
+  }
+ },
+ {
+  "id": "cd-scroll-based-svg-filter-animations-on-text",
+  "title": "SVG filter text animation",
+  "source_url": "https://tympanus.net/codrops/2024/08/22/scroll-based-svg-filter-animations-on-text/",
+  "creator": "codrops-study",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "SVG turbulence displacement"
+  ],
+  "prompt_text": "Text runs through an animated turbulence/displacement filter so it wobbles like liquid and then resolves. Techniques: SVG turbulence displacement.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Text runs through an animated turbulence/displacement filter so it wobbles like liquid and then resolves.",
+   "motion_language": "SVG turbulence displacement",
+   "techniques": [
+    "SVG turbulence displacement"
+   ],
+   "behaviors": [
+    "wave-distort"
+   ]
+  }
+ },
+ {
+  "id": "cd-creating-3d-scroll-driven-text-animations-with-css-and-gsap",
+  "title": "3D text animation",
+  "source_url": "https://tympanus.net/codrops/2025/11/04/creating-3d-scroll-driven-text-animations-with-css-and-gsap/",
+  "creator": "codrops-study",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "3D text rotation",
+   "perspective"
+  ],
+  "prompt_text": "Lines of type rotate in 3D (X/Y) with perspective as they arrive, like pages turning. Techniques: 3D text rotation, perspective.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Lines of type rotate in 3D (X/Y) with perspective as they arrive, like pages turning.",
+   "motion_language": "3D text rotation",
+   "techniques": [
+    "3D text rotation",
+    "perspective"
+   ],
+   "behaviors": [
+    "flip-3d",
+    "roll-text",
+    "gsap-split"
+   ]
+  }
+ },
+ {
+  "id": "cd-from-splittext-to-morphsvg-5-creative-demos-using-free-gsap-plugins",
+  "title": "SplitText to MorphSVG",
+  "source_url": "https://tympanus.net/codrops/2025/05/14/from-splittext-to-morphsvg-5-creative-demos-using-free-gsap-plugins/",
+  "creator": "codrops-study",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "split text",
+   "SVG morph",
+   "path draw",
+   "motion path"
+  ],
+  "prompt_text": "Split-text staggers, shape morphs, path drawing and motion paths driven by GSAP timelines. Techniques: split text, SVG morph, path draw, motion path.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Split-text staggers, shape morphs, path drawing and motion paths driven by GSAP timelines.",
+   "motion_language": "split text",
+   "techniques": [
+    "split text",
+    "SVG morph",
+    "path draw",
+    "motion path"
+   ],
+   "behaviors": [
+    "gsap-split",
+    "gsap-morph",
+    "gsap-draw",
+    "gsap-path"
+   ]
+  }
+ },
+ {
+  "id": "cd-webgpu-gommage-effect-dissolving-msdf-text-into-dust-and-petals-with-three-js-tsl",
+  "title": "Text dissolving into dust",
+  "source_url": "https://tympanus.net/codrops/2026/01/28/webgpu-gommage-effect-dissolving-msdf-text-into-dust-and-petals-with-three-js-tsl/",
+  "creator": "codrops-study",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "particle dissolve"
+  ],
+  "prompt_text": "Copy erodes into drifting particles from one side, like ash or petals blowing away. Techniques: particle dissolve.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Copy erodes into drifting particles from one side, like ash or petals blowing away.",
+   "motion_language": "particle dissolve",
+   "techniques": [
+    "particle dissolve"
+   ],
+   "behaviors": [
+    "dissolve",
+    "assemble"
+   ]
+  }
+ },
+ {
+  "id": "cd-interactive-text-destruction-with-three-js-webgpu-and-tsl",
+  "title": "Text destruction",
+  "source_url": "https://tympanus.net/codrops/2025/07/22/interactive-text-destruction-with-three-js-webgpu-and-tsl/",
+  "creator": "codrops-study",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "letter scatter",
+   "gravity"
+  ],
+  "prompt_text": "Letters shatter apart under impact and fall away. Techniques: letter scatter, gravity.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Letters shatter apart under impact and fall away.",
+   "motion_language": "letter scatter",
+   "techniques": [
+    "letter scatter",
+    "gravity"
+   ],
+   "behaviors": [
+    "scatter-out",
+    "drop-out"
+   ]
+  }
+ },
+ {
+  "id": "cd-how-to-create-an-organic-text-distortion-effect-with-infinite-scrolling",
+  "title": "Organic text distortion",
+  "source_url": "https://tympanus.net/codrops/2024/11/06/how-to-create-an-organic-text-distortion-effect-with-infinite-scrolling/",
+  "creator": "codrops-study",
+  "category": "Text",
+  "tags": [
+   "Text",
+   "distortion",
+   "stretch"
+  ],
+  "prompt_text": "Large type bends and stretches organically as it moves. Techniques: distortion, stretch.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Large type bends and stretches organically as it moves.",
+   "motion_language": "distortion",
+   "techniques": [
+    "distortion",
+    "stretch"
+   ],
+   "behaviors": [
+    "wave-distort",
+    "liquid-move"
+   ]
+  }
+ },
+ {
+  "id": "cd-building-an-on-scroll-3d-circle-text-animation-with-three-js-and-shaders",
+  "title": "Circular 3D text",
+  "source_url": "https://tympanus.net/codrops/2025/02/03/building-an-on-scroll-3d-circle-text-animation-with-three-js-and-shaders/",
+  "creator": "codrops-study",
+  "category": "3D",
+  "tags": [
+   "3D",
+   "3D ring",
+   "orbit"
+  ],
+  "prompt_text": "Words ride a rotating 3D ring around a centre. Techniques: 3D ring, orbit.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Words ride a rotating 3D ring around a centre.",
+   "motion_language": "3D ring",
+   "techniques": [
+    "3D ring",
+    "orbit"
+   ],
+   "behaviors": [
+    "carousel",
+    "orbit"
+   ]
+  }
+ },
+ {
+  "id": "cd-staggered-3d-grid-animations-with-scroll-triggered-effects",
+  "title": "Staggered 3D grid",
+  "source_url": "https://tympanus.net/codrops/2024/10/16/staggered-3d-grid-animations-with-scroll-triggered-effects/",
+  "creator": "codrops-study",
+  "category": "3D",
+  "tags": [
+   "3D",
+   "3D flip",
+   "grid stagger"
+  ],
+  "prompt_text": "Grid tiles flip and lift in 3D in a staggered wave. Techniques: 3D flip, grid stagger.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Grid tiles flip and lift in 3D in a staggered wave.",
+   "motion_language": "3D flip",
+   "techniques": [
+    "3D flip",
+    "grid stagger"
+   ],
+   "behaviors": [
+    "flip-3d",
+    "group stagger + order"
+   ]
+  }
+ },
+ {
+  "id": "cd-on-scroll-3d-carousel",
+  "title": "3D carousel",
+  "source_url": "https://tympanus.net/codrops/2025/05/07/on-scroll-3d-carousel/",
+  "creator": "codrops-study",
+  "category": "3D",
+  "tags": [
+   "3D",
+   "3D carousel"
+  ],
+  "prompt_text": "Cards arranged on a cylinder rotate past the viewer; the front card is biggest and brightest. Techniques: 3D carousel.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Cards arranged on a cylinder rotate past the viewer; the front card is biggest and brightest.",
+   "motion_language": "3D carousel",
+   "techniques": [
+    "3D carousel"
+   ],
+   "behaviors": [
+    "carousel"
+   ]
+  }
+ },
+ {
+  "id": "cd-building-parallel-page-transitions-with-gsap-and-react-router",
+  "title": "Parallel page transitions",
+  "source_url": "https://tympanus.net/codrops/2026/10/08/building-parallel-page-transitions-with-gsap-and-react-router/",
+  "creator": "codrops-study",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "overlapping transitions"
+  ],
+  "prompt_text": "Outgoing and incoming scenes animate at the same time (one slides out while the next slides in) instead of in sequence. Techniques: overlapping transitions.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Outgoing and incoming scenes animate at the same time (one slides out while the next slides in) instead of in sequence.",
+   "motion_language": "overlapping transitions",
+   "techniques": [
+    "overlapping transitions"
+   ],
+   "behaviors": [
+    "slide-out",
+    "slide",
+    "cuts: whip"
+   ]
+  }
+ },
+ {
+  "id": "cd-building-an-infinite-gsap-scroll-gallery-with-parallax-and-flip-transitions",
+  "title": "Flip transition gallery",
+  "source_url": "https://tympanus.net/codrops/2026/07/30/building-an-infinite-gsap-scroll-gallery-with-parallax-and-flip-transitions/",
+  "creator": "codrops-study",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "FLIP",
+   "shared element"
+  ],
+  "prompt_text": "A thumbnail expands into the full view via a Flip (first-last-invert-play) transition. Techniques: FLIP, shared element.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "A thumbnail expands into the full view via a Flip (first-last-invert-play) transition.",
+   "motion_language": "FLIP",
+   "techniques": [
+    "FLIP",
+    "shared element"
+   ],
+   "behaviors": [
+    "shared-morph"
+   ]
+  }
+ },
+ {
+  "id": "cd-animating-in-frames-repeating-image-transition",
+  "title": "Repeating image frames",
+  "source_url": "https://tympanus.net/codrops/2025/04/28/animating-in-frames-repeating-image-transition/",
+  "creator": "codrops-study",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "echo copies",
+   "path repetition"
+  ],
+  "prompt_text": "Copies of an image repeat along a path, creating a trailing, frame-by-frame motion. Techniques: echo copies, path repetition.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Copies of an image repeat along a path, creating a trailing, frame-by-frame motion.",
+   "motion_language": "echo copies",
+   "techniques": [
+    "echo copies",
+    "path repetition"
+   ],
+   "behaviors": [
+    "echo-trail",
+    "gsap-path"
+   ]
+  }
+ },
+ {
+  "id": "cd-image-layer-animations-with-clip-path",
+  "title": "Clip-path image layers",
+  "source_url": "https://tympanus.net/codrops/2023/10/31/image-layer-animations-with-clip-path/",
+  "creator": "codrops-study",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "layered clip wipe"
+  ],
+  "prompt_text": "Several coloured layers wipe across in a stagger, each clipping the next, before the new image appears. Techniques: layered clip wipe.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Several coloured layers wipe across in a stagger, each clipping the next, before the new image appears.",
+   "motion_language": "layered clip wipe",
+   "techniques": [
+    "layered clip wipe"
+   ],
+   "behaviors": [
+    "cuts: layers",
+    "editorial-wipe"
+   ]
+  }
+ },
+ {
+  "id": "cd-some-ideas-for-fullscreen-image-slideshow-animations",
+  "title": "Fullscreen slideshow ideas",
+  "source_url": "https://tympanus.net/codrops/2023/09/27/some-ideas-for-fullscreen-image-slideshow-animations/",
+  "creator": "codrops-study",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "clip transitions",
+   "scale transitions"
+  ],
+  "prompt_text": "Slides change with scale, clip and parallax moves rather than plain fades. Techniques: clip transitions, scale transitions.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Slides change with scale, clip and parallax moves rather than plain fades.",
+   "motion_language": "clip transitions",
+   "techniques": [
+    "clip transitions",
+    "scale transitions"
+   ],
+   "behaviors": [
+    "clip-morph",
+    "cuts: zoom",
+    "ken-burns"
+   ]
+  }
+ },
+ {
+  "id": "cd-ideas-for-grid-to-slideshow-switch-animations",
+  "title": "Grid to slideshow",
+  "source_url": "https://tympanus.net/codrops/2023/05/04/ideas-for-grid-to-slideshow-switch-animations/",
+  "creator": "codrops-study",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "layout morph",
+   "grid stagger"
+  ],
+  "prompt_text": "A grid of thumbnails reorganises into a single large slide with the chosen tile growing into place. Techniques: layout morph, grid stagger.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "A grid of thumbnails reorganises into a single large slide with the chosen tile growing into place.",
+   "motion_language": "layout morph",
+   "techniques": [
+    "layout morph",
+    "grid stagger"
+   ],
+   "behaviors": [
+    "shared-morph",
+    "group stagger + order"
+   ]
+  }
+ },
+ {
+  "id": "cd-image-tiles-menu-animation",
+  "title": "Image tiles",
+  "source_url": "https://tympanus.net/codrops/2023/04/26/image-tiles-menu-animation/",
+  "creator": "codrops-study",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "tile stagger"
+  ],
+  "prompt_text": "An image is cut into tiles that flip or slide into place one by one. Techniques: tile stagger.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "An image is cut into tiles that flip or slide into place one by one.",
+   "motion_language": "tile stagger",
+   "techniques": [
+    "tile stagger"
+   ],
+   "behaviors": [
+    "depth-assemble",
+    "flip-3d"
+   ]
+  }
+ },
+ {
+  "id": "cd-ideas-for-pixel-page-transitions",
+  "title": "Pixel transitions",
+  "source_url": "https://tympanus.net/codrops/2023/04/05/ideas-for-pixel-page-transitions/",
+  "creator": "codrops-study",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "pixel transition"
+  ],
+  "prompt_text": "The screen is covered by squares appearing in random order, then they disappear revealing the next scene. Techniques: pixel transition.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "The screen is covered by squares appearing in random order, then they disappear revealing the next scene.",
+   "motion_language": "pixel transition",
+   "techniques": [
+    "pixel transition"
+   ],
+   "behaviors": [
+    "cuts: pixels"
+   ]
+  }
+ },
+ {
+  "id": "cd-fullscreen-clip-animation",
+  "title": "Fullscreen clip morph",
+  "source_url": "https://tympanus.net/codrops/2023/03/14/fullscreen-clip-animation/",
+  "creator": "codrops-study",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "clip morph"
+  ],
+  "prompt_text": "A small rounded window expands into a full-bleed frame. Techniques: clip morph.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "A small rounded window expands into a full-bleed frame.",
+   "motion_language": "clip morph",
+   "techniques": [
+    "clip morph"
+   ],
+   "behaviors": [
+    "clip-morph"
+   ]
+  }
+ },
+ {
+  "id": "cd-grid-displacement-texture-with-rgb-shift-using-three-js-gpgpu-and-shaders",
+  "title": "Grid displacement with RGB shift",
+  "source_url": "https://tympanus.net/codrops/2024/08/27/grid-displacement-texture-with-rgb-shift-using-three-js-gpgpu-and-shaders/",
+  "creator": "codrops-study",
+  "category": "Distortion",
+  "tags": [
+   "Distortion",
+   "RGB shift",
+   "block displacement"
+  ],
+  "prompt_text": "Content is displaced in blocks with red/cyan channel separation for a digital jolt. Techniques: RGB shift, block displacement.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Content is displaced in blocks with red/cyan channel separation for a digital jolt.",
+   "motion_language": "RGB shift",
+   "techniques": [
+    "RGB shift",
+    "block displacement"
+   ],
+   "behaviors": [
+    "rgb-split",
+    "slice-shift"
+   ]
+  }
+ },
+ {
+  "id": "cd-building-a-mouse-following-square-lens-effect-with-three-js-and-glsl",
+  "title": "Square lens",
+  "source_url": "https://tympanus.net/codrops/2026/08/25/building-a-mouse-following-square-lens-effect-with-three-js-and-glsl/",
+  "creator": "codrops-study",
+  "category": "Distortion",
+  "tags": [
+   "Distortion",
+   "lens magnify",
+   "chromatic aberration"
+  ],
+  "prompt_text": "A lens region magnifies with RGB fringing where it passes. Techniques: lens magnify, chromatic aberration.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "A lens region magnifies with RGB fringing where it passes.",
+   "motion_language": "lens magnify",
+   "techniques": [
+    "lens magnify",
+    "chromatic aberration"
+   ],
+   "behaviors": [
+    "rgb-split",
+    "scale-to"
+   ]
+  }
+ },
+ {
+  "id": "cd-run-rob-run-building-a-music-reactive-goo-with-three-js-and-webgpu",
+  "title": "Music-reactive goo",
+  "source_url": "https://tympanus.net/codrops/2026/08/20/run-rob-run-building-a-music-reactive-goo-with-three-js-and-webgpu/",
+  "creator": "codrops-study",
+  "category": "Distortion",
+  "tags": [
+   "Distortion",
+   "beat-reactive blob"
+  ],
+  "prompt_text": "A blob swells and wobbles on the beat of the music. Techniques: beat-reactive blob.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "A blob swells and wobbles on the beat of the music.",
+   "motion_language": "beat-reactive blob",
+   "techniques": [
+    "beat-reactive blob"
+   ],
+   "behaviors": [
+    "shape: blob",
+    "hit-pulse",
+    "jelly"
+   ]
+  }
+ },
+ {
+  "id": "cd-creating-a-bulge-distortion-effect-with-webgl",
+  "title": "Bulge distortion",
+  "source_url": "https://tympanus.net/codrops/2023/06/28/creating-a-bulge-distortion-effect-with-webgl/",
+  "creator": "codrops-study",
+  "category": "Distortion",
+  "tags": [
+   "Distortion",
+   "bulge"
+  ],
+  "prompt_text": "The image bulges outward around a point and relaxes. Techniques: bulge.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "The image bulges outward around a point and relaxes.",
+   "motion_language": "bulge",
+   "techniques": [
+    "bulge"
+   ],
+   "behaviors": [
+    "wave-distort",
+    "punch"
+   ]
+  }
+ },
+ {
+  "id": "cd-pixel-distortion-effect-with-three-js",
+  "title": "Pixel distortion",
+  "source_url": "https://tympanus.net/codrops/2022/01/12/pixel-distortion-effect-with-three-js/",
+  "creator": "codrops-study",
+  "category": "Distortion",
+  "tags": [
+   "Distortion",
+   "pixel displacement"
+  ],
+  "prompt_text": "Content breaks into displaced pixel blocks that re-align. Techniques: pixel displacement.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Content breaks into displaced pixel blocks that re-align.",
+   "motion_language": "pixel displacement",
+   "techniques": [
+    "pixel displacement"
+   ],
+   "behaviors": [
+    "slice-shift",
+    "glitch-in"
+   ]
+  }
+ },
+ {
+  "id": "cd-create-a-wave-motion-effect-on-an-image-with-three-js",
+  "title": "Wave motion on an image",
+  "source_url": "https://tympanus.net/codrops/2020/03/17/create-a-wave-motion-effect-on-an-image-with-three-js/",
+  "creator": "codrops-study",
+  "category": "Distortion",
+  "tags": [
+   "Distortion",
+   "wave displacement"
+  ],
+  "prompt_text": "A gentle wave ripples across a picture. Techniques: wave displacement.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "A gentle wave ripples across a picture.",
+   "motion_language": "wave displacement",
+   "techniques": [
+    "wave displacement"
+   ],
+   "behaviors": [
+    "wave-distort"
+   ]
+  }
+ },
+ {
+  "id": "cd-distorted-link-effects-with-svg-filters",
+  "title": "Distorted links (SVG filters)",
+  "source_url": "https://tympanus.net/codrops/2020/03/04/distorted-link-effects-with-svg-filters/",
+  "creator": "codrops-study",
+  "category": "Distortion",
+  "tags": [
+   "Distortion",
+   "SVG turbulence"
+  ],
+  "prompt_text": "Short turbulence bursts distort text on interaction. Techniques: SVG turbulence.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Short turbulence bursts distort text on interaction.",
+   "motion_language": "SVG turbulence",
+   "techniques": [
+    "SVG turbulence"
+   ],
+   "behaviors": [
+    "wave-distort"
+   ]
+  }
+ },
+ {
+  "id": "cd-breaking-the-frame-building-a-real-time-datamosh-effect-with-three-js",
+  "title": "Datamosh transition",
+  "source_url": "https://tympanus.net/codrops/2026/09/02/breaking-the-frame-building-a-real-time-datamosh-effect-with-three-js/",
+  "creator": "codrops-study",
+  "category": "Transitions",
+  "tags": [
+   "Transitions",
+   "datamosh",
+   "motion smear"
+  ],
+  "prompt_text": "Motion from one shot smears into the next as if compression broke — pixels drag along the movement. Techniques: datamosh, motion smear.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Motion from one shot smears into the next as if compression broke — pixels drag along the movement.",
+   "motion_language": "datamosh",
+   "techniques": [
+    "datamosh",
+    "motion smear"
+   ],
+   "behaviors": [
+    "cuts: glitch",
+    "echo-trail",
+    "slice-shift"
+   ]
+  }
+ },
+ {
+  "id": "cd-building-an-infinite-loom-unravelling-images-into-threads-with-three-js",
+  "title": "Image to threads",
+  "source_url": "https://tympanus.net/codrops/2026/09/05/building-an-infinite-loom-unravelling-images-into-threads-with-three-js/",
+  "creator": "codrops-study",
+  "category": "Generative",
+  "tags": [
+   "Generative",
+   "line unravel"
+  ],
+  "prompt_text": "An image unravels into flowing lines. Techniques: line unravel.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "An image unravels into flowing lines.",
+   "motion_language": "line unravel",
+   "techniques": [
+    "line unravel"
+   ],
+   "behaviors": [
+    "route + stroke-draw",
+    "dissolve"
+   ]
+  }
+ },
+ {
+  "id": "cd-beyond-the-luminance-ramp-a-shape-aware-ascii-renderer-in-three-js",
+  "title": "ASCII renderer",
+  "source_url": "https://tympanus.net/codrops/2026/09/04/beyond-the-luminance-ramp-a-shape-aware-ascii-renderer-in-three-js/",
+  "creator": "codrops-study",
+  "category": "Generative",
+  "tags": [
+   "Generative",
+   "ASCII glyph rendering"
+  ],
+  "prompt_text": "Imagery is rebuilt from characters that change with brightness. Techniques: ASCII glyph rendering.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Imagery is rebuilt from characters that change with brightness.",
+   "motion_language": "ASCII glyph rendering",
+   "techniques": [
+    "ASCII glyph rendering"
+   ],
+   "behaviors": [
+    "scramble"
+   ]
+  }
+ },
+ {
+  "id": "cd-volatile-nexus-tinkering-with-glass-caustics-cubes-and-sound-in-three-js",
+  "title": "Glass and caustics",
+  "source_url": "https://tympanus.net/codrops/2026/08/31/volatile-nexus-tinkering-with-glass-caustics-cubes-and-sound-in-three-js/",
+  "creator": "codrops-study",
+  "category": "Generative",
+  "tags": [
+   "Generative",
+   "light sweep",
+   "glass sheen"
+  ],
+  "prompt_text": "Translucent shapes catch moving light streaks. Techniques: light sweep, glass sheen.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Translucent shapes catch moving light streaks.",
+   "motion_language": "light sweep",
+   "techniques": [
+    "light sweep",
+    "glass sheen"
+   ],
+   "behaviors": [
+    "shimmer",
+    "glow-pulse"
+   ]
+  }
+ },
+ {
+  "id": "cd-exploring-procedural-geometry-with-three-js-and-webgpu",
+  "title": "Procedural geometry",
+  "source_url": "https://tympanus.net/codrops/2026/08/11/exploring-procedural-geometry-with-three-js-and-webgpu/",
+  "creator": "codrops-study",
+  "category": "Generative",
+  "tags": [
+   "Generative",
+   "procedural growth"
+  ],
+  "prompt_text": "Shapes grow procedurally from rules — branching, extruding, repeating. Techniques: procedural growth.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "Shapes grow procedurally from rules — branching, extruding, repeating.",
+   "motion_language": "procedural growth",
+   "techniques": [
+    "procedural growth"
+   ],
+   "behaviors": [
+    "stroke-draw",
+    "extrude",
+    "depth-assemble"
+   ]
+  }
+ },
+ {
+  "id": "cd-animated-custom-cursor-effects",
+  "title": "Custom cursor effects",
+  "source_url": "https://tympanus.net/codrops/2020/03/24/animated-custom-cursor-effects/",
+  "creator": "codrops-study",
+  "category": "Cursor",
+  "tags": [
+   "Cursor",
+   "cursor trail",
+   "press ripple"
+  ],
+  "prompt_text": "A styled cursor with trailing elements and press feedback guides attention. Techniques: cursor trail, press ripple.",
+  "code_snippet": null,
+  "license_note": "Codrops article — studied for the idea only; described in our own words and re-implemented in MotionGX. No demo code copied.",
+  "card": {
+   "summary": "A styled cursor with trailing elements and press feedback guides attention.",
+   "motion_language": "cursor trail",
+   "techniques": [
+    "cursor trail",
+    "press ripple"
+   ],
+   "behaviors": [
+    "cursor shape + cursor-move + press",
+    "echo-trail"
+   ]
+  }
+ }
+]
