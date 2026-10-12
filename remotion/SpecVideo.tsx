@@ -13,7 +13,8 @@ import { buildTokens, rgba, type BrandTokens } from "../packages/primitives/src/
 import { useBrandFonts } from "../packages/primitives/src/fonts";
 import { cameraAt, elementText, pointAlong, resolveAt, routePoints, sec, type EvalEnv, type Resolved } from "../lib/motion/spec-eval";
 import type { ColorRole, MotionSpec, SpecElement } from "../lib/motion/spec";
-import { clamp01, rand, type Overlay } from "./behaviors";
+import { clamp01, hash, rand, type Overlay } from "./behaviors";
+import { drawSegment, morphPath } from "./behaviors/gsap-lib";
 import { lerpPoints, shapePoints, smoothPath, toPath, type ShapeKind } from "./behaviors/shapes";
 import type { RuntimeInput } from "./runtime-input";
 
@@ -44,10 +45,16 @@ function withKashida(word: string, n: number) {
 }
 
 const tf = (s: Resolved["state"], rot: number, scale: number) =>
-  `translate(${s.dx}px, ${s.dy}px) rotate(${rot}deg) scale(${scale * s.sx}, ${scale * s.sy}) skewX(${s.skewX}deg)`;
+  `translate(${s.dx}px, ${s.dy}px)${s.rx || s.ry ? ` perspective(1400px) rotateX(${(s.rx ?? 0).toFixed(2)}deg) rotateY(${(s.ry ?? 0).toFixed(2)}deg)` : ""} rotate(${rot}deg) scale(${scale * s.sx}, ${scale * s.sy}) skewX(${s.skewX}deg)`;
 
-function filterOf(s: Resolved["state"], glowColor: string) {
+/** css-safe id for per-element SVG filters */
+const fid = (kind: string, id: string) => `${kind}-${id.replace(/[^\w-]/g, "_")}`;
+
+function filterOf(s: Resolved["state"], glowColor: string, extra: { mblur?: string; distort?: string } = {}) {
   const f: string[] = [];
+  if (extra.mblur) f.push(`url(#${extra.mblur})`);
+  if (extra.distort) f.push(`url(#${extra.distort})`);
+  if (s.rgb && s.rgb > 0.3) f.push(`drop-shadow(${s.rgb.toFixed(1)}px 0 0 rgba(255,40,90,0.75)) drop-shadow(${(-s.rgb).toFixed(1)}px 0 0 rgba(0,220,255,0.75))`);
   if (s.blur > 0.05) f.push(`blur(${s.blur.toFixed(2)}px)`);
   if (Math.abs(s.brightness - 1) > 0.01) f.push(`brightness(${s.brightness.toFixed(3)})`);
   if (Math.abs(s.hue) > 0.5) f.push(`hue-rotate(${s.hue.toFixed(1)}deg)`);
@@ -106,6 +113,15 @@ const OverlayLayer: React.FC<{ o: Overlay; w: number; h: number; P: Palette; bas
       </div>
     );
   }
+  if (o.kind === "wipebar") {
+    const horiz = o.dir === "left" || o.dir === "right";
+    const pos = (o.dir === "right" || o.dir === "down" ? o.p : 1 - o.p) * 100;
+    const bar = Math.max(4, (horiz ? w : h) * 0.025);
+    return <div style={{ position: "absolute", background: P.accent, ...(horiz ? { top: "-6%", height: "112%", width: bar, left: `calc(${pos}% - ${bar / 2}px)` } : { left: "-4%", width: "108%", height: bar, top: `calc(${pos}% - ${bar / 2}px)` }) }} />;
+  }
+  if (o.kind === "scan") {
+    return <div style={{ position: "absolute", left: "-4%", width: "108%", top: `calc(${o.p * 100}% - 2px)`, height: Math.max(3, h * 0.02), background: P.primary, boxShadow: `0 0 ${h * 0.08}px ${h * 0.03}px ${rgba(P.primary, 0.6)}` }} />;
+  }
   if (o.kind === "shine") {
     if (o.p < 0 || o.p > 1) return null;
     return (
@@ -118,7 +134,7 @@ const OverlayLayer: React.FC<{ o: Overlay; w: number; h: number; P: Palette; bas
 };
 
 // ── element bodies ─────────────────────────────────────────────────────────
-function TextBody({ el, r, P, fonts, env }: { el: Extract<SpecElement, { type: "text" | "counter" }>; r: Resolved; P: Palette; fonts: MotionInput["fonts"]; env: EvalEnv }) {
+function TextBody({ el, r, P, fonts, env, t }: { el: Extract<SpecElement, { type: "text" | "counter" }>; r: Resolved; P: Palette; fonts: MotionInput["fonts"]; env: EvalEnv; t: number }) {
   const s = r.state;
   let text = r.text ?? "";
   if (el.type === "counter") {
@@ -136,11 +152,28 @@ function TextBody({ el, r, P, fonts, env }: { el: Extract<SpecElement, { type: "
     whiteSpace: "nowrap",
     direction: arabic ? "rtl" : "ltr",
     color: color(P, el.color),
-    letterSpacing: arabic ? 0 : "-0.01em",
+    // Arabic never gets letter-spacing (it breaks joins): tracking becomes word spacing instead
+    letterSpacing: arabic ? 0 : `${-0.01 + (s.track ?? 0)}em`,
+    wordSpacing: arabic && s.track ? `${s.track}em` : undefined,
   };
+  if (s.extrude && s.extrude > 0.5) {
+    const n = Math.min(24, Math.round(s.extrude));
+    const base = color(P, el.color);
+    style.textShadow = Array.from({ length: n }, (_, k) => `${((k + 1) * 0.6).toFixed(1)}px ${k + 1}px 0 color-mix(in srgb, ${base} 45%, black)`).join(", ");
+  }
   if (el.type === "text" && el.gradient) Object.assign(style, { backgroundImage: `linear-gradient(90deg, ${P.gradA}, ${P.gradB})`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" });
   if (el.type === "text" && el.outline) Object.assign(style, { color: "transparent", WebkitTextStroke: `${Math.max(1.5, fontSize * 0.03)}px ${color(P, el.outline)}` });
   if (s.typed !== undefined) text = [...text].slice(0, Math.round([...text].length * clamp01(s.typed))).join("");
+  // decode (scramble): Latin characters resolve left→right through random glyphs; Arabic decodes whole
+  // words (never inside a word) — undecoded words stay blurred
+  const sc = s.scramble;
+  const scrambling = sc !== undefined && sc < 1;
+  if (scrambling && !arabic) {
+    const chars = [...text];
+    const tick = Math.floor(t * 20);
+    const GL = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&*+<>/";
+    text = chars.map((ch, j) => (/\s/.test(ch) || j / chars.length < sc * 1.15 - 0.1 ? ch : GL[Math.floor(hash(j * 977 + tick * 31) * GL.length)])).join("");
+  }
 
   const words = text.split(/(\s+)/);
   const hl = el.type === "text" ? el.highlight : undefined;
@@ -149,17 +182,33 @@ function TextBody({ el, r, P, fonts, env }: { el: Extract<SpecElement, { type: "
   const realWords = words.filter((x) => x.trim()).length;
   let unit = -1;
   const totalLetters = [...text.replace(/\s/g, "")].length;
+  const unitStyle = (u: ReturnType<NonNullable<typeof s.units>["fn"]>, base: string): React.CSSProperties => {
+    const st: React.CSSProperties = {
+      display: "inline-block",
+      transform: `translate(${u.dx ?? 0}px, ${u.dy ?? 0}px)${u.rx ? ` perspective(600px) rotateX(${u.rx}deg)` : ""} rotate(${u.rot ?? 0}deg)${u.scale !== undefined && u.scale !== 1 ? ` scale(${u.scale})` : ""}`,
+      opacity: u.opacity ?? 1,
+    };
+    if (u.blur && u.blur > 0.05) st.filter = `blur(${u.blur.toFixed(2)}px)`;
+    if (u.tint !== undefined && u.tint > 0) {
+      const c = `color-mix(in srgb, ${P.accent} ${Math.round(clamp01(u.tint) * 100)}%, ${base})`;
+      st.color = c;
+      st.WebkitTextFillColor = c;
+    }
+    return st;
+  };
+  const baseColor = color(P, el.color);
   const parts = words.map((wd, k) => {
     if (!wd.trim()) return <span key={k}>{wd}</span>;
     wordIdx++;
-    const wcol = hl && hl.word === wordIdx ? { color: color(P, hl.color), WebkitTextFillColor: color(P, hl.color) } : {};
+    const wcol: React.CSSProperties = hl && hl.word === wordIdx ? { color: color(P, hl.color), WebkitTextFillColor: color(P, hl.color) } : {};
+    if (scrambling && arabic && wordIdx / Math.max(1, realWords) >= sc!) Object.assign(wcol, { filter: "blur(6px)", opacity: 0.35 });
     const word = withKashida(wd, s.kashida ?? 0);
     if (split === "word") {
       unit++;
       const u = s.units!.fn(unit, realWords);
       return (
         <span key={k} style={{ display: "inline-block", overflow: "hidden", paddingBlock: "0.12em", marginBlock: "-0.12em", verticalAlign: "top" }}>
-          <span style={{ display: "inline-block", transform: `translate(${u.dx ?? 0}px, ${u.dy ?? 0}px) rotate(${u.rot ?? 0}deg)`, opacity: u.opacity ?? 1, ...wcol }}>{word}</span>
+          <span style={{ ...unitStyle(u, baseColor), ...wcol }}>{word}</span>
         </span>
       );
     }
@@ -170,7 +219,7 @@ function TextBody({ el, r, P, fonts, env }: { el: Extract<SpecElement, { type: "
             unit++;
             const u = s.units!.fn(unit, totalLetters);
             return (
-              <span key={j} style={{ display: "inline-block", transform: `translate(${u.dx ?? 0}px, ${u.dy ?? 0}px) rotate(${u.rot ?? 0}deg)`, opacity: u.opacity ?? 1 }}>
+              <span key={j} style={unitStyle(u, baseColor)}>
                 {ch}
               </span>
             );
@@ -198,7 +247,10 @@ function TextBody({ el, r, P, fonts, env }: { el: Extract<SpecElement, { type: "
   const justify = align === "center" ? "center" : (align === "start") === !arabic ? "flex-start" : "flex-end";
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: justify }}>
-      <div style={{ ...style, transform: scale < 1 ? `scale(${scale})` : undefined, position: "relative" }}>{parts}</div>
+      <div style={{ ...style, transform: scale < 1 ? `scale(${scale})` : undefined, position: "relative" }}>
+        {parts}
+        {s.caret ? <span style={{ opacity: (s.typed ?? 1) < 1 || Math.floor(t * 2.2) % 2 === 0 ? 1 : 0, marginInlineStart: "0.05em", fontWeight: 400 }}>▍</span> : null}
+      </div>
     </div>
   );
 }
@@ -221,6 +273,28 @@ function ShapeBody({ el, r, P, t }: { el: Extract<SpecElement, { type: "shape" }
   const opts = { radius: el.radius, sides: el.sides, points: el.points, seed: 7, t: el.shape === "blob" ? t : 0 };
   let pts = shapePoints(el.shape as ShapeKind, w, h, opts);
   if (el.to && r.state.morph) pts = lerpPoints(pts, shapePoints(el.to as ShapeKind, w, h, opts), r.state.morph);
+  const d = toPath(pts);
+  const lvl = r.state.fill;
+  if (lvl !== undefined) {
+    // liquid fill: the empty vessel, then the liquid clipped below a moving wave surface
+    const y0 = h * (1 - clamp01(lvl));
+    const amp = h * 0.035 * (lvl > 0.02 && lvl < 0.98 ? 1 : 0);
+    const wave = Array.from({ length: 25 }, (_, i) => `${((i / 24) * w).toFixed(1)},${(y0 + Math.sin((i / 24) * Math.PI * 4 + t * 5) * amp).toFixed(1)}`).join("L");
+    const liquid = el.fill ? color(P, el.fill) : P.primary;
+    const cid = fid("lf", el.id);
+    return (
+      <svg width={w} height={h} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+        <defs>
+          <clipPath id={cid}>
+            <path d={`M0,${h}L${wave}L${w},${h}Z`} />
+          </clipPath>
+        </defs>
+        <path d={d} fill={liquid} fillOpacity={0.16} stroke={el.stroke ? color(P, el.stroke) : liquid} strokeWidth={Math.max(sw, Math.min(w, h) * 0.02)} strokeLinejoin="round" />
+        <path d={d} fill={liquid} clipPath={`url(#${cid})`} />
+      </svg>
+    );
+  }
+  const ext = r.state.extrude && r.state.extrude > 0.5 ? Math.min(16, Math.round(r.state.extrude)) : 0;
   return (
     <svg width={w} height={h} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
       {el.gradient ? (
@@ -231,7 +305,8 @@ function ShapeBody({ el, r, P, t }: { el: Extract<SpecElement, { type: "shape" }
           </linearGradient>
         </defs>
       ) : null}
-      <path d={toPath(pts)} fill={fill} fillOpacity={el.alpha ?? 1} stroke={stroke} strokeWidth={strokeWidth} strokeLinejoin="round" {...dash} style={el.glow ? { filter: `drop-shadow(0 0 ${Math.min(w, h) * 0.12}px ${color(P, el.glow)})` } : undefined} />
+      {ext ? Array.from({ length: ext }, (_, k) => <path key={k} d={d} transform={`translate(${((ext - k) * 0.6).toFixed(1)} ${ext - k})`} fill={fill === "none" ? "none" : `color-mix(in srgb, ${fill.startsWith("url") ? P.gradB : fill} 45%, black)`} stroke={stroke === "none" ? "none" : `color-mix(in srgb, ${stroke} 45%, black)`} strokeWidth={strokeWidth} />) : null}
+      <path d={d} fill={fill} fillOpacity={el.alpha ?? 1} stroke={stroke} strokeWidth={strokeWidth} strokeLinejoin="round" {...dash} style={el.glow ? { filter: `drop-shadow(0 0 ${Math.min(w, h) * 0.12}px ${color(P, el.glow)})` } : undefined} />
     </svg>
   );
 }
@@ -264,7 +339,8 @@ function ParticlesBody({ el, r, P, t }: { el: Extract<SpecElement, { type: "part
 function RouteBody({ el, r, P, env }: { el: Extract<SpecElement, { type: "route" }>; r: Resolved; P: Palette; env: EvalEnv }) {
   const pts = routePoints(el, env);
   const d = el.smooth === false ? `M${pts.map((p) => p.join(",")).join("L")}` : smoothPath(pts);
-  const draw = r.state.draw ?? 1;
+  const seg = r.state.segment;
+  const draw = seg ? seg[1] : r.state.draw ?? 1;
   const sw = (el.strokeW / 100) * env.width * 2;
   // stations appear as the line passes them
   const lens: number[] = [0];
@@ -273,7 +349,11 @@ function RouteBody({ el, r, P, env }: { el: Extract<SpecElement, { type: "route"
   const head = pointAlong(pts, draw);
   return (
     <svg width={env.width} height={env.height} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
-      <path d={d} fill="none" stroke={color(P, el.stroke)} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" pathLength={1} strokeDasharray={el.dashed ? "0.012 0.012" : 1} strokeDashoffset={el.dashed ? 0 : 1 - draw} style={el.dashed ? { clipPath: `inset(0 0 0 0)` } : undefined} />
+      {seg ? (
+        <path d={drawSegment(d, seg[0], seg[1])} fill="none" stroke={color(P, el.stroke)} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
+      ) : (
+        <path d={d} fill="none" stroke={color(P, el.stroke)} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" pathLength={1} strokeDasharray={el.dashed ? "0.012 0.012" : 1} strokeDashoffset={el.dashed ? 0 : 1 - draw} style={el.dashed ? { clipPath: `inset(0 0 0 0)` } : undefined} />
+      )}
       {el.nodes
         ? pts.map((p, i) => {
             const k = clamp01((draw - lens[i] / total) * 12 + 0.001);
@@ -363,6 +443,8 @@ function Background({ spec, P, env, t }: { spec: MotionSpec; P: Palette; env: Ev
   );
 }
 
+const EASE_IO = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
+
 function CutOverlay({ spec, P, env, t }: { spec: MotionSpec; P: Palette; env: EvalEnv; t: number }) {
   return (
     <>
@@ -383,6 +465,57 @@ function CutOverlay({ spec, P, env, t }: { spec: MotionSpec; P: Palette; env: Ev
           const p = clamp01((d + 0.25) / 0.6);
           const r = p < 0.5 ? (1 - p * 2) * 80 : (p - 0.5) * 2 * 80;
           return <AbsoluteFill key={i} style={{ background: col, clipPath: `circle(${80 - r}% at 50% 50%)`, opacity: 1 }} />;
+        }
+        if (c.kind === "blinds" || c.kind === "slice") {
+          // venetian blinds (vertical slats) or horizontal slices closing then opening over the cut
+          const p = clamp01((d + 0.3) / 0.6);
+          const cover = p < 0.5 ? EASE_IO(p * 2) : 1 - EASE_IO((p - 0.5) * 2);
+          const n = c.kind === "blinds" ? 8 : 6;
+          const vertical = c.kind === "blinds";
+          return (
+            <AbsoluteFill key={i}>
+              {Array.from({ length: n }, (_, k) => {
+                const lag = clamp01(cover * 1.4 - (k / n) * 0.4);
+                return <div key={k} style={{ position: "absolute", background: col, ...(vertical ? { top: 0, bottom: 0, left: `${(k / n) * 100}%`, width: `${(100 / n) * lag + 0.2}%` } : { left: 0, right: 0, top: `${(k / n) * 100}%`, height: `${(100 / n) * lag + 0.2}%` }) }} />;
+              })}
+            </AbsoluteFill>
+          );
+        }
+        if (c.kind === "pixels") {
+          // pixel transition: a grid of squares pops on in random order, then off
+          const p = clamp01((d + 0.3) / 0.6);
+          const cols = 9;
+          const rows = Math.ceil((cols * env.height) / env.width);
+          const sz = env.width / cols;
+          return (
+            <AbsoluteFill key={i}>
+              {Array.from({ length: cols * rows }, (_, k) => {
+                const r0 = hash(k * 13 + i * 7);
+                const on = p < 0.5 ? p * 2 > r0 : (p - 0.5) * 2 < r0;
+                return on ? <div key={k} style={{ position: "absolute", left: (k % cols) * sz, top: Math.floor(k / cols) * sz, width: sz + 1, height: sz + 1, background: col }} /> : null;
+              })}
+            </AbsoluteFill>
+          );
+        }
+        if (c.kind === "layers") {
+          // layered wipe: three colour layers sweep across in a stagger, revealing the next shot
+          const cs = [color(P, c.color, P.primary), P.accent, P.surface];
+          const sign = c.dir === "left" || c.dir === "up" ? -1 : 1;
+          const horiz = c.dir !== "up" && c.dir !== "down";
+          return (
+            <AbsoluteFill key={i}>
+              {cs.map((cc, k) => {
+                const p = clamp01((d + 0.32 - k * 0.06) / 0.62);
+                const pos = (EASE_IO(p) * 2 - 1) * 105 * sign;
+                return <div key={k} style={{ position: "absolute", inset: 0, background: cc, transform: horiz ? `translateX(${pos}%)` : `translateY(${pos}%)` }} />;
+              })}
+            </AbsoluteFill>
+          );
+        }
+        if (c.kind === "diagonal") {
+          const p = clamp01((d + 0.28) / 0.56);
+          const x = (EASE_IO(p) * 2 - 1) * 160;
+          return <AbsoluteFill key={i} style={{ background: col, clipPath: `polygon(${x - 60}% 0, ${x + 40}% 0, ${x + 60}% 100%, ${x - 40}% 100%)` }} />;
         }
         if (c.kind === "glitch" && d >= 0 && d < 0.2) {
           return (
@@ -451,6 +584,22 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
   }, [custom]);
 
   const resolved = resolveAt(spec, env, t, { compose: false });
+  // shutter motion blur (180°): compare with the state half a frame earlier; fast movers get a
+  // directional Gaussian smear along their travel (axis-aligned components)
+  const mbStrength = spec.motionBlur ?? 0.5;
+  const prev = mbStrength > 0 ? new Map(resolveAt(spec, env, Math.max(0, t - 0.5 / fps), { compose: false }).map((x) => [x.el.id, x])) : null;
+  // echo trails: states at earlier times, resolved once per distinct time
+  const pastCache = new Map<number, Map<string, Resolved>>();
+  const past = (tp: number) => {
+    const k = Math.round(tp * 1000) / 1000;
+    let m = pastCache.get(k);
+    if (!m) {
+      m = new Map(resolveAt(spec, env, Math.max(0, k), { compose: false }).map((x) => [x.el.id, x]));
+      pastCache.set(k, m);
+    }
+    return m;
+  };
+  const defs: React.ReactNode[] = [];
   const byParent = new Map<string | undefined, Resolved[]>();
   for (const r of resolved) {
     const k = r.el.parent;
@@ -460,9 +609,32 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
   const stage = cutStage(spec, env, t);
   const musicVolume = (f: number) => (audio.voiceover ? 0.3 : 1) * interpolate(f, [0, 3, durationInFrames - fps, durationInFrames], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const renderEl = (r: Resolved, parent?: Resolved): React.ReactNode => {
+  const renderEl = (r: Resolved, parent?: Resolved, ghost?: number): React.ReactNode => {
     const el = r.el;
     if (!r.visible) return null;
+    const extra: { mblur?: string; distort?: string } = {};
+    const pv = !ghost && prev ? prev.get(el.id) : undefined;
+    if (pv && pv.visible) {
+      const sx = Math.abs(r.cx - pv.cx) * mbStrength * 0.6;
+      const sy = Math.abs(r.cy - pv.cy) * mbStrength * 0.6;
+      if (Math.max(sx, sy) > 0.8) {
+        extra.mblur = fid("mb", el.id);
+        defs.push(
+          <filter key={extra.mblur} id={extra.mblur} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation={`${Math.min(40, sx).toFixed(2)} ${Math.min(40, sy).toFixed(2)}`} />
+          </filter>,
+        );
+      }
+    }
+    if (r.state.distort && r.state.distort > 0.01) {
+      extra.distort = fid("dw", el.id) + (ghost ? "g" : "");
+      defs.push(
+        <filter key={extra.distort} id={extra.distort} x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="turbulence" baseFrequency={`0.008 ${(0.03 + 0.008 * Math.sin(t * 7)).toFixed(4)}`} numOctaves={2} seed={4} />
+          <feDisplacementMap in="SourceGraphic" scale={(r.state.distort * 70).toFixed(1)} xChannelSelector="R" yChannelSelector="G" />
+        </filter>,
+      );
+    }
     const left = r.cx - r.w / 2 - (parent ? parent.baseCx - parent.w / 2 : 0);
     const top = r.cy - r.h / 2 - (parent ? parent.baseCy - parent.h / 2 : 0);
     // parallax: depth ≠ 1 moves relative to the camera
@@ -477,22 +649,25 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
       width: r.w,
       height: r.h,
       transform: `${par} ${tf(r.state, el.type === "route" ? 0 : r.rot, r.scale)}`.trim(),
-      transformOrigin: "50% 50%",
-      opacity: r.opacity,
-      filter: filterOf(r.state, glowCol),
+      transformOrigin: r.state.origin ?? "50% 50%",
+      opacity: r.opacity * (ghost ?? 1),
+      filter: filterOf(r.state, glowCol, extra),
       clipPath: r.state.clip,
       zIndex: el.z ?? 0,
     };
     let body: React.ReactNode = null;
-    if (el.type === "text" || el.type === "counter") body = <TextBody el={el} r={r} P={P} fonts={stacks} env={env} />;
+    if (el.type === "text" || el.type === "counter") body = <TextBody el={el} r={r} P={P} fonts={stacks} env={env} t={t} />;
     else if (el.type === "shape") body = <ShapeBody el={el} r={r} P={P} t={t} />;
     else if (el.type === "particles") body = <ParticlesBody el={el} r={r} P={P} t={t} />;
     else if (el.type === "route") body = <RouteBody el={el} r={r} P={P} env={env} />;
     else if (el.type === "svgPath") {
       const draw = r.state.draw;
+      const seg = r.state.segment;
+      let pd = el.to && r.state.morph !== undefined ? morphPath(el.d, el.to, r.state.morph) : el.d;
+      if (seg) pd = drawSegment(pd, seg[0], seg[1]);
       body = (
         <svg width={r.w} height={r.h} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, overflow: "visible" }}>
-          <path d={el.d} fill={el.fill ? color(P, el.fill) : "none"} stroke={color(P, el.stroke)} strokeWidth={el.strokeW} vectorEffect="non-scaling-stroke" strokeLinecap={el.cap ?? "round"} strokeLinejoin="round" {...(draw !== undefined ? { pathLength: 1, strokeDasharray: 1, strokeDashoffset: 1 - draw } : {})} />
+          <path d={pd} fill={el.fill ? color(P, el.fill) : "none"} stroke={color(P, el.stroke)} strokeWidth={el.strokeW} vectorEffect="non-scaling-stroke" strokeLinecap={el.cap ?? "round"} strokeLinejoin="round" {...(draw !== undefined ? { pathLength: 1, strokeDasharray: 1, strokeDashoffset: 1 - draw } : {})} />
         </svg>
       );
     } else if (el.type === "image") {
@@ -500,7 +675,7 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
         el.src === "logo" ? (
           <BrandLogo width={r.w} plate="auto" />
         ) : input.brand.imageUrls.length ? (
-          <Img src={input.brand.imageUrls[Number(el.src.split(":")[1]) % input.brand.imageUrls.length]} style={{ width: "100%", height: "100%", objectFit: el.fit, borderRadius: ((el.radius ?? 0) / 100) * Math.min(r.w, r.h) }} />
+          <Img src={input.brand.imageUrls[Number(el.src.split(":")[1]) % input.brand.imageUrls.length]} style={{ width: "100%", height: "100%", objectFit: r.state.scroll !== undefined ? "cover" : el.fit, objectPosition: r.state.scroll !== undefined ? `50% ${(clamp01(r.state.scroll) * 100).toFixed(2)}%` : undefined, borderRadius: ((el.radius ?? 0) / 100) * Math.min(r.w, r.h) }} />
         ) : null;
       body = el.frame ? <DeviceFrame kind={el.frame} width={r.w} screenColor={P.surface}>{media}</DeviceFrame> : <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{media}</div>;
     } else if (el.type === "group") {
@@ -514,12 +689,32 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
       const C = customs.get(el.id) as React.ComponentType<{ t: number; frame: number; width: number; height: number; palette: BrandTokens; fonts: MotionInput["fonts"] }> | undefined;
       body = C ? <C t={t - sec(el.in, env)} frame={frame} width={r.w} height={r.h} palette={P} fonts={stacks} /> : null;
     }
+    const sl = r.state.slices;
+    if (sl && body) {
+      // slice shift: the element in horizontal bands, each pushed sideways
+      body = Array.from({ length: sl.n }, (_, k) => (
+        <div key={k} style={{ position: "absolute", inset: 0, clipPath: `inset(${((k / sl.n) * 100).toFixed(2)}% -50% ${(100 - ((k + 1) / sl.n) * 100).toFixed(2)}% -50%)`, transform: `translateX(${((rand(sl.seed, k) - 0.5) * 2 * sl.amount).toFixed(1)}px)` }}>
+          {body}
+        </div>
+      ));
+    }
+    const tr = !ghost ? r.state.trail : undefined;
+    const ghosts = tr
+      ? Array.from({ length: tr.n }, (_, k) => {
+          const rk = past(t - (k + 1) * tr.gap).get(el.id);
+          if (!rk || !rk.visible || (Math.abs(rk.cx - r.cx) < 1 && Math.abs(rk.cy - r.cy) < 1)) return null;
+          return <React.Fragment key={`${el.id}~${k}`}>{renderEl({ ...rk, state: { ...rk.state, trail: undefined, overlays: undefined } }, parent, (1 - (k + 1) / (tr.n + 1)) * 0.5)}</React.Fragment>;
+        }).reverse()
+      : null;
     return (
-      <div key={el.id} style={style}>
-        {(r.state.overlays ?? []).filter((o) => o.kind === "highlight").map((o, i) => <OverlayLayer key={`h${i}`} o={o} w={r.w} h={r.h} P={P} base={P.text} />)}
-        {body}
-        {(r.state.overlays ?? []).filter((o) => o.kind !== "highlight").map((o, i) => <OverlayLayer key={i} o={o} w={r.w} h={r.h} P={P} base={el.type === "text" ? color(P, el.color) : P.primary} />)}
-      </div>
+      <React.Fragment key={ghost ? `${el.id}@${ghost.toFixed(3)}` : el.id}>
+        {ghosts}
+        <div style={style}>
+          {!ghost ? (r.state.overlays ?? []).filter((o) => o.kind === "highlight").map((o, i) => <OverlayLayer key={`h${i}`} o={o} w={r.w} h={r.h} P={P} base={P.text} />) : null}
+          {body}
+          {!ghost ? (r.state.overlays ?? []).filter((o) => o.kind !== "highlight").map((o, i) => <OverlayLayer key={i} o={o} w={r.w} h={r.h} P={P} base={el.type === "text" ? color(P, el.color) : P.primary} />) : null}
+        </div>
+      </React.Fragment>
     );
   };
 
@@ -534,13 +729,18 @@ export const SpecVideo: React.FC<SpecVideoProps> = ({ spec, input, audio, custom
         <MotionProvider value={full}>
           <AbsoluteFill
             style={{
-              transform: `translate(${stage.dx - (cam.x / 100) * env.width}px, ${-(cam.y / 100) * env.height}px) scale(${cam.zoom * stage.scale}) rotate(${cam.rot}deg)`,
+              transform: `${cam.rx || cam.ry ? `perspective(2200px) rotateX(${cam.rx.toFixed(2)}deg) rotateY(${cam.ry.toFixed(2)}deg) ` : ""}translate(${stage.dx - (cam.x / 100) * env.width}px, ${-(cam.y / 100) * env.height}px) scale(${cam.zoom * stage.scale}) rotate(${cam.rot}deg)`,
               transformOrigin: "50% 50%",
               filter: stage.blur > 0.5 ? `blur(${stage.blur}px)` : undefined,
             }}
           >
             {roots.map((r) => renderEl(r))}
           </AbsoluteFill>
+          {defs.length ? (
+            <svg width={0} height={0} style={{ position: "absolute" }} aria-hidden>
+              <defs>{defs}</defs>
+            </svg>
+          ) : null}
         </MotionProvider>
       ) : null}
       <CutOverlay spec={spec} P={P} env={env} t={t} />
