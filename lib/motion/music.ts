@@ -144,11 +144,15 @@ function ffmpegBin(): { cmd: string; pre: string[]; env: NodeJS.ProcessEnv } {
  * Arrange + master in ~1 s: one ffmpeg pass mixes the stems (filter graph) to raw PCM + renders the
  * SFX-only track; loudness (BS.1770) and the limiter run in-process; then the MP3 encode.
  */
-export async function renderMusic(opts: { energy: EnergyMap; mood: string; events: SoundEvent[]; outDir: string }): Promise<MusicResult> {
+export async function renderMusic(opts: { energy: EnergyMap; mood: string; events: SoundEvent[]; outDir: string; bed?: string }): Promise<MusicResult> {
   const t0 = Date.now();
   mkdirSync(opts.outDir, { recursive: true });
   if (!existsSync(STEMS_DIR())) throw new Error(`stem library missing at ${STEMS_DIR()} — run scripts/music/stems.py`);
-  const { music, sfx } = arrange(opts.energy, opts.mood, opts.events);
+  const arranged = arrange(opts.energy, opts.mood, opts.events);
+  // `bed`: the music was already arranged + mastered (it started as soon as the energy map existed);
+  // only the SFX from the finished timeline are laid on top and the result re-mastered
+  const music: Placement[] = opts.bed ? [{ file: opts.bed, at: 0, dur: opts.energy.length_s, gain: 1 }] : arranged.music;
+  const sfx = arranged.sfx;
   const L = opts.energy.length_s;
   const silent: Placement = { file: path.join(STEMS_DIR(), "energetic", "click.wav"), at: 0, dur: 0.01, gain: 0 };
   const sfxList = sfx.length ? sfx : [silent];
@@ -156,7 +160,7 @@ export async function renderMusic(opts: { energy: EnergyMap; mood: string; event
   const s = graph(sfxList, music.length, "s");
   const x = graph(sfxList, music.length + sfxList.length, "x");
   // music ducks for 120 ms before every hit so the hit is the dominant transient (a pre-drop gap)
-  const dips = opts.energy.hits.map((h) => `between(t,${(h.t - 0.12).toFixed(3)},${(h.t - 0.005).toFixed(3)})`).join("+");
+  const dips = (opts.bed ? [] : opts.energy.hits).map((h) => `between(t,${(h.t - 0.12).toFixed(3)},${(h.t - 0.005).toFixed(3)})`).join("+");
   const duck = dips ? `,volume='if(${dips},0.35,1)':eval=frame` : "";
   // clean ending on the last frame: 0.35 s release (this ffmpeg build has no afade)
   const end = `volume='if(gt(t,${(L - 0.35).toFixed(3)}),max(0,(${L.toFixed(3)}-t)/0.35),1)':eval=frame`;
