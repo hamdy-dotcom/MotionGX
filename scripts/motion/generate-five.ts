@@ -3,6 +3,7 @@
 // Outputs: out/<slug>.mp4, out/contact-sheet.png, out/five/report.json (+ per-video work dirs).
 import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import http from "node:http";
+import { createClient } from "@supabase/supabase-js";
 import path from "node:path";
 import { extractBrand, type BrandDraft } from "../../lib/brand/extract";
 import { loadLogo } from "../../lib/brand/logo";
@@ -14,8 +15,23 @@ import { runMotionJob } from "../../lib/motion/runner";
 import { dimensionsFor, type MotionBrief } from "../../lib/motion/types";
 import type { Dialect, Goal, Pace, VideoFormat } from "../../lib/types";
 
-// A throwaway workspace (no members) so test calls never count against a real workspace's limit.
-const WORKSPACE = process.env.MOTIONGX_TEST_WORKSPACE ?? "6bf66e75-0cc0-457b-ab4e-7c758034cdfd";
+// Throwaway workspaces (no members), one per company, so test calls never count against a real
+// workspace's limit and five videos fit inside the 30-calls/hour cap. Novelty is still checked
+// across all of them through the global last-50 history.
+const FALLBACK_WORKSPACE = "6bf66e75-0cc0-457b-ab4e-7c758034cdfd";
+const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+async function workspaceFor(slug: string): Promise<string> {
+  const name = `[test] 3B ${slug}`;
+  const { data: found } = await admin.from("workspaces").select("id").eq("name", name).maybeSingle();
+  if (found) return found.id;
+  const { data, error } = await admin.from("workspaces").insert({ name, country_code: "EG", currency_code: "USD" }).select("id").single();
+  if (error || !data) {
+    console.log(`  (could not create ${name}: ${error?.message}; using the shared test workspace)`);
+    return FALLBACK_WORKSPACE;
+  }
+  return data.id;
+}
+let WORKSPACE = FALLBACK_WORKSPACE;
 
 type Job = { slug: string; url: string; dialect: Dialect; format: VideoFormat; lengthS: 15 | 30 | 60; pace: Pace; goal: Goal; brief: string };
 
@@ -104,7 +120,8 @@ async function main() {
     if (only && !only.includes(job.slug)) continue;
     const dir = path.join(root, job.slug);
     mkdirSync(dir, { recursive: true });
-    console.log(`\n=== ${job.slug} (${job.url}) ===`);
+    WORKSPACE = await workspaceFor(job.slug);
+    console.log(`\n=== ${job.slug} (${job.url}) · workspace ${WORKSPACE} ===`);
     const started = Date.now();
     const { draft, ogImage } = await brandFor(job, dir);
     const brief = await briefFor(job, draft, ogImage);
@@ -158,6 +175,7 @@ async function main() {
       loudness: result.audio?.report ?? null,
       cost_usd: Number(cost.usd.toFixed(4)),
       cost_by_step: cost.byKind,
+      ai_calls: result.usage.map((u) => ({ kind: u.kind, model: u.model, in: u.input_tokens, out: u.output_tokens })),
       generate_seconds: Math.round(genMs / 1000),
       render_seconds: Math.round(renderMs / 1000),
       total_seconds: Math.round((Date.now() - started) / 1000),

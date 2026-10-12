@@ -101,7 +101,18 @@ export async function codeWithQa(
     progress?.("code", `round ${round}`);
     let t0 = Date.now();
     const model = round >= 3 ? OPUS : SONNET;
-    const { code, sfx } = await codeComposition(b, treatment, script, { model, feedback, instruction: round === 1 ? opts.instruction : undefined });
+    let coded: Awaited<ReturnType<typeof codeComposition>>;
+    try {
+      coded = await codeComposition(b, treatment, script, { model, feedback, instruction: round === 1 ? opts.instruction : undefined });
+    } catch (err) {
+      // A cut-off or malformed answer is a failed round, not a failed video.
+      if (!(err instanceof AiError) || err.code !== "ai_invalid") throw err;
+      timings[`code_r${round}`] = Date.now() - t0;
+      qa.push({ pass: false, score: 0, treatment_followed: false, issues: [{ check: "render_error", t: null, detail: err.message }], summary: err.message, static_spans: [], round, checked_frames: [] });
+      feedback = { previousCode: feedback?.previousCode ?? opts.baseCode ?? "", errors: [`Your previous answer was unusable (${err.message}). Write a tighter complete file (under 450 lines) with helpers instead of repetition.`], stills: feedback?.stills };
+      continue;
+    }
+    const { code, sfx } = coded;
     timings[`code_r${round}`] = Date.now() - t0;
 
     progress?.("validate", `round ${round}`);

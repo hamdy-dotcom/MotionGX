@@ -64,7 +64,15 @@ export async function logUsage(
     output_tokens: usage?.output_tokens ?? 0,
   };
   if (run?.videoId) row.video_id = run.videoId;
-  const { error } = await createAdminClient().from("ai_usage").insert(row);
+  const admin = createAdminClient();
+  let { error } = await admin.from("ai_usage").insert(row);
+  // Before 0004 runs, the new kinds / video_id are rejected: still log the call (it counts toward the
+  // hourly limit) under the closest pre-0004 kind; the model column keeps it distinguishable.
+  if (error && (error.code === "23514" || error.code === "PGRST204" || error.code === "42703")) {
+    const { video_id: _v, ...legacy } = row;
+    void _v;
+    ({ error } = await admin.from("ai_usage").insert({ ...legacy, kind: "script" }));
+  }
   if (error) console.error("[ai] usage log failed", { workspaceId, kind, code: error.code, message: error.message });
 }
 

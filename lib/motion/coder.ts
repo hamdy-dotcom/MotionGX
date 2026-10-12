@@ -34,6 +34,7 @@ Hard rules:
 - Never leave the frame static for more than 0.6 s: something must always move (camera drift, particles, noise, pulses).
 - Layout: size everything in u = useUnit(). Keep text inside the frame with ≥ 6% margins; give <Text> an explicit width. Respect props.dir for direction-dependent layout (RTL for Arabic).
 - Logo: <BrandLogo/> only — never stretch, crop, recolor or redraw it.
+- Keep the file tight: under ~450 lines. Factor repeated motion into small helpers inside the file instead of copy-pasting per beat.
 - Make it look custom-made for this brand: rich layering, depth, purposeful transitions, real craft. Avoid generic "title on gradient" scenes.`;
 
 function userBrief(b: MotionBrief, t: Treatment, script: { title: string; beats: ScriptBeat[] }) {
@@ -85,7 +86,7 @@ export async function codeComposition(
   const content: Anthropic.Beta.BetaContentBlockParam[] = [{ type: "text", text: userBrief(b, t, script) }];
   if (opts.instruction) content.push({ type: "text", text: `CHANGE REQUEST from the client (apply it, keep everything else):\n"""${opts.instruction}"""` });
   if (opts.feedback) {
-    content.push({ type: "text", text: `CURRENT FILE:\n\`\`\`tsx\n${opts.feedback.previousCode}\n\`\`\`` });
+    if (opts.feedback.previousCode) content.push({ type: "text", text: `CURRENT FILE:\n\`\`\`tsx\n${opts.feedback.previousCode}\n\`\`\`` });
     for (const s of opts.feedback.stills ?? []) {
       content.push({ type: "text", text: `Rendered frame at ${s.t.toFixed(2)}s (${s.label}):` });
       content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: s.jpegBase64 } });
@@ -100,7 +101,7 @@ export async function codeComposition(
     model: opts.model ?? SONNET,
     system: SYSTEM(),
     messages: [{ role: "user", content }],
-    maxTokens: 32000,
+    maxTokens: 64000,
     effort: "high",
   });
   if (res.stopReason === "max_tokens") throw new AiError("ai_invalid", "composition too long (max_tokens)");
