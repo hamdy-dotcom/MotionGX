@@ -4,6 +4,7 @@
 // WIDTH (so w = h is square in every format). Times are seconds, "b<n>" for beat n (0-based), or a shot
 // anchor: "s<n>" = start of shot n, "s<n>e" = its end.
 import { z } from "zod";
+import { EASE, type EaseName } from "@/remotion/behaviors/core";
 
 export const COLOR_ROLES = ["bg", "bg2", "surface", "surface2", "border", "text", "textMuted", "primary", "onPrimary", "accent", "gradA", "gradB", "glowA", "glowB", "white", "black"] as const;
 export type ColorRole = (typeof COLOR_ROLES)[number];
@@ -13,7 +14,7 @@ const role = z.enum(COLOR_ROLES);
 export const time = z.union([z.number().min(0), z.string().regex(/^(b\d+(\.\d+)?|s\d+e?)$/)]);
 export type SpecTime = z.infer<typeof time>;
 
-const ease = z.enum(["linear", "in", "out", "inOut", "expoOut", "backOut", "elastic", "bounce", "snap"]);
+const ease = z.enum(Object.keys(EASE) as [EaseName, ...EaseName[]]);
 
 export const behaviorRef = z
   .object({
@@ -23,6 +24,8 @@ export const behaviorRef = z
     dur: z.number().positive().max(30).optional(),
     /** for groups: delay between children */
     stagger: z.number().min(0).max(2).optional(),
+    /** stagger order across children (Motion stagger maths): start | center | end | edges | random */
+    order: z.enum(["start", "center", "end", "edges", "random"]).optional(),
   })
   .catchall(z.unknown());
 export type BehaviorRef = z.infer<typeof behaviorRef>;
@@ -55,6 +58,8 @@ const base = {
   depth: z.number().min(0).max(3).optional(),
   fx: z.array(behaviorRef).max(12).optional(),
   keys: z.array(keyframe).max(24).optional(),
+  /** stop-motion: this element's motion is sampled at `steps` frames per second (e.g. 8 or 12 = "on twos") */
+  steps: z.number().int().min(2).max(24).optional(),
 };
 
 const textEl = z.object({
@@ -81,7 +86,7 @@ const textEl = z.object({
 const shapeEl = z.object({
   ...base,
   type: z.literal("shape"),
-  shape: z.enum(["rect", "circle", "polygon", "star", "blob", "ring", "pill", "triangle", "line"]),
+  shape: z.enum(["rect", "circle", "polygon", "star", "blob", "ring", "pill", "triangle", "line", "cursor"]),
   fill: role.optional(),
   /** linear gradient fill gradA→gradB */
   gradient: z.boolean().optional(),
@@ -94,7 +99,7 @@ const shapeEl = z.object({
   alpha: z.number().min(0).max(1).optional(),
   glow: role.optional(),
   /** morph target for the "morph" behavior */
-  to: z.enum(["rect", "circle", "polygon", "star", "blob", "triangle"]).optional(),
+  to: z.enum(["rect", "circle", "polygon", "star", "blob", "triangle", "cursor"]).optional(),
 });
 
 const pathEl = z.object({
@@ -106,6 +111,8 @@ const pathEl = z.object({
   strokeW: z.number().min(0.1).max(10).default(1),
   fill: role.optional(),
   cap: z.enum(["round", "butt", "square"]).optional(),
+  /** morph target path (same 0–100 box) for gsap-morph */
+  to: z.string().min(3).max(2000).optional(),
 });
 
 const routeEl = z.object({
@@ -197,12 +204,12 @@ export const bgLayer = z.object({
 
 export const cutSchema = z.object({
   t: time,
-  kind: z.enum(["hard", "flash", "whip", "wipe", "zoom", "glitch", "iris"]),
+  kind: z.enum(["hard", "flash", "whip", "wipe", "zoom", "glitch", "iris", "blinds", "pixels", "layers", "diagonal", "slice"]),
   dir: z.enum(["left", "right", "up", "down"]).optional(),
   color: role.optional(),
 });
 
-const cameraKey = z.object({ t: time, zoom: z.number().min(0.3).max(4).optional(), x: z.number().optional(), y: z.number().optional(), rot: z.number().optional(), ease: ease.optional() });
+const cameraKey = z.object({ t: time, zoom: z.number().min(0.3).max(4).optional(), x: z.number().optional(), y: z.number().optional(), rot: z.number().optional(), rx: z.number().min(-40).max(40).optional(), ry: z.number().min(-40).max(40).optional(), ease: ease.optional() });
 
 export const specSchema = z.object({
   version: z.literal(1).default(1),
@@ -218,6 +225,10 @@ export const specSchema = z.object({
     })
     .optional(),
   cuts: z.array(cutSchema).max(30).optional(),
+  /** shutter motion blur strength 0–1 (default 0.5): fast movers smear along their direction of travel */
+  motionBlur: z.number().min(0).max(1).optional(),
+  /** a seamless loop: the last frame must match the first (checked by the validator) */
+  loop: z.boolean().optional(),
 });
 export type MotionSpec = z.infer<typeof specSchema>;
 /** what the AI (or a person) writes: defaults may be omitted */

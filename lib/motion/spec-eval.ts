@@ -1,6 +1,8 @@
 // Evaluates a MotionSpec at any time t: element boxes + behavior state, camera, cuts. Pure TS, used by
 // the renderer every frame and by the validator at sample times — so what we validate is what renders.
-import { BEHAVIORS, combine, EASE, IDENTITY, noise1, strSeed, type BCtx, type BState, type EaseName } from "@/remotion/behaviors";
+import { stagger as motionStagger } from "motion";
+import { BEHAVIORS, combine, EASE, hash, IDENTITY, noise1, strSeed, type BCtx, type BState, type EaseName } from "@/remotion/behaviors";
+import { pathPoint } from "@/remotion/behaviors/gsap-lib";
 import { toSeconds, type MotionSpec, type SpecElement, type SpecTime } from "./spec";
 
 export type EvalEnv = {
@@ -124,6 +126,17 @@ function applyFx(el: SpecElement, fxs: SpecElement["fx"], env: EvalEnv, t: numbe
   return s;
 }
 
+type StaggerOrder = "start" | "center" | "end" | "edges" | "random";
+/** stagger slot of child i of n (Motion's stagger distribution for start/center/end; edges/random ours) */
+export function staggerSlot(i: number, n: number, order: StaggerOrder = "start", seed = 1) {
+  if (n <= 1) return 0;
+  if (order === "start" || order === "center" || order === "end") return motionStagger(1, { from: order === "start" ? "first" : order === "end" ? "last" : "center" })(i, n);
+  const mid = (n - 1) / 2;
+  if (order === "edges") return mid - Math.abs(i - mid);
+  const ranks = Array.from({ length: n }, (_, k) => k).sort((a, b) => hash(seed * 31 + a) - hash(seed * 31 + b));
+  return ranks.indexOf(i);
+}
+
 /** points of a route in px */
 export const routePoints = (el: Extract<SpecElement, { type: "route" }>, env: EvalEnv) => el.points.map(([x, y]) => [(x / 100) * env.width, (y / 100) * env.height] as [number, number]);
 
@@ -150,7 +163,7 @@ export function pointAlong(pts: [number, number][], p: number): [number, number]
  * Every element's resolved state at time t (parents before children). `compose` (validator) folds
  * parent transforms into children; the renderer passes false and nests the DOM instead.
  */
-export function resolveAt(spec: MotionSpec, env: EvalEnv, t: number, opts: { compose?: boolean } = {}): Resolved[] {
+export function resolveAt(spec: MotionSpec, env: EvalEnv, tIn: number, opts: { compose?: boolean } = {}): Resolved[] {
   const compose = opts.compose ?? true;
   const byId = new Map(spec.elements.map((e) => [e.id, e]));
   const out = new Map<string, Resolved>();
@@ -169,7 +182,9 @@ export function resolveAt(spec: MotionSpec, env: EvalEnv, t: number, opts: { com
   for (const el of order) {
     const text = elementText(el, env);
     const arabic = text ? env.arabic(text) : false;
-    const box = boxOf(el, env, text);
+    let box = boxOf(el, env, text);
+    // stop-motion: sample this element's motion at `steps` fps
+    const t = el.steps ? Math.floor(tIn * el.steps + 1e-6) / el.steps : tIn;
     const parent = el.parent ? out.get(el.parent) : undefined;
     // staggered group fx land on children
     const pEl = el.parent ? byId.get(el.parent) : undefined;
@@ -177,23 +192,47 @@ export function resolveAt(spec: MotionSpec, env: EvalEnv, t: number, opts: { com
     const idx = siblings.indexOf(el);
     const inherited = (pEl?.fx ?? []).filter((f) => f.stagger !== undefined);
     let state = applyFx(el, el.fx, env, t, box, arabic);
-    if (inherited.length) state = combine(state, applyFx(pEl!, inherited, env, t, box, arabic, idx, siblings.length, (f) => idx * (f.stagger ?? 0)));
+    if (inherited.length) state = combine(state, applyFx(pEl!, inherited, env, t, box, arabic, idx, siblings.length, (f) => staggerSlot(idx, siblings.length, f.order, strSeed(pEl!.id)) * (f.stagger ?? 0)));
     // group's own (non-staggered) fx only on the group
     const own = el.type === "group" ? applyFx(el, (el.fx ?? []).filter((f) => f.stagger === undefined), env, t, box, arabic) : null;
     if (own) state = own;
 
     let cx = (keyValue(el, env, t, "x", el.x) / 100) * env.width + state.dx;
     let cy = (keyValue(el, env, t, "y", el.y) / 100) * env.height + state.dy;
+    let followRot = 0;
     if (state.follow) {
       const r = byId.get(state.follow.route);
       if (r?.type === "route") [cx, cy] = pointAlong(routePoints(r, env), state.follow.p);
+      else if (r?.type === "svgPath") {
+        // GSAP MotionPath on the path's 0–100 box mapped onto its element box
+        const pw = ((r.w ?? 20) / 100) * env.width;
+        const ph = r.h !== undefined ? (r.h / 100) * env.width : pw;
+        const pt = pathPoint(r.d, state.follow.p);
+        cx = (r.x / 100) * env.width - pw / 2 + (pt.x / 100) * pw;
+        cy = (r.y / 100) * env.height - ph / 2 + (pt.y / 100) * ph;
+        if (state.follow.align) {
+          const a = (pt.angle * Math.PI) / 180;
+          followRot = (Math.atan2(Math.sin(a) * ph, Math.cos(a) * pw) * 180) / Math.PI;
+        }
+      }
+    }
+    if (state.toward) {
+      // shared-element morph: glide + resize into the target element's (base) box
+      const target = byId.get(state.toward.id);
+      if (target && target.id !== el.id) {
+        const tb = boxOf(target, env, elementText(target, env));
+        const k = state.toward.p;
+        cx += ((target.x / 100) * env.width - cx) * k;
+        cy += ((target.y / 100) * env.height - cy) * k;
+        box = { w: Math.max(1, box.w + (tb.w - box.w) * k), h: Math.max(1, box.h + (tb.h - box.h) * k) };
+      }
     }
     let scale = keyValue(el, env, t, "scale", 1) * state.scale;
-    let rot = keyValue(el, env, t, "rot", el.rot ?? 0) + state.rot;
+    let rot = keyValue(el, env, t, "rot", el.rot ?? 0) + state.rot + followRot;
     let opacity = keyValue(el, env, t, "opacity", el.opacity ?? 1) * state.opacity;
     const inT = sec(el.in, env, 0);
     const outT = sec(el.out, env, env.duration);
-    let visible = t >= inT && t <= outT;
+    let visible = tIn >= inT && tIn <= outT;
 
     const baseCx = cx;
     const baseCy = cy;
@@ -217,12 +256,12 @@ export function resolveAt(spec: MotionSpec, env: EvalEnv, t: number, opts: { com
   return [...out.values()];
 }
 
-export type CameraState = { zoom: number; x: number; y: number; rot: number };
+export type CameraState = { zoom: number; x: number; y: number; rot: number; rx: number; ry: number };
 
 /** camera at t: keyframes + drift noise + shake on hits */
 export function cameraAt(spec: MotionSpec, env: EvalEnv, t: number): CameraState {
   const keys = (spec.camera?.keys ?? []).map((k) => ({ ...k, t: sec(k.t, env) })).sort((a, b) => a.t - b.t);
-  const val = (prop: "zoom" | "x" | "y" | "rot", base: number) => {
+  const val = (prop: "zoom" | "x" | "y" | "rot" | "rx" | "ry", base: number) => {
     const ks = keys.filter((k) => k[prop] !== undefined);
     if (!ks.length) return base;
     if (t <= ks[0].t) return ks[0][prop]!;
@@ -249,7 +288,7 @@ export function cameraAt(spec: MotionSpec, env: EvalEnv, t: number): CameraState
     y += noise1(37, t * 40) * h * shake * 1.5;
     rot += noise1(41, t * 40) * h * shake * 1.2;
   }
-  return { zoom: val("zoom", 1), x, y, rot };
+  return { zoom: val("zoom", 1), x, y, rot, rx: val("rx", 0), ry: val("ry", 0) };
 }
 
 /** screen-space box (axis-aligned) of a resolved element under the camera */
