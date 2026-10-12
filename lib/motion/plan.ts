@@ -90,9 +90,28 @@ const DIALECT_GUIDE: Record<string, string> = {
 const SYSTEM = `You are an award-winning motion-design creative director AND a native copywriter for Arab-market and global brands. In one pass you design a bespoke motion-graphics promo for one brand and write its on-screen copy. Never templates: every film has its own concept, motion language, typographic idea and rhythm, so no two look alike.
 
 WHAT THE ENGINE CAN BUILD (design only from these; there is no stock footage or 3D modelling):
-- Elements: kinetic text (Arabic/English, brand fonts), shapes (rect, circle, pill, ring, star, polygon, triangle, organic blob, line) that can morph into each other, hand-drawn SVG paths that draw on, routes/journeys with station dots that draw and that elements can travel along, the brand logo (on a plate when needed), brand images from the site, device frames (phone, browser, laptop, tablet), particle fields (dots, squares, sparks, confetti, rain, bubbles, stars, dust), groups that act as masks, live counters, backgrounds (solid, gradient, radial glow, grid, dots, stripes, noise, stars, geometric star pattern).
+- Elements: kinetic text (Arabic/English, brand fonts), shapes (rect, circle, pill, ring, star, polygon, triangle, organic blob, line, mouse cursor) that can morph into each other, hand-drawn SVG paths that draw on and morph into other paths, routes/journeys with station dots that draw and that elements can travel along, the brand logo (on a plate when needed), brand images from the site (a long page can scroll inside a device frame), device frames (phone, browser, laptop, tablet), particle fields (dots, squares, sparks, confetti, rain, bubbles, stars, dust), groups that act as masks or 3D carousels, live counters, liquid-filling vessels, backgrounds (solid, gradient, radial glow, grid, dots, stripes, noise, stars, geometric star pattern).
 - Motion vocabulary (behaviors): ${BEHAVIOR_NAMES.join(", ")}.
-- Camera: push/pull zoom, pans, rotation, drift, shake on hits, parallax depth. Cuts between shots: hard, flash, whip, wipe, zoom punch, glitch, iris.
+- Real 3D: cards flip/swing/tilt with perspective, extruded type, 3D carousels, a camera that tilts/orbits (rx/ry). Shutter motion blur, echo trails, RGB split, wave distortion, stop-motion stepping.
+- Camera: push/pull zoom, pans, rotation, 3D tilt/orbit, drift, shake on hits, parallax depth. Cuts between shots: hard, flash, whip, wipe, zoom punch, glitch, iris, blinds, pixels, layered colour wipe, diagonal, slices.
+
+MOTION PATTERN VOCABULARY (name the pattern in each shot's visual; these are what the engine does best):
+1 shared-element morph — one object travels + resizes into the next layout (shared-morph)
+2 clip / masked reveal, wipe — (mask-wipe, editorial-wipe, masked-rise, clip-morph, iris-in, scan-reveal)
+3 pinned sequence — a hero stays fixed while content changes around it
+4 parallax depth — layers at different depths under camera moves (depth, camera keys)
+5 staggered / cascading entrance — (group stagger with order center/edges/random, panel-stack, depth-assemble)
+6 morph — shape or SVG path into another, incl. symbol → brand mark (morph, gsap-morph)
+7 overshoot / spring — (spring-pop, spring-in, spring-move, liquid-move)
+8 spring follow / cursor — a pointer moves, presses and drags UI (cursor shape, cursor-move, press)
+9 split text — per-word (Arabic) / per-letter (Latin) staggers (gsap-split, per-word, blur-words, slam-words, roll-text, tracking-in)
+10 text scramble / decode — (scramble)
+11 marquee / ticker — a looping strip of words or logos (move-to on a long group, echo)
+12 page wipe / curtain / blinds / iris — cut kinds layers, blinds, pixels, iris, diagonal
+13 lightbox zoom — a thumbnail grows into the full frame (shared-morph, clip-morph, camera push)
+14 layout / reorder (FLIP) — items slide to new slots (spring-move on each)
+15 tilt card / perspective — (tilt-3d, flip-3d, swing-in, carousel, extrude)
+16 blur / depth transition — (blur-words, focus-rack, puff-in, blur-out, motion blur)
 
 CREATIVE RULES
 - Make it unmistakably about THIS brand: its product, audience and tone. A viewer should feel it was hand-made for them.
@@ -184,13 +203,25 @@ export function planProblems(p: Plan, b: MotionBrief): string[] {
   return [...new Set(out)];
 }
 
+/**
+ * A reference as the AI sees it: its full prompt (internal only — never shown in the UI), trimmed to
+ * ~1,500 chars, plus the MotionGX behaviors that implement its techniques.
+ */
+export function refBrief(r: MotionRef, i: number, max = 1500) {
+  const card = (r.card ?? {}) as { motion_language?: string; techniques?: string[]; behaviors?: string[] };
+  const text = r.prompt_text.length > max ? `${r.prompt_text.slice(0, max - 1)}…` : r.prompt_text;
+  const how = card.behaviors?.length ? ` [engine: ${card.behaviors.join(", ")}]` : card.techniques?.length ? ` [techniques: ${card.techniques.join(", ")}]` : "";
+  return `(${i + 1}) ${card.motion_language ?? r.title}: ${text}${how}`;
+}
+
 function userPrompt(b: MotionBrief, bpm: number, refs: MotionRef[], avoid: string[]) {
   return `Brand: ${b.brand.name} (${b.brand.url}) · tone: ${b.brand.tone || "—"} · tagline: ${b.brand.tagline || "—"}
 Palette roles available: bg, bg2, surface, text, textMuted, primary, accent, gradient (brand colors ${b.brand.colors.map((c) => c.hex).join(", ")}) · logo: ${b.brand.hasLogo ? "yes" : "no (wordmark)"} · brand images: ${b.brand.imageCount}
 Facts (the ONLY facts you may state): what it does: ${b.facts.what_it_does} | audience: ${b.facts.audience} | features: ${b.facts.key_features.join(" | ") || "—"} | numbers: ${b.facts.numbers.map((n) => `${n.prefix}${n.value}${n.suffix} ${n.label}`).join(" | ") || "none"} | offers: ${b.facts.offers.join(" | ") || "none"} | CTA URL: ${b.facts.cta_url || b.brand.url}
 Video: goal ${b.goal}; ${b.lengthS}s; ${b.format} (${b.width}×${b.height}); ${bpm} BPM (beat = ${(60 / bpm).toFixed(3)}s); copy language: ${DIALECT_GUIDE[b.dialect]}
 Brief: """${b.brief}"""
-Inspiration (borrow ideas, never copy): ${refs.map((r, i) => `(${i + 1}) ${r.card?.motion_language ?? r.title}: ${r.prompt_text.slice(0, 220)}`).join(" ")}
+Inspiration (borrow techniques, never copy):
+${refs.map((r, i) => refBrief(r, i)).join("\n")}
 Recent concepts — do NOT repeat these ideas or motion languages: ${avoid.length ? avoid.slice(0, 20).join(" | ") : "none"}`;
 }
 

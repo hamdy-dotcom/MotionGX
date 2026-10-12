@@ -9,7 +9,8 @@ import { catalogueText } from "./catalogue";
 import { EXAMPLE_PLAN, EXAMPLE_SPEC } from "./spec-example";
 import { loadFont, measureLine } from "./fonts-node";
 import { applyPatch, type PatchOp } from "./patch";
-import type { Plan } from "./plan";
+import { refBrief, type Plan } from "./plan";
+import type { MotionRef } from "./store";
 import { specSchema, type MotionSpec } from "./spec";
 import type { MotionBrief } from "./types";
 import { validateSpec, type SpecIssue, type ValidateCtx } from "./validate";
@@ -113,14 +114,14 @@ async function layoutFacts(b: MotionBrief, plan: Plan) {
   return { maxSizes, table, dark: buildTokens(b.brand.colors).dark };
 }
 
-function specPrompt(b: MotionBrief, plan: Plan, facts: Awaited<ReturnType<typeof layoutFacts>>) {
+function specPrompt(b: MotionBrief, plan: Plan, facts: Awaited<ReturnType<typeof layoutFacts>>, refs: MotionRef[] = []) {
   return `Canvas ${b.width}×${b.height} (${b.format}), ${b.lengthS}s @30fps, ${plan.energy.bpm} BPM (beat = ${(60 / plan.energy.bpm).toFixed(3)}s), language ${b.dialect === "en" ? "English (LTR)" : "Arabic (RTL)"}, palette is ${facts.dark ? "dark" : "light"}. Brand: ${b.brand.name} (${b.brand.url}); logo ${b.brand.hasLogo ? "yes" : "no — the logo element renders a wordmark"}; brand images: ${b.brand.imageCount}.
 TREATMENT: ${plan.concept} | motion language: ${plan.motion_language} | music: ${plan.music_mood}
 SHOTS (use every line once, during its shot):
 ${plan.shots.map((s) => `- ${s.id} ${s.start_s}–${s.end_s}s: ${s.visual} | lines: ${s.lines.map((l, i) => `${s.id}:${i} "${l}"`).join(", ")}`).join("\n")}
 ENERGY: sections ${plan.energy.sections.map((s) => `${s.kind} ${s.start_s}–${s.end_s}`).join(", ")} | hits ${plan.energy.hits.map((h) => `${h.kind}@${h.t}`).join(", ")}
 MAX TEXT SIZE PER LINE (one line, fits the safe width): ${facts.maxSizes.join(" | ")}
-CONTRAST (≥ 4.5 needed for body text, ≥ 3 for size ≥ 4.5): ${facts.table.join(" | ")}`;
+CONTRAST (≥ 4.5 needed for body text, ≥ 3 for size ≥ 4.5): ${facts.table.join(" | ")}${refs.length ? `\nREFERENCE TECHNIQUES the director chose (borrow the motion craft, never the content):\n${refs.map((r, i) => refBrief(r, i)).join("\n")}` : ""}`;
 }
 
 /** Deterministic repairs the validator computed (no AI). Returns the patched spec + how many applied. */
@@ -302,11 +303,11 @@ export type SpecRun = {
 };
 
 /** Spec call → validate → auto-fix → ≤ 2 JSON-Patch rounds. */
-export async function writeSpec(b: MotionBrief, plan: Plan, vctx: ValidateCtx): Promise<SpecRun> {
+export async function writeSpec(b: MotionBrief, plan: Plan, vctx: ValidateCtx, refs: MotionRef[] = []): Promise<SpecRun> {
   const rounds: SpecRun["rounds"] = [];
   const facts = await layoutFacts(b, plan);
   const system = SPEC_DOC;
-  const prompt = specPrompt(b, plan, facts);
+  const prompt = specPrompt(b, plan, facts, refs);
   const zodProblems = (raw: unknown) => {
     const r = specSchema.safeParse(raw);
     return r.success ? [] : r.error.issues.slice(0, 20).map((i) => ({ path: `/${i.path.join("/")}`, msg: i.message }));

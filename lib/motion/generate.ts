@@ -27,7 +27,7 @@ export const GENERATION_CAP_USD = 0.05;
 export type Generation = {
   status: "ready" | "needs_direction";
   plan: Plan;
-  refs: MotionRef[];
+  refs: (Pick<MotionRef, "id" | "title" | "creator" | "source_url"> & { label: string })[];
   similarity: number;
   conceptRedos: number;
   spec: MotionSpec;
@@ -107,7 +107,7 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
       timings.musicBed = Date.now() - t;
       return r;
     });
-    const specP = writeSpec(b, plan, vctx).then((r) => {
+    const specP = writeSpec(b, plan, vctx, planned.refs).then((r) => {
       timings.spec = Date.now() - t;
       return r;
     });
@@ -152,7 +152,8 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
     return {
       status,
       plan,
-      refs: planned.refs.map((r) => ({ ...r, embedding: undefined })),
+      // ids/titles/links only: full reference prompts are internal (AI context), never surfaced
+      refs: planned.refs.map((r) => ({ id: r.id, title: r.title, creator: r.creator, source_url: r.source_url, label: r.card?.motion_language ?? r.title })),
       similarity: planned.similarity,
       conceptRedos: planned.conceptRedos,
       spec,

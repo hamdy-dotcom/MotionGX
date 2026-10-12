@@ -165,7 +165,7 @@ async function briefFor(job: Job, ws: string, draft: BrandDraft, ogImage: string
       motion_language: g.plan.motion_language,
       similarity_to_nearest_previous: Number(g.similarity.toFixed(3)),
       concept_redos: g.conceptRedos,
-      refs: g.refs.map((r) => ({ id: r.id, creator: r.creator, label: r.card?.motion_language ?? r.title })),
+      refs: g.refs.map((r) => ({ id: r.id, creator: r.creator, label: r.label })),
       elements: g.spec.elements.length,
       behaviors,
       validation: { remaining: g.specRun.issues, rounds: g.specRun.rounds, model: g.specRun.model },
