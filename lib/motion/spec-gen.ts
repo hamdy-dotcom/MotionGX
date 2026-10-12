@@ -15,6 +15,8 @@ import type { MotionBrief } from "./types";
 import { validateSpec, type SpecIssue, type ValidateCtx } from "./validate";
 
 export const MAX_PATCH_ROUNDS = 2;
+/** smallest text size (% of width) the repair steps will set */
+const MIN_SIZE = 2.5;
 
 const SPEC_DOC = `MotionSpec — the JSON language for one video. The engine renders it; you never write code.
 
@@ -61,6 +63,8 @@ DESIGN DIRECTION (taste — what separates a promo from a slideshow):
 - Every shot = hero visual + headline (+ support line). Vary composition from shot to shot (left/right, top/bottom, scale, framing); never repeat the same backdrop shape in every shot.
 - Depth: 3 layers (background texture/glow, mid hero, foreground text/particles) and gentle parallax/camera moves.
 - Anything that looks like a button (a filled pill/card) carries a label on top of it. Never blink or flicker real copy.
+- NEVER invent numbers, prices, IDs or fake data: counters and literal text may only show numbers that appear in the script or the brand facts.
+- The logo is used as-is: animate it with pop / scale / float / punch / ring reveals — never glow, blur, hue, flicker or glitch it.
 - The logo reveal is a moment: build-up → hit → logo with a ring/ripple/burst; the CTA sits on the final drop, big and clear.
 
 QUALITY REFERENCE — a complete spec for an unrelated fictional brand. It shows the bar (literal metaphor, 3 layers, varied composition per shot, labelled plates, a route, a staged logo reveal, a labelled CTA). NEVER copy its layout, shapes or concept: invent your own from the treatment.
@@ -127,7 +131,8 @@ export function autoFix(spec: MotionSpec, issues: SpecIssue[]): { spec: MotionSp
     const el = out.elements.find((e) => e.id === i.id) as Record<string, unknown> | undefined;
     if (!el) continue;
     const f = i.fix;
-    if (f.size !== undefined && "size" in el) el.size = f.size;
+    // never below a legible floor (repeated shrinks could otherwise walk a label off the schema)
+    if (f.size !== undefined && "size" in el) el.size = Math.max(MIN_SIZE, f.size);
     if (f.w !== undefined) el.w = f.w;
     if (f.h !== undefined) el.h = f.h;
     if (f.x !== undefined) el.x = f.x;
@@ -144,7 +149,8 @@ export function autoFix(spec: MotionSpec, issues: SpecIssue[]): { spec: MotionSp
     if (f.out !== undefined) el.out = f.out === null ? undefined : f.out;
     if (Object.values(f).some((v) => v !== undefined)) applied++;
   }
-  return { spec: specSchema.parse(out), applied };
+  const r = specSchema.safeParse(out);
+  return r.success ? { spec: r.data, applied } : { spec, applied: 0 };
 }
 
 const SCRIM_CODES = new Set(["low_contrast", "text_spills_plate", "line_through_text", "covered"]);
@@ -170,7 +176,7 @@ export function finish(spec: MotionSpec, issues: SpecIssue[], ctx: ValidateCtx):
     const coverer = i.code === "covered" ? i.msg.match(/^"([^"]+)"/)?.[1] : undefined;
     if (el && el.type === "text" && coverer?.endsWith("_scrim")) {
       const other = out.elements.find((e) => e.id === coverer.replace(/_scrim$/, ""));
-      for (const t of [el, other]) if (t && (t.type === "text" || t.type === "counter")) t.size = Number((t.size * 0.88).toFixed(2));
+      for (const t of [el, other]) if (t && (t.type === "text" || t.type === "counter")) t.size = Math.max(MIN_SIZE, Number((t.size * 0.88).toFixed(2)));
       el.y = Number(Math.min(92, el.y + 3).toFixed(2));
       applied.push(`separate:${el.id}`);
       continue;
@@ -259,7 +265,7 @@ export function finish(spec: MotionSpec, issues: SpecIssue[], ctx: ValidateCtx):
       }
     }
     if (el && (el.type === "text" || el.type === "counter") && (i.code === "offscreen" || i.code === "text_overlap" || i.code === "text_overflow") && !i.fix) {
-      el.size = Number((el.size * 0.78).toFixed(2));
+      el.size = Math.max(MIN_SIZE, Number((el.size * 0.78).toFixed(2)));
       if (i.box && i.code === "offscreen") el.x = 50;
       applied.push(`shrink:${el.id}`);
       continue;
@@ -272,7 +278,7 @@ export function finish(spec: MotionSpec, issues: SpecIssue[], ctx: ValidateCtx):
       applied.push(`out:${el.id}`);
       continue;
     }
-    if (i.code === "empty_button" && el) {
+    if ((i.code === "empty_button" || i.code === "invented_number") && el) {
       out.elements = out.elements.filter((e) => e.id !== el.id);
       applied.push(`remove:${el.id}`);
       continue;
@@ -283,7 +289,8 @@ export function finish(spec: MotionSpec, issues: SpecIssue[], ctx: ValidateCtx):
       applied.push("logo:inserted");
     }
   }
-  return { spec: specSchema.parse(out), applied };
+  const r = specSchema.safeParse(out);
+  return r.success ? { spec: r.data, applied } : { spec, applied: [] };
 }
 
 export type SpecRun = {

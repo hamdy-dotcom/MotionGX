@@ -16,6 +16,8 @@ export type PctBox = { x0: number; y0: number; x1: number; y1: number };
 export type SpecIssue = { id: string | null; code: string; t?: number; msg: string; fix?: SpecFix; box?: PctBox };
 
 export type ValidateCtx = {
+  /** numbers the video may show (brand facts, brief, script) — anything else is invented */
+  allowedNumbers?: number[];
   width: number;
   height: number;
   fps: number;
@@ -175,6 +177,25 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
     }
   }
   if (spec.elements.length > 0 && !spec.elements.some((e) => e.type === "image" && e.src === "logo")) add(null, "no_logo", "add the brand logo (image src=logo) around the logo hit");
+
+  // never invent numbers: counters and literal text may only show numbers from the facts/brief/script
+  if (ctx.allowedNumbers) {
+    const allowed = new Set(ctx.allowedNumbers.map((n) => Math.round(n * 100) / 100));
+    for (const l of lines.values()) for (const n of l.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).match(/\d+(?:[.,]\d+)*/g) ?? []) allowed.add(Number(n.replace(/,/g, "")));
+    const ok = (n: number) => n < 10 || allowed.has(Math.round(n * 100) / 100) || n === new Date().getFullYear();
+    for (const el of spec.elements) {
+      const nums: number[] = [];
+      if (el.type === "counter") nums.push(el.to);
+      if (el.type === "text" && el.text) for (const n of el.text.match(/\d+(?:[.,]\d+)*/g) ?? []) nums.push(Number(n.replace(/,/g, "")));
+      const bad = nums.filter((n) => !ok(n));
+      if (bad.length) add(el.id, "invented_number", `${bad.join(", ")} isn't in the brand facts — only show real numbers (or none)`);
+    }
+  }
+  // the logo is used as-is: no glow/blur/hue/flicker/glitch filters on it (motion is fine)
+  for (const el of spec.elements) {
+    if (el.type !== "image" || el.src !== "logo") continue;
+    for (const f of el.fx ?? []) if (["glow-pulse", "hue-cycle", "neon-flicker", "glitch-in", "blur-in", "blur-out", "color-flash", "dissolve", "assemble", "scatter-in"].includes(f.fx)) add(el.id, "logo_fx", `${f.fx} distorts the logo — use pop/scale/float/punch instead`, undefined, { removeFx: f.fx });
+  }
 
   // script coverage: every line is on screen somewhere
   const used = new Set(spec.elements.flatMap((e) => (e.type === "text" ? [e.line ?? ""] : [])));
@@ -383,8 +404,9 @@ export async function validateSpec(raw: unknown, ctx: ValidateCtx): Promise<{ sp
           add(pe.id, "text_spills_plate", `plate "${pe.id}" doesn't contain its label "${textNow}" — fit it around the text`, t, {
             x: Number((((nx0 + nx1) / 2 / W) * 100).toFixed(2)),
             y: Number((((ny0 + ny1) / 2 / H) * 100).toFixed(2)),
-            w: Number((((nx1 - nx0) / W) * 100).toFixed(2)),
-            h: Number((((ny1 - ny0) / W) * 100).toFixed(2)),
+            // +8 %: room for the plate's own loops (breathe/pulse) so the label stays inside at every frame
+            w: Number(((((nx1 - nx0) * 1.08) / W) * 100).toFixed(2)),
+            h: Number(((((ny1 - ny0) * 1.08) / W) * 100).toFixed(2)),
           });
         } else if (needW <= plateW * 1.3 && pe.w !== undefined) add(pe.id, "text_spills_plate", `plate "${pe.id}" is a bit small for "${textNow}"`, t, {
             w: Number(((pe.w * needW * 1.1) / plateW).toFixed(1)),

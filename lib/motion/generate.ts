@@ -60,6 +60,9 @@ export function runtimeInputFor(b: MotionBrief, plan: Plan): RuntimeInput {
   };
 }
 
+/** numbers a video may show: brand facts + any in the client's brief */
+export const allowedNumbers = (b: MotionBrief) => [...b.facts.numbers.map((n) => n.value), ...(b.brief.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).match(/\d+(?:\.\d+)?/g) ?? []).map(Number)];
+
 export const behaviorsUsed = (spec: MotionSpec) => [...new Set(spec.elements.flatMap((e) => (e.fx ?? []).map((f) => f.fx)).filter((n) => n in BEHAVIORS))].sort();
 
 /** Compile vetted custom elements; drop any that fail (never fatal). */
@@ -96,7 +99,7 @@ export async function generateVideo(b: MotionBrief, store: MotionStore, workDir:
     opts.progress?.("spec");
     timings.plan = Date.now() - t;
     const { plan } = planned;
-    const vctx: ValidateCtx = { width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: b.brand.fonts, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo };
+    const vctx: ValidateCtx = { width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: b.brand.fonts, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo, allowedNumbers: allowedNumbers(b) };
 
     // spec ‖ music bed
     t = Date.now();

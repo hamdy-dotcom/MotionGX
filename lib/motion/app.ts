@@ -8,7 +8,7 @@ import { loadCompanyBrand } from "@/lib/video/brand-props";
 import { EMPTY_FACTS, type BrandFacts } from "@/lib/brand/types";
 import { costOf, withRun, type RunContext } from "@/lib/ai/usage";
 import type { Video } from "@/lib/types";
-import { GENERATION_CAP_USD, generateVideo, runtimeInputFor, type Generation } from "./generate";
+import { allowedNumbers, GENERATION_CAP_USD, generateVideo, runtimeInputFor, type Generation } from "./generate";
 import { deriveEvents } from "./events";
 import { encodeMp3, renderMusic } from "./music";
 import type { Plan } from "./plan";
@@ -113,7 +113,7 @@ async function finishInBackground(video: Video, version: number, bg: Generation[
   }
 }
 
-const vctxFor = (b: MotionBrief, plan: Plan): ValidateCtx => ({ width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: b.brand.fonts, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo });
+const vctxFor = (b: MotionBrief, plan: Plan): ValidateCtx => ({ width: b.width, height: b.height, fps: 30, duration: b.lengthS, energy: plan.energy, beats: plan.beats, colors: b.brand.colors, fonts: b.brand.fonts, lang: b.dialect === "en" ? "en" : "ar", hasLogo: b.brand.hasLogo, allowedNumbers: allowedNumbers(b) });
 
 /**
  * Background generation (runs in `after()`): a new video, "another direction" (fresh plan + spec), or

@@ -242,7 +242,9 @@ export async function makePlan(b: MotionBrief, store: MotionStore, opts: { avoid
   };
   let n = await novelty(plan);
   let redos = 0;
-  while (n.repeat && redos < 2) {
+  const why = (x: typeof n) => `"${plan.motion_language}" sim ${x.sim.toFixed(2)} vs "${x.near?.motion_language}: ${x.near?.concept.slice(0, 80)}"`;
+  if (n.repeat) console.warn(`[novelty] repeat: ${why(n)}`);
+  while (n.repeat && redos < 3) {
     redos++;
     const c = await callTool({
       workspaceId: b.workspaceId,
@@ -262,6 +264,7 @@ export async function makePlan(b: MotionBrief, store: MotionStore, opts: { avoid
     plan = { ...plan, ...c.value };
     avoid.push(`${plan.motion_language}: ${plan.concept.slice(0, 90)}`);
     n = await novelty(plan);
+    if (n.repeat) console.warn(`[novelty] redo ${redos} still a repeat: ${why(n)}`);
   }
   if (n.repeat) throw new AiError("ai_invalid", "could not find a novel concept");
   return { plan, refs, embedding: n.e, similarity: n.sim, conceptRedos: redos };
