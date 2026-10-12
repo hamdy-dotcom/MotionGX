@@ -1,5 +1,6 @@
 // pnpm refs:import <file.json>  — upserts motion references (with embeddings) into motion_refs.
-// The file is an array of { id, title, source_url, creator, category, tags, prompt_text, code_snippet?, license_note }.
+// The file is an array of { id, title, source_url, creator, category, tags, prompt_text, code_snippet?, license_note,
+// card?, embed_text? }. embed_text (when given) is what gets embedded; otherwise title + category + tags + prompt_text.
 // References are descriptions/paraphrases + links for inspiration only: never paste someone else's
 // project or ship their videos. Rows without license_note or creator are rejected.
 import { readFileSync } from "node:fs";
@@ -14,7 +15,8 @@ import { refText, type MotionRef } from "../../lib/motion/store";
     console.error("usage: pnpm refs:import <file.json>");
     process.exit(1);
   }
-  const rows = JSON.parse(readFileSync(path.resolve(file), "utf8")) as MotionRef[];
+  type ImportRow = MotionRef & { card?: Record<string, unknown> | null; embed_text?: string };
+  const rows = JSON.parse(readFileSync(path.resolve(file), "utf8")) as ImportRow[];
   if (!Array.isArray(rows)) throw new Error("expected a JSON array");
 
   const problems: string[] = [];
@@ -44,7 +46,8 @@ import { refText, type MotionRef } from "../../lib/motion/store";
       prompt_text: r.prompt_text,
       code_snippet: r.code_snippet ?? null,
       license_note: r.license_note,
-      embedding: JSON.stringify(await embed(refText(r))),
+      card: r.card ?? null,
+      embedding: JSON.stringify(await embed(r.embed_text ?? refText(r))),
     });
   }
   const { error } = await admin.from("motion_refs").upsert(payload, { onConflict: "id" });

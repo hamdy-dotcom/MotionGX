@@ -21,7 +21,8 @@ alter table public.video_versions
   add column if not exists qa               jsonb,
   add column if not exists audio            jsonb;  -- {mix, sfx, music: storage paths in `music`, lufs, hits}
 
--- Inspiration library (seeded from data/motion-refs.json; `pnpm refs:import <file.json>` adds more).
+-- Inspiration library: internal only, never shown to users. Seeded from data/motion-refs.json (ours) and
+-- scripts/refs/prompt-motion.json (technique cards + links; creators' prompts are never stored here).
 create table if not exists public.motion_refs (
   id            text primary key,
   title         text not null,
@@ -32,6 +33,7 @@ create table if not exists public.motion_refs (
   prompt_text   text not null,
   code_snippet  text,
   embedding     vector(384),
+  card          jsonb,          -- technique card (English, written by us): summary, motion_language, techniques, pacing, …
   license_note  text not null,
   created_at    timestamptz not null default now()
 );
@@ -57,9 +59,11 @@ alter table public.motion_treatments enable row level security;
 create policy motion_treatments_select on public.motion_treatments for select to authenticated using (public.is_member(workspace_id));
 revoke insert, update, delete, truncate on public.motion_treatments from anon, authenticated;
 
--- AI usage: per-video attribution + the new pipeline steps.
+-- AI usage: per-video attribution + the new pipeline steps. System jobs (e.g. seeding the inspiration
+-- library) log with workspace_id null: they are invisible to members and don't count toward any limit.
 alter table public.ai_usage add column if not exists video_id uuid references public.videos(id) on delete set null;
+alter table public.ai_usage alter column workspace_id drop not null;
 alter table public.ai_usage drop constraint if exists ai_usage_kind_check;
 alter table public.ai_usage add constraint ai_usage_kind_check
-  check (kind in ('brand_scrape', 'brand_tone', 'brand_facts', 'script', 'rewrite_scene', 'request_edit', 'director', 'motion_code', 'vision_qa'));
+  check (kind in ('brand_scrape', 'brand_tone', 'brand_facts', 'script', 'rewrite_scene', 'request_edit', 'director', 'motion_code', 'vision_qa', 'ref_card'));
 create index if not exists ai_usage_video_idx on public.ai_usage(video_id);

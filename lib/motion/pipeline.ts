@@ -16,28 +16,7 @@ import type { MotionBrief } from "./types";
 
 export const MAX_ROUNDS = 4;
 
-/** Price per million tokens (input, output) — Claude API list prices. */
-export const PRICES: Record<string, [number, number]> = {
-  "claude-haiku-5-5": [0.1, 0.5],
-  "claude-sonnet-5-5": [2, 10],
-  "claude-opus-5-5": [4, 20],
-};
-
-export function costOf(usage: UsageEntry[]) {
-  let usd = 0;
-  const byKind: Record<string, { calls: number; input: number; output: number; usd: number }> = {};
-  for (const u of usage) {
-    const [pi, po] = PRICES[u.model] ?? PRICES[Object.keys(PRICES).find((k) => u.model.startsWith(k)) ?? ""] ?? [0, 0];
-    const c = (u.input_tokens * pi + u.output_tokens * po) / 1_000_000;
-    usd += c;
-    const k = (byKind[`${u.kind}:${u.model}`] ??= { calls: 0, input: 0, output: 0, usd: 0 });
-    k.calls++;
-    k.input += u.input_tokens;
-    k.output += u.output_tokens;
-    k.usd += c;
-  }
-  return { usd, byKind };
-}
+export { PRICES, costOf } from "@/lib/ai/usage";
 
 export type PipelineProgress = (stage: "director" | "script" | "code" | "validate" | "qa" | "music" | "done", detail?: string) => void;
 

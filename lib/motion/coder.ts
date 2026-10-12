@@ -1,6 +1,5 @@
 import "server-only";
 import { readFileSync } from "node:fs";
-import path from "node:path";
 import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
 import { OPUS, SONNET, streamText, type ClaudeModel } from "@/lib/ai/claude";

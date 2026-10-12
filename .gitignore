@@ -49,3 +49,6 @@ next-env.d.ts
 /scripts/music/out/
 /public/preview/
 /.motion-check/
+
+# prompt-motion.com raw pages + parsed entries (creators' full prompts) — local only, never committed
+/scripts/refs/cache/

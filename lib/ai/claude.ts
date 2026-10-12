@@ -49,7 +49,8 @@ export async function callTool<T>({
   maxTokens = 8000,
   retries = 1,
 }: {
-  workspaceId: string;
+  /** null = system job (library seeding): logged, not rate-limited */
+  workspaceId: string | null;
   kind: AiKind;
   system: string;
   prompt: string | Anthropic.ContentBlockParam[];
@@ -71,7 +72,7 @@ export async function callTool<T>({
   let problem = "no tool call";
 
   for (let attempt = 0; attempt <= retries; attempt++) {
-    await assertWithinRateLimit(workspaceId);
+    if (workspaceId) await assertWithinRateLimit(workspaceId);
 
     let response: AnyMessage;
     try {
@@ -186,7 +187,8 @@ export async function streamText({
   maxTokens = 32000,
   effort,
 }: {
-  workspaceId: string;
+  /** null = system job (library seeding): logged, not rate-limited */
+  workspaceId: string | null;
   kind: AiKind;
   model: ClaudeModel;
   system: string;
@@ -195,7 +197,7 @@ export async function streamText({
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
 }): Promise<{ text: string; stopReason: string | null; model: string }> {
   const anthropic = getClient();
-  await assertWithinRateLimit(workspaceId);
+  if (workspaceId) await assertWithinRateLimit(workspaceId);
   let final: Anthropic.Beta.BetaMessage;
   try {
     const stream = anthropic.beta.messages.stream({
