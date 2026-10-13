@@ -4,7 +4,9 @@ import type { FirecrawlScrape } from "./map";
 
 export const FIRECRAWL_MODEL = "firecrawl-v2-scrape";
 
-async function scrape(url: string, formats: string[], timeoutMs: number): Promise<FirecrawlScrape> {
+type Format = string | { type: string; [k: string]: unknown };
+
+async function scrape(url: string, formats: Format[], timeoutMs: number): Promise<FirecrawlScrape> {
   const key = process.env.FIRECRAWL_API_KEY;
   if (!key) throw new AiError("not_configured", "FIRECRAWL_API_KEY is not set");
 
@@ -30,9 +32,12 @@ async function scrape(url: string, formats: string[], timeoutMs: number): Promis
   return body.data;
 }
 
-/** Homepage: branding + markdown + links (links feed the brand-facts page picker). */
+/**
+ * Homepage: branding + markdown + links (links feed the brand-facts page picker),
+ * plus rawHtml + images + a full-page screenshot for the page snapshot.
+ */
 export function scrapeBrand(url: string): Promise<FirecrawlScrape> {
-  return scrape(url, ["branding", "markdown", "links"], 90_000);
+  return scrape(url, ["branding", "markdown", "links", "rawHtml", "images", { type: "screenshot", fullPage: true }], 90_000);
 }
 
 /** Extra page for brand facts: markdown only. */

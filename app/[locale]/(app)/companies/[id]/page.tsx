@@ -4,6 +4,8 @@ import { getAppContext } from "@/lib/context";
 import { listCompanies } from "@/lib/data/companies";
 import { EMPTY_FACTS, FALLBACK_FONTS, type BrandDraft, type BrandFacts } from "@/lib/brand/types";
 import { Heading, boldTag } from "@/components/heading";
+import { snapshotFolder } from "@/lib/brand/snapshot";
+import { urlKey } from "@/lib/brand/url";
 import { CompanyScreen } from "./company-screen";
 
 export default async function CompanyPage({ params }: { params: Promise<{ locale: string; id: string }> }) {
@@ -30,6 +32,16 @@ export default async function CompanyPage({ params }: { params: Promise<{ locale
     facts,
   };
 
+  // Saved page snapshot for this website (from the last extraction / re-read), if any.
+  let hasSnapshot = false;
+  const key = company.website_url ? urlKey(company.website_url) : null;
+  if (key) {
+    const { data: listed } = await ctx.supabase.storage
+      .from("brand-assets")
+      .list(await snapshotFolder(ctx.workspace.id, key), { search: "snapshot.zip", limit: 1 });
+    hasSnapshot = Boolean(listed?.some((f) => f.name === "snapshot.zip"));
+  }
+
   return (
     <div>
       <Heading as="h1" className="text-3xl sm:text-4xl">
@@ -37,7 +49,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ locale
       </Heading>
       <p className="mt-3 max-w-2xl leading-relaxed text-ink-muted">{t("editSubtitle")}</p>
       <div className="mt-6">
-        <CompanyScreen companyId={company.id} brand={brand} />
+        <CompanyScreen companyId={company.id} brand={brand} hasSnapshot={hasSnapshot} />
       </div>
     </div>
   );

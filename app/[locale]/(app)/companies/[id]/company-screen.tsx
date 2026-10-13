@@ -6,11 +6,11 @@ import { Link } from "@/i18n/navigation";
 import type { BrandDraft } from "@/lib/brand/types";
 import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { BrandEditor } from "../brand-editor";
-import { ExtractSteps, STEP_LABEL } from "../extract-steps";
+import { ExtractSteps, SnapshotLink, STEP_LABEL } from "../extract-steps";
 import { useExtraction } from "../use-extraction";
 
 /** Company screen: edit brand + facts; "أعد القراءة" re-scrapes the site and refills the form. */
-export function CompanyScreen({ companyId, brand: initial }: { companyId: string; brand: BrandDraft }) {
+export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false }: { companyId: string; brand: BrandDraft; hasSnapshot?: boolean }) {
   const t = useTranslations("companies");
   const td = useTranslations("dashboard");
   const [brand, setBrand] = useState(initial);
@@ -47,6 +47,7 @@ export function CompanyScreen({ companyId, brand: initial }: { companyId: string
           {td("newVideo")}
           <ArrowIcon className="size-4" />
         </Link>
+        {brand.websiteUrl && !x.running && (x.started ? x.steps.snapshot === "done" : hasSnapshot) ? <SnapshotLink websiteUrl={brand.websiteUrl} /> : null}
         <button type="button" onClick={() => void reread()} disabled={x.running || !brand.websiteUrl} className="btn btn-soft">
           {x.running ? <SpinnerIcon className="size-4" /> : <SparkIcon className="size-4" />}
           {x.running ? t("extracting") : t("reread")}

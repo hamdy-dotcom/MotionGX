@@ -17,6 +17,10 @@ export type FirecrawlBranding = {
 
 export type FirecrawlScrape = {
   markdown?: string;
+  rawHtml?: string;
+  images?: string[];
+  /** URL of the full-page screenshot (Firecrawl keeps it 24h) */
+  screenshot?: string;
   links?: string[];
   branding?: FirecrawlBranding;
   metadata?: {

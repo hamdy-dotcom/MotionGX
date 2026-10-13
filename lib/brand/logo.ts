@@ -15,7 +15,7 @@ export const LOGO_TYPES: Record<string, string> = {
 
 export type LogoFile = { bytes: Uint8Array; contentType: string; ext: string };
 
-function isPrivateHost(hostname: string) {
+export function isPrivateHost(hostname: string) {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return true;
   const kind = isIP(h);
@@ -28,7 +28,7 @@ function isPrivateHost(hostname: string) {
 }
 
 /** Strip anything executable from an SVG before we store it. */
-function sanitizeSvg(svg: string) {
+export function sanitizeSvg(svg: string) {
   return svg
     .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
     .replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, "")
