@@ -3,16 +3,28 @@
 import { useTranslations } from "next-intl";
 import { EXTRACT_STEPS, type ExtractStep } from "@/lib/brand/types";
 import type { AiErrorCode } from "@/lib/ai/errors";
-import { CheckIcon, SpinnerIcon } from "@/components/icons";
+import { CheckIcon, DownloadIcon, SpinnerIcon } from "@/components/icons";
 import type { Steps } from "./use-extraction";
 
-export const STEP_LABEL: Record<ExtractStep, "stepLogo" | "stepColors" | "stepFonts" | "stepTone" | "stepFacts"> = {
+export const STEP_LABEL: Record<ExtractStep, "stepLogo" | "stepColors" | "stepFonts" | "stepTone" | "stepFacts" | "stepSnapshot"> = {
   logo: "stepLogo",
   colors: "stepColors",
   fonts: "stepFonts",
   tone: "stepTone",
   facts: "stepFacts",
+  snapshot: "stepSnapshot",
 };
+
+/** Download the saved page (html + images/css/fonts + SVG objects + screenshot) as a zip. */
+export function SnapshotLink({ websiteUrl }: { websiteUrl: string }) {
+  const t = useTranslations("companies");
+  return (
+    <a href={`/api/brand/snapshot?url=${encodeURIComponent(websiteUrl)}`} className="btn btn-soft" download>
+      <DownloadIcon className="size-4" />
+      {t("downloadSnapshot")}
+    </a>
+  );
+}
 
 export function ExtractSteps({ steps, running, errorCode }: { steps: Steps; running: boolean; errorCode: AiErrorCode | null }) {
   const t = useTranslations("companies");

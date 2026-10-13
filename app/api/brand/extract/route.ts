@@ -3,6 +3,7 @@ import { getApiContext } from "@/lib/context";
 import { EXTRACT_STEPS, extractBrand, type BrandDraft, type ExtractEvent } from "@/lib/brand/extract";
 import { EMPTY_FACTS, FALLBACK_FONTS, type BrandFacts } from "@/lib/brand/types";
 import { normalizeUrl, urlKey } from "@/lib/brand/url";
+import { snapshotFolder, snapshotZip, type Snapshot } from "@/lib/brand/snapshot";
 import type { BrandProfile, Dialect } from "@/lib/types";
 
 export const maxDuration = 120;
@@ -31,16 +32,35 @@ export async function POST(request: NextRequest) {
   if (!key) return Response.json({ error: "invalid_url" }, { status: 400 });
 
   const cached = body.refresh ? null : await findCached(ctx, key);
+  const folder = await snapshotFolder(ctx.workspace.id, key);
+
+  /** Upload every snapshot file + snapshot.zip under the site's folder (overwrites a previous read). */
+  const storeSnapshot = async (snapshot: Snapshot) => {
+    const bucket = ctx.supabase.storage.from("brand-assets");
+    const uploads = [...snapshot.files, { path: "snapshot.zip", bytes: snapshotZip(snapshot), contentType: "application/zip" }];
+    for (let i = 0; i < uploads.length; i += 6) {
+      const results = await Promise.all(
+        uploads.slice(i, i + 6).map((f) => bucket.upload(`${folder}/${f.path}`, f.bytes, { contentType: f.contentType, upsert: true })),
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) {
+        console.error("[brand/extract] snapshot upload failed", { message: failed.error.message });
+        return false;
+      }
+    }
+    return true;
+  };
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: ExtractEvent) => controller.enqueue(new TextEncoder().encode(`${JSON.stringify(event)}\n`));
       try {
         if (cached) {
-          for (const step of EXTRACT_STEPS) send({ type: "step", step, status: cached.steps[step] ? "done" : "failed" });
+          const steps = { ...cached.steps, snapshot: await hasSnapshot(ctx, folder) };
+          for (const step of EXTRACT_STEPS) send({ type: "step", step, status: steps[step] ? "done" : "failed" });
           send({ type: "result", brand: cached.brand, raw: cached.raw, cached: true });
         } else {
-          for await (const event of extractBrand(ctx.workspace.id, url)) send(event);
+          for await (const event of extractBrand(ctx.workspace.id, url, storeSnapshot)) send(event);
         }
       } catch (err) {
         console.error("[brand/extract] stream failed", { url, err });
@@ -54,6 +74,11 @@ export async function POST(request: NextRequest) {
   return new Response(stream, {
     headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" },
   });
+}
+
+async function hasSnapshot(ctx: NonNullable<Awaited<ReturnType<typeof getApiContext>>>, folder: string) {
+  const { data } = await ctx.supabase.storage.from("brand-assets").list(folder, { search: "snapshot.zip", limit: 1 });
+  return Boolean(data?.some((f) => f.name === "snapshot.zip"));
 }
 
 async function findCached(ctx: NonNullable<Awaited<ReturnType<typeof getApiContext>>>, key: string) {

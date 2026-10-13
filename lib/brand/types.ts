@@ -2,7 +2,7 @@
 import type { AiErrorCode } from "@/lib/ai/errors";
 import type { BrandColor, BrandFonts, Dialect } from "@/lib/types";
 
-export const EXTRACT_STEPS = ["logo", "colors", "fonts", "tone", "facts"] as const;
+export const EXTRACT_STEPS = ["logo", "colors", "fonts", "tone", "facts", "snapshot"] as const;
 export type ExtractStep = (typeof EXTRACT_STEPS)[number];
 
 export const FALLBACK_FONTS = { arabic: "Readex Pro", latin: "Inter" } as const;

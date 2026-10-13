@@ -140,6 +140,8 @@
     "role_accent": "مميز",
     "role_background": "خلفية",
     "stepFacts": "المعلومات",
+    "stepSnapshot": "ملفات الصفحة",
+    "downloadSnapshot": "نزّل ملفات الصفحة",
     "factsTitle": "<b>حقائق</b> الشركة",
     "factsHint": "السكريبت بيستخدم المعلومات دي بس — ومفيش أرقام من غير ما تكون موجودة على الموقع.",
     "factWhat": "الشركة بتعمل إيه",

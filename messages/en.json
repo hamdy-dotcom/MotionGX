@@ -140,6 +140,8 @@
     "role_accent": "Accent",
     "role_background": "Background",
     "stepFacts": "Facts",
+    "stepSnapshot": "Page files",
+    "downloadSnapshot": "Download page files",
     "factsTitle": "<b>Company</b> facts",
     "factsHint": "Scripts only use these facts — and no numbers that aren't on the site.",
     "factWhat": "What it does",

@@ -70,6 +70,7 @@ export function useExtraction() {
     return { brand: result.brand, raw: result.raw, cached: result.cached };
   }
 
-  const failed = EXTRACT_STEPS.filter((s) => steps[s] === "failed");
+  // Brand fields the user must fill in by hand (the page snapshot is a bonus, not a field).
+  const failed = EXTRACT_STEPS.filter((s) => s !== "snapshot" && steps[s] === "failed");
   return { run, running, steps, errorCode, invalidUrl, started, failed };
 }

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import type { BrandDraft } from "@/lib/brand/types";
 import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { BrandEditor } from "../brand-editor";
-import { ExtractSteps, STEP_LABEL } from "../extract-steps";
+import { ExtractSteps, SnapshotLink, STEP_LABEL } from "../extract-steps";
 import { useExtraction } from "../use-extraction";
 
 export function NewCompanyFlow() {
@@ -71,6 +71,7 @@ export function NewCompanyFlow() {
             ) : (
               <p className="flex-1 text-sm text-ink-muted">{cached ? t("cachedNote") : t("reviewNote")}</p>
             )}
+            {x.steps.snapshot === "done" ? <SnapshotLink websiteUrl={brand.websiteUrl} /> : null}
             <button type="button" onClick={() => void extract(true)} className="btn btn-soft">
               <SparkIcon className="size-4" />
               {t("reread")}
