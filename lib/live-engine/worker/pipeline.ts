@@ -87,7 +87,7 @@ export async function runJob(job: JobFile, dirs: { root: string; brandDir: strin
         await sync.uploadRun(["script.json", "assets.json"]);
         return JSON.parse(fs.readFileSync(scriptFile, "utf8"));
       }
-      const s = await writeScript({ brief, brand, runDir, ledger, models, log });
+      const s = await writeScript({ brief, brand, runDir, brandDir, ledger, models, log });
       await sync.uploadRun(["script.json", "assets.json"]);
       return s;
     }, (s: any) => ({ scenes: s.scenes.length }))) ?? JSON.parse(fs.readFileSync(scriptFile, "utf8"));

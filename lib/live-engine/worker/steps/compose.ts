@@ -156,7 +156,7 @@ export function matchPromises({ script, assets, brandDir, log = () => {} }) {
   for (const p of pairs) if (!got.has(p.i) && !taken.has(p.f.a.id)) { got.set(p.i, p.f); taken.add(p.f.a.id); }
   script.scenes.forEach((sc, i) => {
     const had = holds(sc), f = got.get(i);
-    if (f) { if (had !== f.a.id) { sc.visual = { ...sc.visual, assets: [f.a.id] }; changes.push(`scene ${i + 1}: plays the input → result flow ${f.a.id} (typed ${JSON.stringify(f.typed.slice(0, 40))} → «${f.button}»)`); } return; }
+    if (f) { if (had !== f.a.id) { sc.visual = { ...sc.visual, assets: [f.a.id, ...(had ? (sc.visual.assets || []).filter((x) => x !== had && byId[x]?.kind === "live-screen") : [])] }; changes.push(`scene ${i + 1}: plays the input → result flow ${f.a.id} (typed ${JSON.stringify(f.typed.slice(0, 40))} → «${f.button}»)`); } return; }
     if (had) { // a flow it shouldn't play (navigation, or a better scene took it): its result screen instead
       const sid = had.replace(/-flow$/, ""), screen = byId[sid] && LIVE.test(byId[sid].kind) ? sid : null;
       const info = flowInfo(byId[had], brandDir), wrong = info.nav || !info.input || taken.has(had);
@@ -197,7 +197,7 @@ const INTENTS = {
   order: /\b(order\w*|checkout|buy|cart)\b|اطلب|يطلب|طلب|الدفع|السلة|شراء/i,
   write: /\b(type|write|enter)\b|اكتب|يكتب|أدخل|ادخل/i,
 };
-const intentsOf = (t) => new Set(Object.entries(INTENTS).filter(([, re]) => re.test(t)).map(([k]) => k));
+export const intentsOf = (t) => new Set(Object.entries(INTENTS).filter(([, re]) => re.test(t)).map(([k]) => k));
 /** how well a scene promises a flow: shared intents (a typed URL is the link intent), plus shared words with its button and result */
 function matchScore(sc, f) {
   const mine = intentsOf(sceneText(sc)), theirs = intentsOf(`${f.button} ${f.result}`);
@@ -387,7 +387,8 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
       let typeArg = "";
 
       if (recipe === "tour") { devHtml = win ? `${frameOpen}${deskUi(`u${n}`, r.ui)}${frameClose}` : `<div class="dev laptop" style="${devStyle}">${deskUi(`u${n}`, r.ui)}</div>`; call = `K.R.tour(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d},focus:${JSON.stringify(p.focus || sc._focus || [])}${popArg}${typeArg}});`; }
-      else if (recipe === "replay") { devHtml = `${win ? frameOpen : `<div class="dev laptop" style="${devStyle}">`}${deskUi(`u${n}a`, r.a)}${deskUi(`u${n}b`, r.b, true)}<div class="spin"></div><div class="ok">✓</div>${win ? frameClose : "</div>"}`; const tk = p.typeKey || (r.asset && flowInfo(r.asset, brandDir).typeKey); call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${tk ? `,typeKey:"${tk}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${popArg}${fake ? `,fake:${JSON.stringify(fake)}` : ""}});`; }
+      else if (recipe === "replay") { const then = (sc.visual?.assets || []).map((x) => (byId[x]?.kind === "live-phone" ? x.replace(/-phone$/, "") : x)).filter((x) => x !== r.b && /^live-(screen|phone)/.test(byId[x]?.kind || byId[`${x}-phone`]?.kind || "") && has(brandDir, x)).filter((x, k, l) => l.indexOf(x) === k).slice(0, 2);
+        devHtml = `${win ? frameOpen : `<div class="dev laptop" style="${devStyle}">`}${deskUi(`u${n}a`, r.a)}${deskUi(`u${n}b`, r.b, true)}${then.map((x, k) => deskUi(`u${n}c${k}`, x, true)).join("")}<div class="spin"></div><div class="ok">✓</div>${win ? frameClose : "</div>"}`; const tk = p.typeKey || (r.asset && flowInfo(r.asset, brandDir).typeKey); call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${tk ? `,typeKey:"${tk}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${then.length ? `,then:${JSON.stringify(then.map((_, k) => `#u${n}c${k}`))}` : popArg}${fake ? `,fake:${JSON.stringify(fake)}` : ""}});`; }
       else if (recipe === "phone") { devHtml = `<div class="dev phone" style="${devStyle}"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${phW - 40}" data-h="${phH - 60}" data-frame="none"></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${typeArg}});`; }
       else { const bh = win ? geo.h : Math.round(Math.min((loadClone(brandDir, r.ui)?.h || 400) * (lapW / (loadClone(brandDir, r.ui)?.w || 1)), H * 0.5)); devHtml = `<div class="glow"></div>${win ? `${frameOpen}<div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${geo.w}" data-h="${geo.h}" data-frame="none"></div>${frameClose}` : `<div class="dev block" style="${devStyle}"><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${lapW}" data-h="${bh}" data-frame="none"></div></div>`}`; call = `K.R.hero(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${typeArg}});`; }
       if (layout === "stack") { extra = chips.map((c, k) => `<div class="stackcard surface" style="top:${Math.round(geo.top + geo.h * 0.5 + k * 150)}px;inset-inline-${k % 2 ? "end" : "start"}:${SX + 40}px"><b>✓</b>${esc(c)}</div>`).join(""); co = ""; }
