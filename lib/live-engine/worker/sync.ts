@@ -101,8 +101,14 @@ export class Sync {
         const u = urls.find((x) => x.path === f.logical);
         if (!u) throw new Error(`no upload URL for ${f.logical}`);
         const body = fs.readFileSync(f.file);
-        const r = await fetch(u.url, { method: "PUT", headers: { "content-type": contentType(f.file), "x-upsert": "true" }, body });
-        if (!r.ok) throw new Error(`upload ${f.logical}: ${r.status} ${(await r.text()).slice(0, 200)}`);
+        // network blips must not lose a finished step: retry with backoff (a 4xx answer is final)
+        for (let attempt = 0; ; attempt++) {
+          const r = await fetch(u.url, { method: "PUT", headers: { "content-type": contentType(f.file), "x-upsert": "true" }, body }).catch((e: Error) => e);
+          if (!(r instanceof Error) && r.ok) break;
+          const why = r instanceof Error ? r.message : `${r.status} ${(await r.text()).slice(0, 200)}`;
+          if ((!(r instanceof Error) && r.status < 500 && r.status !== 429) || attempt >= 4) throw new Error(`upload ${f.logical}: ${why}`);
+          await new Promise((ok) => setTimeout(ok, 2000 * (attempt + 1)));
+        }
       }
     }
   }
@@ -155,7 +161,8 @@ export class Sync {
       for (const d of fs.readdirSync(abs, { withFileTypes: true })) {
         const r = `${rel}/${d.name}`;
         if (d.isDirectory()) walk(r);
-        else if (/\.(jpe?g|png|webp|gif|svg|ico|json|css|woff2?|ttf|otf)$/i.test(d.name)) out.push({ logical: `brand/${r}`, file: path.join(b, r) });
+        // storage keys must be plain ASCII: a file named after an Arabic page title stays in the packs only
+        else if (/\.(jpe?g|png|webp|gif|svg|ico|json|css|woff2?|ttf|otf)$/i.test(d.name) && /^[\w./ -]+$/.test(r)) out.push({ logical: `brand/${r}`, file: path.join(b, r) });
       }
     };
     folders.forEach(walk);
