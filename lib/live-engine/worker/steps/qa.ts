@@ -33,7 +33,24 @@ export async function inspect({ htmlFile, layout, script, runDir, tag }) {
     const label = `scene ${i + 1} (${s.purpose}, ${s.start}-${s.start + dur}s)`;
     if (!p.texts.length && !p.media) add("error", "blank", `${label}: nothing visible at ${t}s`, t);
     // composed scenes whose recipe shows no device by design (offer number, cta, hook, problem cards) are exempt
-    const noDevice = /\br-(stat|cta|hook|stack|type|pains|count|logo|none)\b/.test(await page.evaluate((n) => document.querySelector(`[data-scene="${n}"]`)?.className || "", i + 1).catch(() => ""));
+    const cls = await page.evaluate((n) => document.querySelector(`[data-scene="${n}"]`)?.className || "", i + 1).catch(() => "");
+    const noDevice = /\br-(stat|cta|hook|stack|type|pains|count|logo|none)\b/.test(cls);
+    // safe area: 80 px left/right, 140 px top/bottom at 1080×1920
+    const SX = Math.round((p.W * 80) / 1080), SY = Math.round((p.H * 140) / 1920), tol = 6;
+    for (const b of p.boxes) if (!/(^|\s)ph(\s|$)/.test(b.cls) && (b.x < SX - tol || b.y < SY - tol || b.x + b.w > p.W - SX + tol || b.y + b.h > p.H - SY + tol)) add("error", "unsafe", `${label}: ${b.sel} is outside the safe area at ${t}s (box ${Math.round(b.x)},${Math.round(b.y)} ${Math.round(b.w)}×${Math.round(b.h)})`, t);
+    if (p.broken) add("error", "broken-image", `${label}: ${p.broken} broken image(s) visible at ${t}s`, t);
+    // density: the main visual fills at least 60% of the safe area left by the text (phones: by height — their shape cannot fill a portrait frame by area)
+    if (/\bl-(device|split|card|stack|tiles)\b/.test(cls) || /\br-pains\b/.test(cls)) {
+      const clip = (b) => { const x0 = Math.max(SX, b.x), y0 = Math.max(SY, b.y), x1 = Math.min(p.W - SX, b.x + b.w), y1 = Math.min(p.H - SY, b.y + b.h); return x1 > x0 && y1 > y0 ? [x0, y0, x1, y1] : null; };
+      const vis = p.boxes.filter((b) => /(^|\s)(dev|pop|tile|stackcard|pains|ph)(\s|$)/.test(b.cls)).map(clip).filter(Boolean);
+      const text = p.boxes.filter((b) => /(^|\s)(head|card|cos)(\s|$)/.test(b.cls)).map(clip).filter(Boolean); // text and the chip row are not the visual
+      if (vis.length) {
+        const u = [Math.min(...vis.map((v) => v[0])), Math.min(...vis.map((v) => v[1])), Math.max(...vis.map((v) => v[2])), Math.max(...vis.map((v) => v[3]))];
+        const safe = (p.W - 2 * SX) * (p.H - 2 * SY), textA = text.reduce((a, v) => a + (v[2] - v[0]) * (v[3] - v[1]), 0), free = Math.max(1, safe - textA);
+        const area = ((u[2] - u[0]) * (u[3] - u[1])) / free, tall = (u[3] - u[1]) / Math.max(1, u[2] - u[0]) > 1.6, hShare = (u[3] - u[1]) / Math.max(1, p.H - 2 * SY - (text.length ? Math.max(...text.map((v) => v[3])) - SY : 0));
+        if (area < 0.6 && !(tall && hShare >= 0.75)) add("error", "sparse", `${label}: the main visual fills only ${Math.round(area * 100)}% of the free safe area at ${t}s`, t);
+      } else if (!noDevice) add("error", "sparse", `${label}: no main visual on screen at ${t}s`, t);
+    }
     if (!noDevice && (s.visual.assets || []).some((id) => liveIds.has(id)) && !p.clones) add("error", "no-live", `${label}: the script shows a live product screen here, but none is visible at ${t}s`, t);
     const seen = norm(p.texts.map((x) => x.text).join(""));
     const words = String(s.headline || "").split(/\s+/).filter((w) => norm(w).length > 1).slice(0, 3);

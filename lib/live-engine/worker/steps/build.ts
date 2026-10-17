@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { callTool } from "../claude";
 import { LAYOUTS } from "./script";
-import { applyOrder, compose, fingerprintOf, readHistory, recipeFor, resolveArt, uniqueness } from "./compose";
+import { applyOrder, compose, fingerprintOf, readHistory, recipeFor, repairAssets, resolveArt, uniqueness } from "./compose";
 import { artDirect } from "./artdirect";
 
 const ROLE_ORDER = { field: 0, button: 1, stat: 2, title: 3, tab: 4, part: 5, row: 6, chart: 7, image: 8, item: 9, nav: 10 };
@@ -31,6 +31,9 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
   log("▶ build (art direction + director + motion recipes)");
   const assets = JSON.parse(fs.readFileSync(path.join(runDir, "assets.json")));
   const byId = Object.fromEntries(assets.map((a) => [a.id, a]));
+
+  // 0. dead content: broken images in the live UI clones are replaced; thin blocks / dead clones change the scene's asset
+  if (repairAssets({ script, assets, brandDir, brand, log }).some((c) => c.startsWith("scene "))) fs.writeFileSync(path.join(runDir, "script.json"), JSON.stringify(script, null, 2));
 
   // 1. the look of this one video — kept on QA rebuilds and edits (a video keeps its look), new otherwise
   const artFile = path.join(runDir, "art.json"), ctx = { script, assets, brandDir, brand };

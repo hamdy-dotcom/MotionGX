@@ -32,7 +32,7 @@ export function recipeFor(scene, assetsById, brandDir, brand) {
 }
 
 /** the block of a screen worth lifting out toward the viewer: plan focus first, else the richest block (not the sidebar) */
-function popPart(brandDir, screenId, focus) {
+function popPart(brandDir, screenId, focus, maxW = 940) {
   const c = fs.existsSync(path.join(brandDir, "clones", `${screenId}.json`)) && JSON.parse(fs.readFileSync(path.join(brandDir, "clones", `${screenId}.json`), "utf8"));
   if (!c) return null;
   const inBox = (b, r) => b[0] >= r[0] - 4 && b[1] >= r[1] - 4 && b[0] + b[2] <= r[0] + r[2] + 4 && b[1] + b[3] <= r[1] + r[3] + 4;
@@ -43,8 +43,8 @@ function popPart(brandDir, screenId, focus) {
   for (const k of cands) {
     const id = `${screenId}-p${String(k.part).padStart(2, "0")}`;
     const f = path.join(brandDir, "clones", `${id}.json`); if (!fs.existsSync(f)) continue;
-    const pc = JSON.parse(fs.readFileSync(f, "utf8")); const w = 940, h = Math.round(pc.h * (w / pc.w));
-    if (h < 160 || h > 820) continue;
+    const pc = JSON.parse(fs.readFileSync(f, "utf8")); const w = maxW, h = Math.round(pc.h * (w / pc.w));
+    if (h < 300 || h > 820) continue; // a real block, never a thin strip
     return { id, w, h };
   }
   return null;
@@ -61,6 +61,72 @@ function headline(text, hi) {
 }
 
 /** the director may swap which asset a scene plays (a change request, or a QA retry): only one of the scene's own assets or another live asset */
+const loadClone = (brandDir, id) => { const f = path.join(brandDir, "clones", `${id}.json`); return id && fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : null; };
+
+/** the scene's words promise an input (type / paste / enter / search a link, URL, code…): which kind, or null */
+export function promised(sc) {
+  const t = `${sc.headline || ""} ${sc.sub || ""} ${sc.visual?.detail || ""}`.replace(/بدون كود|من غير كود|no[- ]code|without code/gi, "");
+  if (!/\b(type|types|typing|paste|pastes|enter|enters|search|searches|link|url|code)\b|اكتب|يكتب|تكتب|الصق|ألصق|لصق|حط اللينك|حط الرابط|أدخل|ادخل|دخّل|ابحث|بحث|رابط|لينك|كود|رمز/i.test(t)) return null;
+  if (/link|url|رابط|لينك/i.test(t)) return "link";
+  if (/\bcode\b|كود|رمز/i.test(t)) return "code";
+  if (/search|ابحث|بحث/i.test(t)) return "search";
+  return "text";
+}
+/** what to type for a promised input: a value the capture agent really typed when there is one, else a neutral sample */
+function sampleFor(intent, sc, brandDir) {
+  let typed = [];
+  try { for (const f of fs.readdirSync(path.join(brandDir, "clones"))) if (/-before\.json$/.test(f)) for (const m of fs.readFileSync(path.join(brandDir, "clones", f), "utf8").matchAll(/data-val=\\?"([^"\\]{2,80})\\?"/g)) typed.push(m[1]); } catch {}
+  typed = typed.filter((v) => !/^•+$/.test(v) && !/@/.test(v));
+  const url = (v) => /^(https?:\/\/|www\.)|\.[a-z]{2,}\//i.test(v);
+  if (intent === "link") return typed.find(url) || "https://shop.example.com/product/24816";
+  if (intent === "code") return typed.find((v) => /^\d{4,8}$/.test(v)) || "4829";
+  const quoted = String(sc.visual?.detail || "").match(/["“«']([^"”»']{2,40})["”»']/)?.[1];
+  return typed.find((v) => !url(v) && v.length <= 40) || quoted || String(sc.headline || "").split(/\s+/).slice(0, 2).join(" ");
+}
+
+/**
+ * Dead content, before anything is composed: images inside the live UI clones that are missing, empty or a tiny
+ * placeholder shown big are swapped for another captured brand image of the closest shape; a block too thin to fill a
+ * frame becomes its parent screen, zoomed to that block; a clone that still has dead images makes its scene use another
+ * live asset of the same kind. Patches the clones in place, changes scene assets in the script. Returns what changed.
+ */
+export function repairAssets({ script, assets, brandDir, brand, log = () => {} }) {
+  const byId = Object.fromEntries(assets.map((a) => [a.id, a])), changes = [];
+  const ok = (rel) => { const f = path.join(brandDir, rel); if (!fs.existsSync(f)) return false; const n = fs.statSync(f).size; return n >= 400 && (!/\.svg$/i.test(f) || /<svg/i.test(fs.readFileSync(f, "utf8").slice(0, 3000))); };
+  const pool = (brand.images || []).filter((im) => im.file && ok(im.file) && fs.statSync(path.join(brandDir, im.file)).size >= 4000 && im.w && im.h);
+  const dims = (attrs) => [+(/width:([\d.]+)px/.exec(attrs) || [])[1] || 0, +(/height:([\d.]+)px/.exec(attrs) || [])[1] || 0];
+  const fixClone = (id) => {
+    const f = path.join(brandDir, "clones", `${id}.json`); if (!fs.existsSync(f)) return { dead: 0 };
+    const c = JSON.parse(fs.readFileSync(f, "utf8")); let dead = 0, fixed = 0;
+    c.html = c.html.replace(/<img([^>]*?)src="\{\{B\}\}\/([^"]+)"([^>]*?)>/g, (whole, a1, rel, a2) => {
+      const [w, h] = dims(a1 + a2), big = w * h > 60000;
+      const placeholder = big && fs.existsSync(path.join(brandDir, rel)) && fs.statSync(path.join(brandDir, rel)).size < 2000; // an icon blown up on an empty block
+      if (ok(rel) && !placeholder) return whole;
+      const ar = w && h ? w / h : 1, alt = pool.sort((x, y) => Math.abs(x.w / x.h - ar) - Math.abs(y.w / y.h - ar))[0];
+      if (!alt) { if (big) dead++; return whole; }
+      fixed++; return `<img${a1}src="{{B}}/${alt.file}"${a2}>`;
+    });
+    if (fixed) { fs.writeFileSync(f, JSON.stringify(c)); changes.push(`${id}: ${fixed} dead image(s) replaced`); }
+    return { dead, c };
+  };
+  const used = new Set(script.scenes.flatMap((s) => s.visual?.assets || []));
+  script.scenes.forEach((sc, i) => {
+    const live = (sc.visual?.assets || []).filter((id) => byId[id] && LIVE.test(byId[id].kind)); if (!live.length) return;
+    const r = recipeFor(sc, byId, brandDir, brand), ids = [r.ui, r.a, r.b].filter(Boolean);
+    let dead = 0; for (const id of ids) dead += fixClone(id).dead;
+    // a UI block too thin to fill a frame: show its screen instead, zoomed to the block
+    if (r.recipe === "hero") { const c = loadClone(brandDir, r.ui), parent = String(r.ui).replace(/-p\d+$/, ""), part = String(r.ui).match(/-p(\d+)$/)?.[1];
+      if (c && c.w / Math.max(1, c.h) > 3.2 && parent !== r.ui && byId[parent] && loadClone(brandDir, parent)) { sc.visual = { ...sc.visual, assets: [parent] }; if (part != null) sc._focus = [`part:${+part}`]; changes.push(`scene ${i + 1}: thin block ${r.ui} → its screen ${parent}, zoomed to part ${+part}`); return; } }
+    if (dead) { // still dead images: another live asset of the same kind, unused in the video
+      const kind = byId[live[0]].kind, alt = assets.find((a) => a.kind === kind && !used.has(a.id) && recipeFor({ ...sc, visual: { ...sc.visual, assets: [a.id] } }, byId, brandDir, brand).recipe === r.recipe);
+      if (alt) { sc.visual = { ...sc.visual, assets: [alt.id] }; used.add(alt.id); changes.push(`scene ${i + 1}: ${live[0]} has ${dead} dead image(s) → ${alt.id}`); }
+      else changes.push(`scene ${i + 1}: ${live[0]} has ${dead} dead image(s), no other asset of its kind`);
+    }
+  });
+  if (changes.length) log(`  🩹 assets: ${changes.join(" · ")}`);
+  return changes;
+}
+
 const withAsset = (sc, p, byId) => (p.asset && byId[p.asset] && LIVE.test(byId[p.asset].kind) ? { ...sc, visual: { ...sc.visual, assets: [p.asset] } } : sc);
 
 // ─────────────────────────── the art-direction vocabulary ───────────────────────────
@@ -130,6 +196,7 @@ export function resolveArt(raw = {}, { script, assets, brandDir, brand }) {
     if (recipe === "count" && !numberIn(sc)) recipe = "type";
     let layout = pick(want.layout, LAYOUT_LIB.filter((l) => l !== "device" && l !== "stack"), "bigtype");
     if ((layout === "photo" || layout === "split") && !photos.length) layout = "bigtype";
+    if (recipe === "pains" && !["bigtype", "card"].includes(layout)) layout = "bigtype"; // large pain cards need the frame
     return { n, recipe, layout, image: layout === "photo" || layout === "split" ? photoFor(want.image, i) : null };
   });
   // the hook style shapes the opening scene (a live opening scene keeps its product screen)
@@ -169,16 +236,24 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
   const bg = P.background || "#0b0d12", ink = P.ink || "#fff", muted = P.muted || "#9aa0b4", primary = P.primary || "#3b82f6", accent = P.accent || primary, surface = P.surface || "#13161d";
   const grad = P.gradient || `linear-gradient(90deg, ${primary}, ${accent})`;
   const dark = (P.theme || "dark") === "dark";
-  const lapW = Math.min(W - 160, 920), lapH = Math.round(lapW * 10 / 16), lapLeft = Math.round((W - lapW) / 2);
-  const portrait = H > W, m = Math.round(W * 0.07);
-  const devTop = portrait ? 800 : 260, coTop = portrait ? 1560 : H - 150;
-  const phW = portrait ? 480 : 430, phH = portrait ? 960 : 860, phTop = portrait ? 700 : 120; // phone body (9:16: 480 px wide)
+  const portrait = H > W;
+  // the safe area (80 px left/right, 140 px top/bottom at 1080×1920): every text, chip, callout and device stays inside it
+  const SX = Math.round((W * 80) / 1080), SY = Math.round((H * 140) / 1920), m = SX;
+  const fitW = Math.floor((W - 2 * SX) / 1.03) - 8; // the widest visual (the visual layer pushes in by 3%)
+  // a laptop (with its wider base) where it fits the frame; at 9:16 desktop screens fill a browser window instead
+  const lapW = Math.min(920, Math.floor(fitW / 1.17)), lapH = Math.round(lapW * 10 / 16), lapLeft = Math.round((W - lapW) / 2);
+  const devTop = portrait ? 680 : 260, coTop = portrait ? 1560 : H - SY - 110;
+  const phW = portrait ? 480 : 430, phH = portrait ? 960 : 860, phTop = portrait ? 660 : 120; // phone body (9:16: 480 px wide)
+  const BAR = 44, winW = fitW; // browser window: a 44 px bar + the screen
+  const typedAll = {}; // promised-input samples per scene
   const T = art.typography, S = art.shapes, hlPx = Math.round((W / 11.5) * { xl: 1.22, l: 1, m: 0.84 }[T.size]);
   const url = (brand.site || "").replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
-  const scenes = [], calls = [], used = [];
+  const scenes = [], calls = [], used = [], paceWins = [];
 
   script.scenes.forEach((sc, i) => {
-    const n = i + 1, s = sc.start, d = sc.bars * 2, p = plan[n] || {}, id = `sc${n}`;
+    const n = i + 1, s = sc.start, d = sc.bars * 2, id = `sc${n}`;
+    // the director's focus ids, cleaned ("part:1 \"label\"" → "part:1")
+    const p = { ...(plan[n] || {}) }; if (Array.isArray(p.focus)) p.focus = p.focus.map((f) => String(f).match(/part:\d+|\bk\d+\b/)?.[0]).filter(Boolean);
     const a = art.scenes[i] || { recipe: "type", layout: "bigtype" };
     // the director may have swapped the asset (a change request / QA retry): the mechanics follow the asset, the layout must hold it
     const r = recipeFor(withAsset(sc, p, byId), byId, brandDir, brand);
@@ -196,23 +271,45 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
     let headStyle = "", headWrap = null, vis = "", extra = "", call = "", co = chips.length ? `<div class="cos">${chips.map((c) => chip(c)).join("")}</div>` : "";
 
     // ── device mechanics (live product screens) ──
-    let devStyle = "", devHtml = "";
+    const intent = promised(sc), sample = intent ? sampleFor(intent, sc, brandDir) : null;
+    let devStyle = "", devHtml = "", fake = "";
     if (DEVICE_RECIPES.includes(recipe)) {
-      const pop = (recipe === "tour" || recipe === "replay") && (d >= 3 || layout === "stack") ? popPart(brandDir, r.ui || r.b, p.focus) : null; // every laptop scene ≥ 3 s pops its best block
-      const popTop = layout === "split" ? Math.round(200 + lapH / 2 - (pop?.h || 0) / 2) : Math.round(devTop + 420 - (pop?.h || 0) / 2);
-      const popHtml = pop ? `<div class="pop" style="top:${popTop}px"><div id="p${n}" class="ui" data-clone="${pop.id}" data-w="${pop.w}" data-h="${pop.h}" data-frame="none"></div></div>` : "";
-      const popArg = pop ? `,pop:"#p${n}"` : "";
-      if (layout === "split") { // portrait: device on top, text under it · landscape: device left, text right
-        if (portrait) { const top = recipe === "phone" ? 110 : 200, hgt = recipe === "phone" ? phH : recipe === "hero" ? 700 : lapH + 40; devStyle = `top:${top}px;`; headStyle = `top:${top + hgt + 90}px;`; }
-        else { devStyle = `left:${m}px;top:${Math.round((H - (recipe === "phone" ? phH : lapH)) / 2)}px;`; headStyle = `left:${Math.round(W / 2 + m / 2)}px;top:${Math.round(H * 0.32)}px;`; }
+      const win = portrait && recipe !== "phone"; // 9:16: desktop screens and blocks in a full-width window
+      // where the device sits and how tall it is (inside the safe area, room for the headline above / the chips below)
+      const geo = (() => {
+        if (recipe === "phone") { const top = layout === "split" ? SY + 40 : phTop; return { top, h: phH, w: phW }; }
+        const room = H - SY - (chips.length ? 170 : 30) - devTop; // down to the chips row (or the safe bottom)
+        if (!portrait) return { top: layout === "split" ? Math.round((H - lapH) / 2) : devTop, h: recipe === "hero" ? Math.round(H * 0.5) : lapH + 30, w: lapW };
+        if (layout === "split") return { top: SY + 40, h: 900, w: winW }; // +40: the 3% push-in moves the top edge up
+        if (layout === "stack") return { top: devTop, h: room, w: winW - 60 }; // tilted ≤4°: w·cos + h·sin stays inside the safe width
+        return { top: devTop, h: room, w: winW };
+      })();
+      const left = Math.round((W - geo.w) / 2);
+      devStyle = `top:${geo.top}px;` + (win || recipe === "hero" ? `left:${left}px;width:${geo.w}px;height:${geo.h}px;` : "");
+      if (layout === "split") {
+        if (portrait) headStyle = `top:${geo.top + geo.h + 70}px;`;
+        else { devStyle = `left:${SX}px;top:${geo.top}px;`; headStyle = `left:${Math.round(W / 2 + SX / 2)}px;top:${Math.round(H * 0.32)}px;`; }
       }
-      if (recipe === "tour") { devHtml = `<div class="dev laptop" style="${devStyle}"><div id="u${n}" class="ui" data-clone="${r.ui}"></div></div>`; call = `K.R.tour(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d},focus:${JSON.stringify(p.focus || [])}${popArg}});`; }
-      else if (recipe === "replay") { devHtml = `<div class="dev laptop" style="${devStyle}"><div id="u${n}a" class="ui" data-clone="${r.a}"></div><div id="u${n}b" class="ui ui-after" data-clone="${r.b}"></div><div class="ok">✓</div></div>`; call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${p.typeKey ? `,typeKey:"${p.typeKey}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${popArg}});`; }
-      else if (recipe === "phone") { devHtml = `<div class="dev phone" style="${devStyle}"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${phW - 40}" data-h="${phH - 60}" data-frame="none"></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}});`; }
-      else { const c = JSON.parse(fs.readFileSync(path.join(brandDir, "clones", `${r.ui}.json`), "utf8")); const bh = Math.round(Math.min(c.h * (lapW / c.w), portrait ? 700 : H * 0.6)); devHtml = `<div class="glow"></div><div class="dev block" style="${devStyle}"><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${lapW}" data-h="${bh}" data-frame="none"></div></div>`; call = `K.R.hero(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}});`; }
-      if (layout === "stack") { devHtml = `<div class="tilt">${devHtml}</div>`; extra = chips.map((c, k) => `<div class="stackcard surface" style="top:${devTop + (recipe === "phone" ? phH - 220 : lapH - 60) + k * 150}px;inset-inline-${k % 2 ? "end" : "start"}:${m}px"><b>✓</b>${esc(c)}</div>`).join(""); co = ""; }
-      if (layout === "device") { co = chips.map((c, k) => chip(c, `position:absolute;z-index:8;top:${devTop + (portrait ? 70 + k * 330 : 40 + k * 200)}px;inset-inline-${k % 2 ? "end" : "start"}:${Math.round(m * 0.5)}px`)).join(""); } // floating callouts around the device
+      const uiH = win ? geo.h - (recipe === "hero" ? 0 : BAR) : null;
+      const pop = (recipe === "tour" || recipe === "replay") && (d >= 3 || layout === "stack") ? popPart(brandDir, r.ui || r.b, p.focus || sc._focus, Math.min(940, Math.floor(fitW / 1.06))) : null; // every desktop scene ≥ 3 s pops its best block
+      const popHtml = pop ? `<div class="pop" style="left:${Math.round((W - pop.w) / 2)}px;top:${Math.max(SY, Math.round(geo.top + geo.h / 2 - pop.h / 2))}px"><div id="p${n}" class="ui" data-clone="${pop.id}" data-w="${pop.w}" data-h="${pop.h}" data-frame="none"></div></div>` : "";
+      const popArg = pop ? `,pop:"#p${n}"` : "";
+      const frameOpen = win ? `<div class="dev win" style="${devStyle}">${recipe === "hero" ? "" : `<div class="wbar"><i></i><i></i><i></i></div>`}` : "", frameClose = win ? "</div>" : "";
+      const deskUi = (uid, cid, after = false) => (win ? `<div id="${uid}" class="ui${after ? " ui-after" : ""}" data-clone="${cid}" data-w="${geo.w}" data-h="${uiH}" data-frame="none"></div>` : `<div id="${uid}" class="ui${after ? " ui-after" : ""}" data-clone="${cid}" data-w="${lapW}"></div>`);
+      // a promised input: type into a real field of the screen, else into a field built in the brand's style
+      const fieldOf = (cid) => (loadClone(brandDir, cid)?.keys || []).find((k) => k.role === "field");
+      let typeArg = "";
+      if (intent && recipe !== "replay") { const fk = fieldOf(r.ui); if (fk) typeArg = `,typeKey:"${fk.k}"${fk.acted ? "" : `,typeText:${JSON.stringify(sample)}`}`; else { fake = sample; typeArg = `,fake:${JSON.stringify(sample)}`; } }
+      if (intent && recipe === "replay" && !fieldOf(r.a)) { fake = sample; typeArg = `,fake:${JSON.stringify(sample)}`; }
+      if (recipe === "tour") { devHtml = win ? `${frameOpen}${deskUi(`u${n}`, r.ui)}${frameClose}` : `<div class="dev laptop" style="${devStyle}">${deskUi(`u${n}`, r.ui)}</div>`; call = `K.R.tour(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d},focus:${JSON.stringify(p.focus || sc._focus || [])}${popArg}${typeArg}});`; }
+      else if (recipe === "replay") { devHtml = `${win ? frameOpen : `<div class="dev laptop" style="${devStyle}">`}${deskUi(`u${n}a`, r.a)}${deskUi(`u${n}b`, r.b, true)}<div class="ok">✓</div>${win ? frameClose : "</div>"}`; call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${p.typeKey ? `,typeKey:"${p.typeKey}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${popArg}${fake ? `,fake:${JSON.stringify(fake)}` : ""}});`; }
+      else if (recipe === "phone") { devHtml = `<div class="dev phone" style="${devStyle}"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${phW - 40}" data-h="${phH - 60}" data-frame="none"></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${typeArg}});`; }
+      else { const bh = win ? geo.h : Math.round(Math.min((loadClone(brandDir, r.ui)?.h || 400) * (lapW / (loadClone(brandDir, r.ui)?.w || 1)), H * 0.5)); devHtml = `<div class="glow"></div>${win ? `${frameOpen}<div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${geo.w}" data-h="${geo.h}" data-frame="none"></div>${frameClose}` : `<div class="dev block" style="${devStyle}"><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${lapW}" data-h="${bh}" data-frame="none"></div></div>`}`; call = `K.R.hero(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${typeArg}});`; }
+      if (layout === "stack") { devHtml = `<div class="tilt">${devHtml}</div>`; extra = chips.map((c, k) => `<div class="stackcard surface" style="top:${Math.round(geo.top + geo.h * 0.5 + k * 150)}px;inset-inline-${k % 2 ? "end" : "start"}:${SX + 40}px"><b>✓</b>${esc(c)}</div>`).join(""); co = ""; }
+      // callouts sit in a row under the device, inside the safe area — never on its edge
+      else if (chips.length && layout !== "split") co = `<div class="cos" style="top:${Math.min(H - SY - 130, geo.top + geo.h + 34)}px">${chips.map((c) => chip(c)).join("")}</div>`;
       if (layout === "card") headWrap = "card";
+      if (fake) extra += `<div class="fakefield surface" style="top:${Math.round(geo.top + (recipe === "phone" ? 120 : 70))}px"><span class="ff-ico">${intent === "link" ? "🔗" : intent === "search" ? "⌕" : "›"}</span><span class="ff-text"></span><span class="ff-caret"></span></div>`;
       vis = `<div class="vis">${devHtml}${popHtml}</div>`;
     } else if (recipe === "logo") {
       // ── the CTA style ──
@@ -227,7 +324,7 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
       call = `K.R.logo(tl,{sc:"#${id}",s:${s},d:${d}});`;
     } else {
       // ── scenes without a live screen ──
-      if (recipe === "pains") { const pains = (p.pains && p.pains.length ? p.pains : (/[+،,]/.test(sc.headline) ? sc.headline : String(sc.sub || sc.headline)).split(/[+،,]| و /).map((x) => x.trim()).filter(Boolean)).slice(0, 4); vis = `<div class="vis"><div class="pains">${pains.map((x) => `<div class="pain surface">${esc(x)}</div>`).join("")}</div><div class="xmark">✕</div></div>`; call = `K.R.pains(tl,{sc:"#${id}",s:${s},d:${d}});`; }
+      if (recipe === "pains") { co = ""; const pains = (p.pains && p.pains.length ? p.pains : (/[+،,]/.test(sc.headline) ? sc.headline : String(sc.sub || sc.headline)).split(/[+،,]| و /).map((x) => x.trim()).filter(Boolean)).slice(0, 4); vis = `<div class="vis"><div class="pains">${pains.map((x) => `<div class="pain surface">${esc(x)}</div>`).join("")}</div><div class="xmark"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></svg></div></div>`; call = `K.R.pains(tl,{sc:"#${id}",s:${s},d:${d}});`; }
       else if (recipe === "count") { const num = p.number || (String(sc.headline + " " + (sc.sub || "")).match(/[0-9٠-٩][0-9٠-٩٬,.]*/) || [""])[0]; vis = `<div class="vis"><div class="ring"></div><div class="ring"></div>${num ? `<div class="bignum">${esc(num)}</div>` : ""}</div>`; call = `K.R.count(tl,{sc:"#${id}",s:${s},d:${d}});`; }
       else { vis = i === 0 && logo && layout === "bigtype" ? `<div class="vis"><img class="biglogo" src="${logo}"></div>` : ""; call = `K.R.type(tl,{sc:"#${id}",s:${s},d:${d}});`; }
       if (layout === "card") headWrap = "card";
@@ -241,16 +338,26 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
         co = "";
       }
       if (layout === "ticker") {
-        const items = [...chips, ...(brand.features || []).map((f) => f.name), ...(brand.selling_points || [])].filter((x) => !rtl || /[؀-ۿ]/.test(x)).slice(0, 8);
-        const row = (k) => `<div class="tick" style="top:${(portrait ? 1180 : H * 0.62) + k * (portrait ? 190 : 120)}px"><div class="track">${[...items, ...items].map((x) => `<span class="ti surface">${esc(x)}</span>`).join("")}</div></div>`;
-        extra = items.length ? row(0) + row(1) : ""; co = "";
+        // whole short items (a name / a benefit), each its own chip, the logo between them — never a raw joined string
+        const short = (x) => x && x.length <= 26 && x.split(/\s+/).length <= 4;
+        const items = [...new Set([...chips, ...(brand.features || []).map((f) => f.name), ...(brand.selling_points || [])].map((x) => String(x || "").trim()))].filter((x) => short(x) && (!rtl || /[\u0600-\u06FF]/.test(x))).slice(0, 8);
+        const seq = items.flatMap((x, k) => [`<span class="ti surface">${esc(x)}</span>`, ...(logo && k % 2 === 1 ? [`<span class="ti logo surface"><img src="${logo}"></span>`] : [])]);
+        const est = items.reduce((a, x) => a + x.length * 26 + 110, 0) + (logo ? 160 * Math.floor(items.length / 2) : 0), reps = Math.max(1, Math.ceil((W * 1.2) / Math.max(1, est)));
+        const half = Array.from({ length: reps }, () => seq.join("")).join(""); // one half fills more than the frame; the track holds two halves (a seamless loop)
+        const row = (k) => `<div class="tick" style="top:${(portrait ? 1180 : H * 0.62) + k * (portrait ? 190 : 120)}px"><div class="track"><div class="half">${half}</div><div class="half">${half}</div></div></div>`;
+        extra = items.length >= 2 ? row(0) + row(1) : ""; co = "";
       }
+    }
+    if (intent && !DEVICE_RECIPES.includes(recipe) && recipe !== "logo") {
+      extra += `<div class="fakefield surface" style="top:${Math.round(portrait ? H * 0.56 : H * 0.6)}px"><span class="ff-ico">${intent === "link" ? "🔗" : intent === "search" ? "⌕" : "›"}</span><span class="ff-text"></span><span class="ff-caret"></span></div>`;
+      call += `\nK.R.fake(tl,"#${id}",${s + 0.9},${JSON.stringify(sample)});`;
     }
     const headHtml = headWrap === "card" ? `<div class="card surface"><div class="head inner">${headInner}</div></div>`
       : headWrap && headWrap.pre ? `<div class="card surface cta-card">${headWrap.pre}<div class="head inner">${headInner}</div>${headWrap.post}</div>`
       : `<div class="head"${headStyle ? ` style="${headStyle}"` : ""}>${headInner}</div>`;
     scenes.push(`<div class="scene l-${layout} r-${recipe}${cta ? ` cta-${cta}` : ""}" data-scene="${n}" id="${id}">${headHtml}${vis}${extra}${co}</div>`);
     calls.push(`K.R.layout(tl,"#${id}",${s},${s + d});\n${call}`);
+    paceWins.push([s, s + d, `#${id}`]);
   });
 
   const drops = [...new Set([...(script.music?.drops || []), ...script.scenes.filter((s) => ["reveal", "cta", "offer"].includes(s.purpose)).map((s) => s.start)])].filter((t) => t > 0 && t < script.length);
@@ -289,7 +396,7 @@ html,body{margin:0;background:${bg}}
 #bg .bgph{position:absolute;inset:0;overflow:hidden}#bg .bgph img{width:100%;height:100%;object-fit:cover}
 #bg .bgscrim{position:absolute;inset:0;background:${bg}d9}
 #bar{position:absolute;left:0;top:0;height:8px;width:100%;background:${grad};transform-origin:${rtl ? "right" : "left"};z-index:50}
-#mark{position:absolute;top:56px;${rtl ? "right" : "left"}:64px;height:64px;z-index:40;visibility:hidden}
+#mark{position:absolute;top:${SY}px;${rtl ? "right" : "left"}:${SX}px;height:60px;z-index:40;visibility:hidden}
 .scene{position:absolute;inset:0;visibility:hidden;opacity:0}
 .surface{background:${S.glass ? `${surface}8c` : surface};border:${S.border ? `2px solid ${ink}26` : "0"};box-shadow:${shadow};border-radius:var(--r);${S.glass ? "backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);" : ""}}
 .head{position:absolute;left:${m}px;right:${m}px;top:${portrait ? 300 : 80}px;text-align:${T.align}}
@@ -304,19 +411,24 @@ ${hiCss}
 .dev{position:absolute}
 .laptop{left:${lapLeft}px;top:${devTop}px;width:${lapW}px;height:${lapH}px}
 .laptop .ui{position:absolute;left:0;top:0}
+.win{border-radius:var(--r);overflow:hidden;background:${surface};box-shadow:0 40px 120px rgba(0,0,0,.45),0 0 0 2px ${ink}1a}
+.win .wbar{height:${BAR}px;display:flex;align-items:center;gap:10px;padding:0 18px;background:${surface};border-bottom:1px solid ${ink}14}.win .wbar i{width:13px;height:13px;border-radius:50%;background:${ink}33}
+.win .ui{position:absolute;left:0;top:${BAR}px}.win:not(:has(.wbar)) .ui{top:0}
+.fakefield{position:absolute;left:${SX + 30}px;right:${SX + 30}px;height:118px;display:flex;align-items:center;gap:22px;padding:0 34px;font-size:42px;font-weight:600;color:${ink};z-index:9;opacity:0;direction:ltr;box-shadow:0 24px 70px rgba(0,0,0,.4),0 0 0 3px ${primary}}
+.fakefield .ff-ico{font-size:44px;opacity:.8}.fakefield .ff-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fakefield .ff-caret{width:3px;height:52px;background:${primary};margin-inline-start:-14px}
 .ui-after{visibility:hidden}
 .tilt{position:absolute;inset:0;transform-origin:50% 60%}
 .pop{position:absolute;left:${Math.round((W - 940) / 2)}px;opacity:0;z-index:6}
 .pop .ui{border-radius:var(--r);background:${surface};box-shadow:0 50px 140px rgba(0,0,0,.65),0 0 0 3px ${primary}88}
-.ok{position:absolute;${rtl ? "left" : "right"}:-30px;top:-40px;width:110px;height:110px;border-radius:50%;background:${grad};color:#fff;font:800 64px/110px sans-serif;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45);opacity:0;z-index:5}
+.ok{position:absolute;${rtl ? "left" : "right"}:18px;top:18px;width:110px;height:110px;border-radius:50%;background:${grad};color:#fff;font:800 64px/110px sans-serif;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45);opacity:0;z-index:5}
 .phone{left:${Math.round((W - phW) / 2)}px;top:${phTop}px;width:${phW}px;height:${phH}px;border-radius:64px;background:#0a0a0c;box-shadow:0 0 0 3px #3a3d45,0 0 0 9px #16171b,0 60px 140px rgba(0,0,0,.6)}
 .phone .ui{position:absolute;left:20px;top:30px;border-radius:40px;overflow:hidden;background:#fff}
 .phone .notch{position:absolute;left:50%;top:14px;width:130px;height:30px;margin-left:-65px;border-radius:20px;background:#000;z-index:3}
 .block{left:${lapLeft}px;top:${portrait ? 760 : 220}px}
 .block .ui{position:relative;border-radius:var(--r);background:${surface};box-shadow:0 40px 120px rgba(0,0,0,.5),0 0 0 2px ${primary}33}
 .glow{position:absolute;left:50%;top:${portrait ? 1050 : 520}px;width:800px;height:800px;margin:-400px 0 0 -400px;border-radius:50%;background:radial-gradient(${primary}55,transparent 65%);opacity:.6}
-.cos{position:absolute;left:60px;right:60px;top:${coTop}px;display:flex;flex-wrap:wrap;gap:22px;justify-content:center}
-.co{padding:20px 34px;font-size:38px;font-weight:700;white-space:nowrap}
+.cos{position:absolute;left:${SX}px;right:${SX}px;top:${coTop}px;display:flex;flex-wrap:nowrap;gap:22px;justify-content:center;font-size:38px}
+.co{padding:.52em .9em;font-size:1em;font-weight:700;white-space:nowrap}
 .r-phone .cos{top:${portrait ? phTop + phH + 30 : H - 150}px}
 .co b,.stackcard b{color:${primary};margin-inline-end:12px}
 .stackcard{position:absolute;z-index:7;padding:26px 38px;font-size:40px;font-weight:800;opacity:0}
@@ -328,20 +440,21 @@ ${hiCss}
 .head,.card{z-index:4}.cos,.co{z-index:5}.scrim{z-index:1}.vis{z-index:2}
 .ph.half{bottom:auto;height:${portrait ? Math.round(H * 0.5) : H}px;${portrait ? "" : `width:${Math.round(W / 2)}px;`}border-radius:0 0 var(--r) var(--r)}
 .scrim{position:absolute;inset:0;background:linear-gradient(to top,${bg} 0%,${bg}ee 30%,${bg}99 46%,${bg}00 70%)}
-.l-photo .head{top:${portrait ? Math.round(H * 0.67) : Math.round(H * 0.55)}px}.l-photo .cos{top:${portrait ? 1680 : H - 140}px}
+.l-photo .head{top:${portrait ? Math.round(H * 0.67) : Math.round(H * 0.55)}px}.l-photo .cos{top:${portrait ? H - SY - 130 : H - SY - 110}px}
 .l-split:not(.r-tour):not(.r-replay):not(.r-phone):not(.r-hero) .head{top:${portrait ? Math.round(H * 0.56) : Math.round(H * 0.3)}px${portrait ? "" : `;left:${Math.round(W / 2 + m / 2)}px`}}
-.l-bigtype .head{top:${portrait ? Math.round(H * 0.36) : Math.round(H * 0.3)}px}.l-bigtype .hl{font-size:${Math.round(hlPx * 1.3)}px}
+.l-bigtype .head{top:${portrait ? Math.round(H * 0.36) : Math.round(H * 0.3)}px;left:${SX + 24}px;right:${SX + 24}px}.l-bigtype .hl{font-size:${Math.round(hlPx * 1.3)}px}
 .l-bigtype.r-count .head,.l-bigtype.r-pains .head{top:${portrait ? 360 : 90}px}.l-bigtype.r-count .hl,.l-bigtype.r-pains .hl{font-size:${hlPx}px}
 .tiles{position:absolute;left:${m}px;right:${m}px;top:${portrait ? 760 : Math.round(H * 0.42)}px;display:grid;grid-template-columns:1fr 1fr;gap:26px}
 .tile{height:${portrait ? 400 : 240}px;overflow:hidden;opacity:0}.tile img{width:100%;height:100%;object-fit:cover;object-position:top}
 .tile.txt{display:flex;align-items:center;justify-content:center;padding:30px;font-size:44px;font-weight:800;text-align:center;line-height:1.3}
-.tick{position:absolute;left:0;right:0;overflow:hidden;direction:ltr}.track{display:flex;gap:26px;width:max-content}
-.ti{padding:26px 44px;font-size:46px;font-weight:800;white-space:nowrap;direction:${rtl ? "rtl" : "ltr"}}
+.tick{position:absolute;left:${SX}px;right:${SX}px;overflow:hidden;direction:ltr}.track{display:flex;width:max-content}.track .half{display:flex;gap:26px;padding-inline-end:26px}
+.ti{flex:none;padding:26px 44px;font-size:46px;font-weight:800;white-space:nowrap;direction:${rtl ? "rtl" : "ltr"}}.ti.logo{padding:18px 36px;display:flex;align-items:center}.ti.logo img{height:64px}
 .l-ticker .head{top:${portrait ? 520 : 120}px}
 .r-type.l-bigtype .biglogo{position:absolute;left:50%;top:${portrait ? 330 : 60}px;height:150px;transform:translateX(-50%)}
-.pains{position:absolute;left:120px;right:120px;top:${portrait ? 1000 : 520}px;display:flex;flex-direction:column;gap:26px;align-items:center}
-.pain{padding:28px 44px;border-color:#ef444466;font-size:46px;font-weight:700;color:${ink}}
-.xmark{position:absolute;left:50%;top:${portrait ? 1180 : 600}px;margin-left:-110px;width:220px;height:220px;border-radius:50%;background:#ef4444;color:#fff;font:900 150px/220px sans-serif;text-align:center;opacity:0}
+.pains{position:absolute;left:${SX + 16}px;right:${SX + 16}px;top:${portrait ? 760 : Math.round(H * 0.42)}px;bottom:${SY + 20}px;display:flex;flex-direction:column;justify-content:center;gap:24px}
+.l-card .pains{top:${portrait ? 720 : Math.round(H * 0.45)}px}
+.pain{flex:1;max-height:${portrait ? 420 : 260}px;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 48px;border-color:#ef444466;font-size:${Math.round(W / 17)}px;font-weight:800;line-height:1.3;color:${ink}}
+.xmark{position:absolute;left:50%;top:${portrait ? 1180 : 600}px;margin-left:-110px;width:220px;height:220px;border-radius:50%;background:#ef4444;opacity:0;z-index:6;display:flex;align-items:center;justify-content:center}.xmark svg{width:130px;height:130px}
 .bignum{position:absolute;left:0;right:0;top:${portrait ? 820 : 360}px;text-align:center;font-family:${disp};font-weight:900;font-size:${Math.round(W / 3.2)}px;line-height:1;background:${grad};-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 .ring{position:absolute;left:50%;top:${portrait ? 990 : 470}px;width:520px;height:520px;margin:-260px 0 0 -260px;border-radius:50%;border:6px solid ${primary}}
 .r-logo .head{top:${portrait ? 820 : 260}px}
@@ -352,8 +465,8 @@ ${hiCss}
 .url{position:absolute;left:0;right:0;top:${portrait ? 1450 : 700}px;text-align:center;font-size:44px;color:${muted};direction:ltr}
 .url.big{top:${portrait ? 1100 : 520}px;font-family:${disp};font-weight:900;font-size:${Math.round(W / 9)}px;color:${ink}}
 .cta-big-url .biglogo{top:${portrait ? 300 : 40}px!important;height:130px!important}.cta-big-url .head{top:${portrait ? 560 : 220}px}
-.cta-split-photo .biglogo{top:${portrait ? Math.round(H * 0.52) : 80}px!important;height:140px!important}.cta-split-photo .head{top:${portrait ? Math.round(H * 0.61) : 300}px}
-.cta-split-photo .cta-btn{top:${portrait ? Math.round(H * 0.78) : 620}px}.cta-split-photo .url{top:${portrait ? Math.round(H * 0.88) : 780}px}
+.cta-split-photo .biglogo{top:${portrait ? Math.round(H * 0.51) : 80}px!important;height:120px!important}.cta-split-photo .head{top:${portrait ? Math.round(H * 0.58) : 300}px}
+.cta-split-photo .cta-btn{top:${portrait ? Math.round(H * 0.73) : 620}px}.cta-split-photo .url{top:${portrait ? Math.round(H * 0.82) : 760}px}
 .cta-type-only .head{top:${portrait ? Math.round(H * 0.34) : 200}px}.cta-type-only .hl{font-size:${Math.round(hlPx * 1.35)}px}.cta-type-only .url{top:${portrait ? Math.round(H * 0.62) : 700}px;font-size:56px;color:${ink}}`;
 
   const html = `<!doctype html><html><head><meta charset="utf-8">
@@ -371,6 +484,7 @@ K.R.len = ${script.length}; K.R.tx = ${JSON.stringify(art.transition)}; K.R.temp
 K.R.bg(tl, ${script.length}, ${JSON.stringify(drops)});
 ${logo ? `K.R.mark(tl, ${script.scenes[0].bars * 2}, ${script.scenes.at(-1).start});` : ""}
 ${calls.join("\n")}
+K.R.pace(tl, ${JSON.stringify(paceWins)}); // no scene goes more than 3 s without visible movement
 K.done(tl, ${script.length});
 // once the fonts are in: shrink any text that would run off the frame, move badges off the headline
 window.__ready = Promise.resolve(window.__ready).then(() => K.R.fit()).then(() => true);
