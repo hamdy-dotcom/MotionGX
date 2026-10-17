@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { callTool } from "../claude";
 import { LAYOUTS } from "./script";
+import { compose, recipeFor } from "./compose";
 
 const ROLE_ORDER = { field: 0, button: 1, stat: 2, title: 3, tab: 4, part: 5, row: 6, chart: 7, image: 8, item: 9, nav: 10 };
 const loadClone = (brandDir, id) => { const f = path.join(brandDir, "clones", `${id}.json`); return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : null; };
@@ -16,7 +17,50 @@ const keyList = (c, n = 40) => [...c.keys].sort((a, b) => (a.acted ? -1 : 0) - (
   .map((k) => `${k.k} ${k.role}${k.part != null ? " part:" + k.part : ""}${k.acted ? " ACTED:" + k.acted : ""} "${k.text}" [${k.box.join(",")}]`);
 const liveInfo = (c, n) => ({ clone: c.id, size: [c.w, c.h], dir: c.dir, keys: keyList(c, n) });
 
-export async function buildVideo({ brief, brand, script, runDir, brandDir, ledger, models, fixIssues, log = console.log }) {
+export async function buildVideo(args) {
+  // default: the director plans each scene, code composes it from tested motion recipes (alive by construction).
+  // brief.composer = "freeform" keeps the old path where the model writes the whole GSAP file.
+  if (args.brief.composer !== "freeform") return directAndCompose(args);
+  return buildFreeform(args);
+}
+
+/** a cheap director call picks what each scene shows; compose() writes the motion */
+async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger, models, fixIssues, log = console.log }) {
+  log("▶ build (director + motion recipes)");
+  const assets = JSON.parse(fs.readFileSync(path.join(runDir, "assets.json")));
+  const byId = Object.fromEntries(assets.map((a) => [a.id, a]));
+  const scenes = script.scenes.map((sc, i) => {
+    const r = recipeFor(sc, byId, brandDir, brand);
+    const out = { n: i + 1, purpose: sc.purpose, recipe: r.recipe, headline: sc.headline, sub: sc.sub || "", detail: sc.visual?.detail || "" };
+    const cid = r.ui || r.b; const c = cid && loadClone(brandDir, cid);
+    if (c) out.regions = c.keys.filter((k) => k.part != null && k.text).slice(0, 8).map((k) => `part:${k.part} "${k.text.slice(0, 50)}"`);
+    if (r.recipe === "replay") { const b = loadClone(brandDir, r.a); if (b) out.action = b.action; }
+    return out;
+  });
+  const tool = { name: "plan", description: "What each scene shows", input_schema: { type: "object", required: ["scenes"], properties: { scenes: { type: "array", items: { type: "object", required: ["n"], properties: {
+    n: { type: "integer" },
+    highlight: { type: "string", description: "ONE word copied exactly from the headline that carries the promise (gets the brand gradient)" },
+    callouts: { type: "array", items: { type: "string" }, description: "0-2 short benefit chips (max 4 words each) in the headline's dialect, only facts visible on that screen or in the brand facts" },
+    pains: { type: "array", items: { type: "string" }, description: "problem scenes only: 2-4 pain cards, max 3 words each" },
+    focus: { type: "array", items: { type: "string" }, description: "tour/replay scenes: up to 2 region ids from that scene's regions that best prove the headline, most important first" },
+    number: { type: "string", description: "offer scenes: the number to count up, copied from the headline/sub" },
+    button: { type: "string", description: "cta scene: button text, max 3 words" },
+  } } } } } };
+  let plan = {};
+  try {
+    const out = await callTool({ ledger, step: "direct", model: models.qa || models.script, maxTokens: 3000, tool, content: `BRAND: ${JSON.stringify({ name: brand.name, name_ar: brand.name_ar, selling_points: brand.selling_points, voice: brand.voice })}\n\nSCENES:\n${JSON.stringify(scenes, null, 1)}`,
+      system: "You direct a motion-graphics ad. For each scene pick the highlight word, short benefit chips, pain cards, camera focus regions, the offer number and the button text. Copy words exactly; never invent numbers or features. Arabic stays in the same dialect as the headlines." });
+    for (const p of out.scenes || []) plan[p.n] = p;
+  } catch (e) { log(`  ! director failed (${e.message}) — composing with defaults`); }
+  fs.writeFileSync(path.join(runDir, "plan.json"), JSON.stringify(plan, null, 2));
+  const { html, recipes } = compose({ brief, brand, script, assets, plan, brandDir, runDir });
+  fs.writeFileSync(path.join(runDir, "video.src.html"), html);
+  const info = embedClones({ runDir, brandDir, layout: brief.layout });
+  log(`✓ build: ${recipes.length} scenes composed (${recipes.join(" · ")}) · ${info.count} live screens embedded${info.missing.length ? ` · missing: ${info.missing.join(", ")}` : ""}`);
+  return path.join(runDir, "video.html");
+}
+
+async function buildFreeform({ brief, brand, script, runDir, brandDir, ledger, models, fixIssues, log = console.log }) {
   log("▶ build");
   const [W, H] = LAYOUTS[brief.layout] || LAYOUTS["9:16"];
   const rel = (p) => path.relative(runDir, path.join(brandDir, p)).split(path.sep).join("/");
@@ -115,7 +159,7 @@ export function embedClones({ runDir, brandDir, layout }) {
     const laptop = (attr(whole, "data-frame") || (c.w >= 1000 && !/-p\d+$/.test(cid) ? "laptop" : "none")) === "laptop";
     const w = Math.round(+attr(whole, "data-w") || (laptop ? Math.min(W - 160, 920) : W * 0.88)), s = w / c.w;
     const h = Math.round(laptop ? w * 10 / 16 : +attr(whole, "data-h") || Math.min(c.h * s, H * 0.72));
-    if (!meta[cid]) { const keys = {}, parts = {}; for (const k of c.keys) { keys[k.k] = k.box; if (k.part != null) parts[k.part] = k.box; } meta[cid] = { w: c.w, h: c.h, keys, parts }; }
+    if (!meta[cid]) { const keys = {}, parts = {}, info = {}; for (const k of c.keys) { keys[k.k] = k.box; info[k.k] = [k.role, k.acted || "", k.text || ""]; if (k.part != null) parts[k.part] = k.box; } meta[cid] = { w: c.w, h: c.h, keys, parts, info }; }
     let open = whole.replace(/\/>$/, ">").replace(`data-clone="${id}"`, `data-clone="${cid}" data-scale="${s.toFixed(5)}" data-vw="${w}" data-vh="${h}"`);
     const style = attr(open, "style");
     const force = `width:${w}px;height:${h}px;overflow:${laptop ? "visible" : "hidden"};${laptop ? "border:0;box-shadow:none;background:transparent;border-radius:0;" : ""}`;

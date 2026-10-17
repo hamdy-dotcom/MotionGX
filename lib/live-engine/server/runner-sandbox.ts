@@ -62,6 +62,7 @@ export async function startSandbox(job: JobFile, attempt: number): Promise<{ san
     { path: `${APP}/inpage.js`, content: fs.readFileSync(path.join(worker, "inpage.js")) },
     { path: `${APP}/vendor/gsap.min.js`, content: fs.readFileSync(path.join(worker, "vendor", "gsap.min.js")) },
     { path: `${APP}/vendor/kit.js`, content: fs.readFileSync(path.join(worker, "vendor", "kit.js")) },
+    { path: `${APP}/vendor/recipes.js`, content: fs.readFileSync(path.join(worker, "vendor", "recipes.js")) },
     { path: `${APP}/job.json`, content: JSON.stringify(job) },
   ]);
   await sb.runCommand({ cmd: "node", args: ["worker.mjs", "job.json", `/tmp/live/a${attempt}`], cwd: APP, detached: true });

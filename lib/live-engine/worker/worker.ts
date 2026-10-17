@@ -18,7 +18,7 @@ async function main() {
   const brandDir = path.join(root, "brands", job.slug);
   const runDir = path.join(root, "runs", job.runId);
   for (const d of [brandDir, runDir, path.join(root, "vendor")]) fs.mkdirSync(d, { recursive: true });
-  for (const f of ["gsap.min.js", "kit.js"]) fs.copyFileSync(path.join(here, "vendor", f), path.join(root, "vendor", f));
+  for (const f of ["gsap.min.js", "kit.js", "recipes.js"]) fs.copyFileSync(path.join(here, "vendor", f), path.join(root, "vendor", f));
   if (job.settings && (job.settings.phone || job.settings.email)) fs.writeFileSync(path.join(root, ".sandbox-settings.json"), JSON.stringify(job.settings, null, 2));
   const sync = new Sync(job, { root, brandDir, runDir });
   try {
