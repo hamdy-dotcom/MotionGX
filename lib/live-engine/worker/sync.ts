@@ -124,30 +124,46 @@ export class Sync {
   }
 
   /** upload files: logical paths → signed upload URLs from the app → PUT */
-  async upload(files: { logical: string; file: string }[]) {
+  /**
+   * upload files: logical paths → signed upload URLs from the app → PUT, up to 6 at once (each with retry/backoff).
+   * One log line per phase: "upload: N files, X MB, Y s".
+   */
+  async upload(files: { logical: string; file: string }[], phase = "files") {
     if (!files.length) return;
+    const t0 = Date.now();
+    let bytes = 0;
     for (let i = 0; i < files.length; i += 40) {
       const batch = files.slice(i, i + 40);
       const { urls } = await this.post<{ urls: { path: string; url: string }[] }>({ type: "upload", paths: batch.map((f) => f.logical) });
-      for (const f of batch) {
+      const jobs = batch.map((f) => {
         const u = urls.find((x) => x.path === f.logical);
         if (!u) throw new Error(`no upload URL for ${f.logical}`);
-        const body = fs.readFileSync(f.file);
-        // network blips must not lose a finished step: retry with backoff (a 4xx answer is final)
-        for (let attempt = 0; ; attempt++) {
-          const r = await fetch(u.url, { method: "PUT", headers: { "content-type": contentType(f.file), "x-upsert": "true" }, body }).catch((e: Error) => e);
-          if (!(r instanceof Error) && r.ok) break;
-          const why = r instanceof Error ? r.message : `${r.status} ${(await r.text()).slice(0, 200)}`;
-          if ((!(r instanceof Error) && r.status < 500 && r.status !== 429) || attempt >= 4) throw new Error(`upload ${f.logical}: ${why}`);
-          await new Promise((ok) => setTimeout(ok, 2000 * (attempt + 1)));
+        return { f, url: u.url };
+      });
+      let next = 0;
+      const worker = async () => {
+        while (next < jobs.length) {
+          const { f, url } = jobs[next++];
+          const body = fs.readFileSync(f.file);
+          bytes += body.length;
+          // network blips must not lose a finished step: retry with backoff (a 4xx answer is final)
+          for (let attempt = 0; ; attempt++) {
+            const r = await fetch(url, { method: "PUT", headers: { "content-type": contentType(f.file), "x-upsert": "true" }, body }).catch((e: Error) => e);
+            if (!(r instanceof Error) && r.ok) break;
+            const why = r instanceof Error ? r.message : `${r.status} ${(await r.text()).slice(0, 200)}`;
+            if ((!(r instanceof Error) && r.status < 500 && r.status !== 429) || attempt >= 4) throw new Error(`upload ${f.logical}: ${why}`);
+            await new Promise((ok) => setTimeout(ok, 2000 * (attempt + 1)));
+          }
         }
-      }
+      };
+      await Promise.all(Array.from({ length: Math.min(6, jobs.length) }, worker));
     }
+    this.log(`  upload (${phase}): ${files.length} files, ${(bytes / 1048576).toFixed(1)} MB, ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   }
 
   /** upload run files by name (relative to runDir) that exist */
   uploadRun(names: string[]) {
-    return this.upload(names.filter((n) => fs.existsSync(path.join(this.dirs.runDir, n))).map((n) => ({ logical: `run/${n}`, file: path.join(this.dirs.runDir, n) })));
+    return this.upload(names.filter((n) => fs.existsSync(path.join(this.dirs.runDir, n))).map((n) => ({ logical: `run/${n}`, file: path.join(this.dirs.runDir, n) })), `run: ${names.join(", ")}`);
   }
 
   /** pack brand folders (one .tgz per top-level folder, split above 45 MB) + top-level files; auth.json goes private */
@@ -178,27 +194,37 @@ export class Sync {
     }
     for (const f of files) if (fs.existsSync(path.join(b, f))) out.push({ logical: `brand/${f}`, file: path.join(b, f) });
     if (!onlyFolders && fs.existsSync(path.join(b, "auth.json"))) out.push({ logical: "private/auth.json", file: path.join(b, "auth.json") });
-    await this.upload(out);
+    await this.upload(out, onlyFolders ? `brand packs: ${onlyFolders.join(", ")}` : "brand packs");
     fs.rmSync(tmp, { recursive: true, force: true });
     return out.map((o) => o.logical);
   }
 
-  /** the brand files the app shows ("ملفات البراند"): every file under these folders, one by one (the packs stay the resume copy) */
-  async uploadBrandFiles(folders: string[]) {
+  /**
+   * The files the app shows, one by one (the packs stay the resume copy): the brand-files panel (logo, screen previews,
+   * UI-block previews, image library, the agent's step screenshots + trace) and the brand card's homepage hero (its
+   * live UI clone, fonts.css and the assets that clone uses). Nothing else.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async uploadDisplay(brand: any, manifest: any) {
     const b = this.dirs.brandDir;
-    const out: { logical: string; file: string }[] = [];
-    const walk = (rel: string) => {
-      const abs = path.join(b, rel);
-      if (!fs.existsSync(abs)) return;
-      for (const d of fs.readdirSync(abs, { withFileTypes: true })) {
-        const r = `${rel}/${d.name}`;
-        if (d.isDirectory()) walk(r);
-        // storage keys must be plain ASCII: a file named after an Arabic page title stays in the packs only
-        else if (/\.(jpe?g|png|webp|gif|svg|ico|json|css|woff2?|ttf|otf)$/i.test(d.name) && /^[\w./ -]+$/.test(r)) out.push({ logical: `brand/${r}`, file: path.join(b, r) });
-      }
-    };
-    folders.forEach(walk);
-    await this.upload(out);
+    const rels = new Set<string>();
+    const add = (r?: string | null) => r && rels.add(r);
+    add(brand?.logo?.file);
+    for (const s of brand?.screens ?? []) add(s.view);
+    for (const p of brand?.parts ?? []) add(p.file);
+    for (const im of brand?.images ?? []) add(im.file);
+    const agent = path.join(b, "agent");
+    if (fs.existsSync(agent)) for (const f of fs.readdirSync(agent)) if (/^\d+\.jpg$|^trace\.json$/.test(f)) add(`agent/${f}`);
+    const hero = manifest?.pages?.[0]?.clones?.screen?.file;
+    if (hero && fs.existsSync(path.join(b, hero))) {
+      add(hero);
+      add("clones/fonts.css");
+      const used = fs.readFileSync(path.join(b, hero), "utf8") + (fs.existsSync(path.join(b, "clones/fonts.css")) ? fs.readFileSync(path.join(b, "clones/fonts.css"), "utf8") : "");
+      for (const m of used.matchAll(/\{\{B\}\}\/([^"'()\s\\]+)/g)) add(m[1]);
+    }
+    // storage keys must be plain ASCII: a file named after an Arabic page title stays in the packs only
+    const out = [...rels].filter((r) => /^[\w./ -]+$/.test(r) && fs.existsSync(path.join(b, r))).map((r) => ({ logical: `brand/${r}`, file: path.join(b, r) }));
+    await this.upload(out, "brand files");
     return out.length;
   }
 

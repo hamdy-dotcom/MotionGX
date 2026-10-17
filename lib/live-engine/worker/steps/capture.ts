@@ -59,7 +59,9 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   async function savePage(label, extra = {}) {
     const id = `${String(++seq).padStart(2, "0")}-${slugify(label)}`;
     await autoscroll();
-    await page.screenshot({ path: path.join(brandDir, "screens", `${id}.full.png`), fullPage: true });
+    // screenshots are previews only (videos use the live UI clones): JPEG q80, full pages capped at 4000 px tall
+    const docH = await page.evaluate(() => document.documentElement.scrollHeight).catch(() => 4000);
+    await page.screenshot({ path: path.join(brandDir, "screens", `${id}.full.jpg`), type: "jpeg", quality: 80, fullPage: true, clip: { x: 0, y: 0, width: page.viewportSize().width, height: Math.max(1, Math.min(docH, 4000)) } });
     await page.screenshot({ path: path.join(brandDir, "screens", `${id}.view.jpg`), type: "jpeg", quality: 70 });
     fs.writeFileSync(path.join(brandDir, "html", `${id}.html`), await page.content());
     const probe = await inPage(page, "PROBE");
@@ -79,10 +81,10 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
     const regions = await inPage(page, "REGIONS").catch(() => []);
     const objs = await inPage(page, "OBJECTS").catch(() => []);
     for (const r of regions) {
-      const pid = `${id}-p${String(r.i).padStart(2, "0")}`, file = `parts/${pid}.png`;
+      const pid = `${id}-p${String(r.i).padStart(2, "0")}`, file = `parts/${pid}.jpg`;
       const object = objs.find((o) => o.part === r.i) || {};
       for (const im of object.images || []) im.file = manifest.assets[im.src] || null;
-      try { await page.locator(`[data-part="${r.i}"]`).first().screenshot({ path: path.join(brandDir, file), scale: "device", timeout: 5000 }); } catch {}
+      try { await page.locator(`[data-part="${r.i}"]`).first().screenshot({ path: path.join(brandDir, file), type: "jpeg", quality: 80, scale: "device", timeout: 5000 }); } catch {}
       // the block itself as live UI (real DOM, real styles) — this is what videos embed
       const clone = await saveSnapshot({ snap: await inPage(page, "SNAPSHOT", { sel: `[data-part="${r.i}"]`, mode: "el", maxEls: 1500 }).catch(() => null), id: pid, brandDir, manifest, request: page.context().request, extra: { screen: id, kind: r.kind, heading: r.heading } }).catch(() => null);
       parts.push({ id: pid, file: fs.existsSync(path.join(brandDir, file)) ? file : null, ...r, object, clone: clone?.file || null });
@@ -101,7 +103,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
     delete extra.before;
     await page.evaluate(() => document.querySelectorAll("[data-acted]").forEach((e) => e.removeAttribute("data-acted"))).catch(() => {});
     fs.writeFileSync(path.join(brandDir, "probes", `${id}.objects.json`), JSON.stringify(parts.map(({ id, kind, heading, object }) => ({ id, kind, heading, object })), null, 2));
-    return { id, url: page.url(), title: probe.title, label, screen: `screens/${id}.full.png`, view: `screens/${id}.view.jpg`, html: `html/${id}.html`, probe: `probes/${id}.json`, parts, clones, ...extra };
+    return { id, url: page.url(), title: probe.title, label, screen: `screens/${id}.full.jpg`, view: `screens/${id}.view.jpg`, html: `html/${id}.html`, probe: `probes/${id}.json`, parts, clones, ...extra };
   }
 
   // ---------- RESNAP: re-copy every saved screen with the logged-in session from last time (no agent, no cost) ----------
