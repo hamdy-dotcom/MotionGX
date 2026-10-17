@@ -145,6 +145,24 @@ export class Sync {
     return out.map((o) => o.logical);
   }
 
+  /** the brand files the app shows ("ملفات البراند"): every file under these folders, one by one (the packs stay the resume copy) */
+  async uploadBrandFiles(folders: string[]) {
+    const b = this.dirs.brandDir;
+    const out: { logical: string; file: string }[] = [];
+    const walk = (rel: string) => {
+      const abs = path.join(b, rel);
+      if (!fs.existsSync(abs)) return;
+      for (const d of fs.readdirSync(abs, { withFileTypes: true })) {
+        const r = `${rel}/${d.name}`;
+        if (d.isDirectory()) walk(r);
+        else if (/\.(jpe?g|png|webp|gif|svg|json)$/i.test(d.name)) out.push({ logical: `brand/${r}`, file: path.join(b, r) });
+      }
+    };
+    folders.forEach(walk);
+    await this.upload(out);
+    return out.length;
+  }
+
   /** fetch every download of the job; packed folders are re-joined and extracted into the brand folder */
   async downloadAll() {
     const packs = new Map<string, { n: number; file: string }[]>();
@@ -175,5 +193,5 @@ export class Sync {
   }
 }
 
-const TYPES: Record<string, string> = { ".json": "application/json", ".html": "text/html; charset=utf-8", ".mp4": "video/mp4", ".wav": "audio/wav", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".tgz": "application/gzip" };
-const contentType = (f: string) => TYPES[path.extname(f).toLowerCase()] ?? (/\.tgz\.part\d+$/.test(f) ? "application/octet-stream" : "application/octet-stream");
+const TYPES: Record<string, string> = { ".json": "application/json", ".html": "text/html; charset=utf-8", ".css": "text/css", ".mp4": "video/mp4", ".wav": "audio/wav", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".woff2": "font/woff2", ".woff": "font/woff", ".ttf": "font/ttf", ".otf": "font/otf", ".tgz": "application/gzip" };
+const contentType = (f: string) => TYPES[path.extname(f).toLowerCase()] ?? "application/octet-stream";

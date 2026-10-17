@@ -5,6 +5,7 @@ import { normalizeUrl, urlKey } from "@/lib/brand/url";
 import { liveEngineEnabled } from "@/lib/live-engine/config";
 import { answerCaptureCode, captureProgress, startBrandCapture } from "@/lib/live-engine/server/jobs";
 import { brandDraftFrom } from "@/lib/live-engine/server/brand-draft";
+import { brandFiles } from "@/lib/live-engine/server/brand-files";
 
 /**
  * "طلّع الهوية" with VIDEO_ENGINE=live: the sandbox's capture (public crawl + sign-up agent + feature tour)
@@ -12,6 +13,7 @@ import { brandDraftFrom } from "@/lib/live-engine/server/brand-draft";
  *   POST {url, refresh?, companyId?}  → {captureId, reused}
  *   POST {captureId, code}            → the SMS code the agent asked for
  *   GET  ?id=<captureId>              → progress; brand draft (the Add-company fields) once brand.json exists
+ *   GET  ?id=<captureId>&files=1      → "ملفات البراند": logo, screens, UI blocks, images, agent trace (signed URLs)
  */
 export const maxDuration = 60;
 
@@ -48,6 +50,10 @@ export async function GET(request: NextRequest) {
   if (!ctx) return Response.json({ error: "unauthorized" }, { status: 401 });
   const id = request.nextUrl.searchParams.get("id") ?? "";
   if (!/^[0-9a-f-]{36}$/i.test(id)) return Response.json({ error: "bad_request" }, { status: 400 });
+  if (request.nextUrl.searchParams.get("files") === "1") {
+    const files = await brandFiles(ctx.workspace.id, id);
+    return files ? Response.json(files) : Response.json({ error: "not_found" }, { status: 404 });
+  }
   const p = await captureProgress(ctx.workspace.id, id);
   if (!p) return Response.json({ error: "not_found" }, { status: 404 });
   const { profile, prefix, ...progress } = p;

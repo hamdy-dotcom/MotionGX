@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import type { BrandDraft } from "@/lib/brand/types";
 import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { BrandEditor } from "../brand-editor";
+import { BrandFiles } from "../brand-files";
 import { ExtractSteps, SnapshotLink, STEP_LABEL } from "../extract-steps";
 import { useExtraction } from "../use-extraction";
 import { CaptureCodeForm, StepLog } from "@/components/live-capture";
@@ -87,6 +88,7 @@ export function NewCompanyFlow({ liveEngine = false }: { liveEngine?: boolean })
             </button>
           </div>
           <BrandEditor key={editorKey} brand={brand} raw={raw} />
+          {raw?.source === "live" ? <BrandFiles key={String(raw.capture_id)} captureId={String(raw.capture_id)} /> : null}
         </>
       ) : null}
     </div>

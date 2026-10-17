@@ -18,7 +18,9 @@ export default async function CompanyPage({ params }: { params: Promise<{ locale
 
   const company = (await listCompanies(ctx)).find((c) => c.id === id);
   if (!company) notFound();
-  const { data: profile } = await ctx.supabase.from("brand_profiles").select("facts").eq("company_id", id).maybeSingle();
+  const { data: profile } = await ctx.supabase.from("brand_profiles").select("facts, raw").eq("company_id", id).maybeSingle();
+  const raw = profile?.raw as { source?: string; capture_id?: string } | null;
+  const captureId = raw?.source === "live" ? (raw.capture_id ?? null) : null;
   const facts = { ...EMPTY_FACTS, ...((profile?.facts ?? {}) as Partial<BrandFacts>) };
 
   const brand: BrandDraft = {
@@ -50,7 +52,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ locale
       </Heading>
       <p className="mt-3 max-w-2xl leading-relaxed text-ink-muted">{t("editSubtitle")}</p>
       <div className="mt-6">
-        <CompanyScreen companyId={company.id} brand={brand} hasSnapshot={hasSnapshot} liveEngine={liveEngineEnabled()} />
+        <CompanyScreen companyId={company.id} brand={brand} hasSnapshot={hasSnapshot} liveEngine={liveEngineEnabled()} captureId={captureId} />
       </div>
     </div>
   );

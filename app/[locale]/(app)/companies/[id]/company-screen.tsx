@@ -6,18 +6,21 @@ import { Link } from "@/i18n/navigation";
 import type { BrandDraft } from "@/lib/brand/types";
 import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { BrandEditor } from "../brand-editor";
+import { BrandFiles } from "../brand-files";
 import { ExtractSteps, SnapshotLink, STEP_LABEL } from "../extract-steps";
 import { useExtraction } from "../use-extraction";
 import { CaptureCodeForm, StepLog } from "@/components/live-capture";
 
 /** Company screen: edit brand + facts; "أعد القراءة" re-scrapes the site and refills the form. */
-export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, liveEngine = false }: { companyId: string; brand: BrandDraft; hasSnapshot?: boolean; liveEngine?: boolean }) {
+export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, liveEngine = false, captureId = null }: { companyId: string; brand: BrandDraft; hasSnapshot?: boolean; liveEngine?: boolean; captureId?: string | null }) {
   const t = useTranslations("companies");
   const td = useTranslations("dashboard");
   const [brand, setBrand] = useState(initial);
   const [raw, setRaw] = useState<Record<string, unknown> | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const x = useExtraction(liveEngine);
+  // a re-read shows its own capture's files; otherwise the one saved with the company
+  const liveCapture = (raw?.source === "live" ? String(raw.capture_id) : null) ?? captureId;
 
   async function reread() {
     if (!brand.websiteUrl) return;
@@ -70,6 +73,7 @@ export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, 
         ) : null}
       </div>
       {!x.running ? <BrandEditor key={editorKey} brand={brand} raw={raw} companyId={companyId} /> : null}
+      {!x.running && liveCapture ? <BrandFiles key={liveCapture} captureId={liveCapture} /> : null}
     </div>
   );
 }
