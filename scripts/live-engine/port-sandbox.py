@@ -36,6 +36,7 @@ port("capture", [
   lambda s: edit(s, "page.evaluate(MARK)", 'inPage(page, "MARK")'),
   lambda s: edit(s, "page.evaluate(REGIONS)", 'inPage(page, "REGIONS")'),
   lambda s: edit(s, "page.evaluate(OBJECTS)", 'inPage(page, "OBJECTS")'),
+  lambda s: edit(s, "page.evaluate(NAV)", 'inPage(page, "NAV")', count=2),
   lambda s: edit(s, "page.evaluate(SNAPSHOT, ", 'inPage(page, "SNAPSHOT", ', count=5),
   # install the in-page functions into every page of the context
   lambda s: edit(s, '  // Save every image / css / font the site loads.', '  await installInPage(ctx);\n\n  // Save every image / css / font the site loads.'),
@@ -43,10 +44,10 @@ port("capture", [
   lambda s: edit(s, '  // ---------- A) public crawl ----------', '  const scope = makeScope(brief.url);\n\n  // ---------- A) public crawl ----------'),
   lambda s: edit(s, '    log(`▶ capture: agent enters the product (${appUrl})`);',
                     '    scope.open(appUrl, "linked from the site");\n    log(`▶ capture: agent enters the product (${appUrl})`);'),
-  lambda s: edit(s, "manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle });",
-                    "manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, scope });"),
-  lambda s: edit(s, "async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle }) {",
-                    "async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, scope }) {"),
+  lambda s: edit(s, "manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises });",
+                    "manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises, scope });"),
+  lambda s: edit(s, "async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises = \"\" }) {",
+                    "async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises = \"\", scope }) {"),
   # pages the site itself navigates to (a click, a redirect, a tab it opens) join the scope
   lambda s: edit(s, '  const plan = []; // [{ name, done }]',
                     '  const plan = []; // [{ name, done }]\n'

@@ -146,7 +146,9 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   else {
     scope.open(appUrl, "linked from the site");
     log(`▶ capture: agent enters the product (${appUrl})`);
-    try { await page.goto(appUrl, { waitUntil: "domcontentloaded", timeout: 45000 }); await settle(); manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, scope }); }
+    // what the public site promises (headings + feature copy) — the essentials plan must cover it
+    const promises = manifest.pages.map((pg) => { try { const pr = JSON.parse(fs.readFileSync(path.join(brandDir, pg.probe), "utf8")); return `[${pg.label}] ${pr.headings.join(" · ")}\n${pr.text.replace(/\s*\n\s*/g, " · ").slice(0, 1800)}`; } catch { return ""; } }).filter(Boolean).join("\n\n").slice(0, 6000);
+    try { await page.goto(appUrl, { waitUntil: "domcontentloaded", timeout: 45000 }); await settle(); manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises, scope }); }
     catch (e) { manifest.app = { status: "error", error: e.message.split("\n")[0], screens: [] }; }
   }
   try { await ctx.storageState({ path: path.join(brandDir, "auth.json") }); } catch {}
@@ -159,7 +161,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
 
 const wellFormed = (x) => (typeof x === "string" ? (x.toWellFormed ? x.toWellFormed() : x.replace(/[\uD800-\uDFFF]/g, "")) : x);
 
-async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, scope }) {
+async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises = "", scope }) {
   const creds = brief.login?.email ? brief.login : null;
   const id = Date.now().toString(36);
   // sandbox settings remember the phone you gave once, so you are not asked again
@@ -198,12 +200,15 @@ HOW TO WORK
 - If there is a CAPTCHA you cannot pass, or the site demands payment/card details to continue, call finish with status "blocked".
 - Never enter payment details, delete anything, submit real orders, or change account settings.
 - If your last 3 actions did not change the page, try something different (another button, scroll, the visible error message).
-- ESSENTIALS FIRST (right after you are inside, before the tour): call set_plan with the product's ESSENTIAL OUTPUTS — the real things this product produces for its user and their customers, the proof a viewer must see. Think "what does the customer end up with?": e.g. a store builder → the live storefront home, a product page, the generated landing page, the cart/checkout form, the theme applied; an ads tool → a generated ad / creative; a CRM → a filled pipeline and a contact card; a booking tool → the public booking page. 4-8 items. Then actually PRODUCE each one inside the test account (create the product, generate the page, apply the theme…) and OPEN IT THE WAY THE END CUSTOMER SEES IT (the public store link / "view store" / "preview" / the generated URL, even if it opens in a new tab or another domain — use tab and goto), scroll it, and save_screen it with customer_facing=true and covers=[the plan item]. Saving a settings page ABOUT the store is not the store. The tour only counts once the essentials are done.
-- Once inside, your job is a FEATURE TOUR for a promo video, not a list of pages. Visit every item of the main navigation AND go one level deeper: tabs inside a page, "create / new / add / import / launch / generate" flows, editors, wizards, preview screens, settings sub-tabs (themes, pixels, shipping, domains…). Save each distinct screen that shows a feature in action.
+- ESSENTIALS FIRST (right after you are inside, before the tour): call set_plan with the product's ESSENTIAL OUTPUTS — the real things this product produces for its user and their customers, the proof a viewer must see. Think "what does the customer end up with?": e.g. a store builder → the live storefront home, a product page, the generated landing page, the cart/checkout form, the theme applied; an ads tool → a generated ad / creative; a CRM → a filled pipeline and a contact card; a booking tool → the public booking page. Read WHAT THE SITE PROMISES below: the plan must include EVERY core output the site promises that can be produced in a test account (e.g. for a store builder: the landing page generated from a product link, the storefront, the product page, a theme applied, the order form, orders in the dashboard, the ads tool) — at least 6 items when the site promises that many. Then actually PRODUCE each one inside the test account (create the product, generate the page, apply the theme…) and OPEN IT THE WAY THE END CUSTOMER SEES IT (the public store link / "view store" / "preview" / the generated URL, even if it opens in a new tab or another domain — use tab and goto), scroll it, and save_screen it with customer_facing=true and covers=[the plan item]. Saving a settings page ABOUT the store is not the store. The tour only counts once the essentials are done.
+- Once inside, your job is a FEATURE TOUR for a promo video, not a list of pages. The app's main navigation is read for you and shown every turn as SECTIONS (✓ visited / ☐ not visited); a section counts as visited once you opened it and saved at least one screen there, or called skip_section because it is empty / locked. Visit every SECTION AND go one level deeper: tabs inside a page, "create / new / add / import / launch / generate" flows, editors, wizards, preview screens, settings sub-tabs (themes, pixels, shipping, domains…). Save each distinct screen that shows a feature in action.
 - Empty screens make bad videos. If a section is empty and offers a create flow, create ONE demo item inside this test account (e.g. add a product${brief.sampleUrl ? ` from ${brief.sampleUrl}` : " from a product link the page suggests or a sample it offers"}, generate a page, open a wizard) and save the filled result. Do not publish ads, spend money, or connect external accounts.
 - The video replays what you do: every click and the typed values are recorded with the screen before and after. So run flows for real (type a real value, press the real button, wait for the result) and save the RESULT screen right after it appears. Make sure to open and save what the merchant's customers see too: the store front / store preview, a generated landing or product page, the theme gallery and a theme applied, plus orders, dashboard stats, ad / TikTok tools.
 - save_screen: short English label, one line on what it shows, and the features visible on it (name + what it does for the merchant).
-- Call finish "done" only when every essential in your plan is saved AND every section with its main sub-features is covered (up to ~35 screens).`;
+- Call finish "done" only when every essential in your plan is saved AND every SECTION is visited (finish is refused until then).
+
+WHAT THE SITE PROMISES (its public pages: headings + copy):
+${promises || "(no public pages captured)"}`;
   const tools = [
     { name: "click", description: "Click element by its number", input_schema: { type: "object", properties: { id: { type: "integer" } }, required: ["id"] } },
     { name: "type", description: "Clear the field, then type text; enter=true presses Enter after", input_schema: { type: "object", properties: { id: { type: "integer" }, text: { type: "string" }, enter: { type: "boolean" } }, required: ["id", "text"] } },
@@ -218,6 +223,7 @@ HOW TO WORK
     { name: "ask_code", description: "ONLY for a one-time SMS code sent to the test phone, or a phone number the sign-up insists on when the identity has none. Never for anything else — invent test values or skip instead.", input_schema: { type: "object", properties: { sent_to: { type: "string", description: "what you need, e.g. 'code sent to +9665…' or 'a phone number for the sign-up form'" } }, required: ["sent_to"] } },
     { name: "check_email", description: "Read the newest email in the test inbox (waits up to 90 s). Returns subject, confirmation links and codes.", input_schema: { type: "object", properties: {} } },
     { name: "save_screen", description: "Save the current screen for the brand library", input_schema: { type: "object", properties: { label: { type: "string" }, description: { type: "string" }, features: { type: "array", items: { type: "string" }, description: "features visible here, e.g. 'AI product page generator — writes the landing page from a product link'" }, customer_facing: { type: "boolean", description: "true when this is what the end customer sees (store, product page, landing page, checkout, public link)" }, covers: { type: "array", items: { type: "string" }, description: "plan essentials this screen proves (exact names from set_plan)" } }, required: ["label", "description", "features"] } },
+    { name: "skip_section", description: "Mark a SECTION as visited without a screen because it is empty, locked behind payment/verification, or not part of the product (only after you opened it)", input_schema: { type: "object", properties: { section: { type: "string", description: "the section name exactly as listed in SECTIONS" }, reason: { type: "string" } }, required: ["section", "reason"] } },
     { name: "finish", description: "Stop the agent", input_schema: { type: "object", properties: { status: { type: "string", enum: ["done", "blocked"] }, notes: { type: "string" } }, required: ["status", "notes"] } },
   ];
   const result = { status: "running", screens: [], notes: "", steps: 0, identity: creds ? { email: creds.email } : { ...identity, password: undefined } };
@@ -231,23 +237,39 @@ HOW TO WORK
     return f;
   };
   let lastSig = "", same = 0;
-  const history = [], trace = []; let asks = 0, lastPre = null, lastSave = 0, finishPushed = false;
+  const history = [], trace = []; let asks = 0, lastPre = null, lastSave = 0;
   const plan = []; // [{ name, done }]
   const track = (p, fromAllowed) => { let last = fromAllowed ? "about:blank" : "chrome-error://"; p.on("framenavigated", (f) => { if (f !== p.mainFrame()) return; const u = f.url(); if (scope.allows(last) && !scope.allows(u)) { scope.open(u, `opened by the site from ${last.slice(0, 80)}`); log(`  ↪ scope: the site opened ${new URL(u).origin}`); } last = u; }); };
   for (const p of ctx.pages()) track(p, true);
   ctx.on("page", async (p) => { const op = await p.opener().catch(() => null); track(p, !!op && scope.allows(op.url())); });
   const planText = () => plan.length ? plan.map((x) => `${x.done ? "✓" : "☐"} ${x.name}`).join("\n") : "(not set yet — call set_plan once you are inside)";
+  // SECTIONS: the app's main navigation (read once you are inside) + tabs found on app screens
+  const sections = []; // [{ name, key, href, tab, visited, note }]
+  const opened = new Set(); // normalized URLs the agent has been on
+  const norm = (u) => { try { const x = new URL(u); return (x.hostname + x.pathname).replace(/\/$/, "").toLowerCase(); } catch { return ""; } };
+  const addNav = (nav) => { let n = 0; for (const l of nav?.links || []) { const key = l.href ? norm(l.href) : "nav:" + l.text; if (key && !sections.some((x) => x.key === key || x.name === l.text)) { sections.push({ name: l.text, key, href: l.href, tab: false, visited: false }); n++; } } for (const t of nav?.tabs || []) { const key = "tab:" + t.text; if (!sections.some((x) => x.key === key)) { sections.push({ name: t.text, key, href: null, tab: true, visited: false }); n++; } } return n; };
+  // a saved screen marks the section whose path matches its URL best (exact, else the longest parent path), plus the selected tab
+  const markSaved = (url, nav) => { const k = norm(url); const hit = sections.filter((x) => !x.tab && (x.key === k || k.startsWith(x.key + "/"))).sort((a, b) => b.key.length - a.key.length)[0]; if (hit) hit.visited = true; for (const t of nav?.tabs || []) if (t.selected) { const s = sections.find((x) => x.key === "tab:" + t.text); if (s) s.visited = true; } };
+  // a menu button (no href) learns its URL from the page it leads to when the agent clicks it
+  const learnUrl = (label, url) => { const sec = sections.find((x) => !x.tab && !x.href && label.includes(x.name)); if (sec && norm(url)) { sec.href = url.split(/[?#]/)[0]; sec.key = norm(url); } };
+  const where = (x) => (x.tab ? " (tab)" : x.href ? ` (${x.href})` : " (menu button)");
+  const sectionsText = () => sections.length ? sections.map((x) => `${x.visited ? "✓" : "☐"} ${x.name}${where(x)}${x.note ? ` — ${x.note}` : ""}`).join("\n") : "(read once you are inside — after set_plan)";
+  const missing = () => [...plan.filter((x) => !x.done).map((x) => `essential: ${x.name}`), ...sections.filter((x) => !x.visited).map((x) => `section: ${x.name}${where(x)}`)];
   for (let step = 0; step < MAX_AGENT_STEPS; step++) {
     const page = getPage();
     result.steps = step + 1;
+    const urlAtStart = page.url();
     const elements = wellFormed(await inPage(page, "MARK").catch(() => ""));
     const sig = page.url() + "|" + elements.length + "|" + elements.slice(0, 400);
     same = sig === lastSig ? same + 1 : 0; lastSig = sig;
     const stuck = same >= 3 ? `\n⚠ STUCK: the page has not changed for ${same + 1} turns. Do something different now: read the error, skip/later/X, key Escape, scroll, or goto the app's dashboard URL and continue with another section.` : "";
     const shot = await page.screenshot({ type: "jpeg", quality: 55 }).catch(() => null);
     if (shot) fs.writeFileSync(path.join(stepsDir, `${String(step + 1).padStart(2, "0")}.jpg`), shot);
+    opened.add(norm(page.url()));
+    // the app's navigation: read right after set_plan (inside the app), and again while it is still empty
+    if (plan.length && !sections.some((x) => !x.tab)) { const n = addNav(await inPage(page, "NAV").catch(() => null)); if (n) log(`  🧭 sections: ${sections.map((x) => x.name).join(" | ")}`); }
     const tabs = ctx.pages().map((p, i) => `[${i}] ${p.url().slice(0, 100)}${p === page ? "  ← current" : ""}`).join("\n");
-    const text = wellFormed(`Step ${step + 1}/${MAX_AGENT_STEPS}\nURL: ${page.url()}\nTitle: ${await page.title().catch(() => "")}\nTabs:\n${tabs}\nESSENTIALS PLAN:\n${planText()}\nSaved so far: ${result.screens.map((s) => s.label).join(", ") || "none"}\nLast actions:\n${history.slice(-14).join("\n") || "(none)"}${stuck}\n\nElements:\n${elements}`);
+    const text = wellFormed(`Step ${step + 1}/${MAX_AGENT_STEPS}\nURL: ${page.url()}\nTitle: ${await page.title().catch(() => "")}\nTabs:\n${tabs}\nESSENTIALS PLAN:\n${planText()}\nSECTIONS:\n${sectionsText()}\nSaved so far: ${result.screens.map((s) => s.label).join(", ") || "none"}\nLast actions:\n${history.slice(-14).join("\n") || "(none)"}${stuck}\n\nElements:\n${elements}`);
     const content = shot ? [imageBlock(shot), { type: "text", text }] : [{ type: "text", text }];
     const res = await rawCall({ ledger, step: "capture-agent", model: models.agent, system, messages: [{ role: "user", content }], tools, effort: "low" });
     const call = res.content.find((c) => c.type === "tool_use");
@@ -301,13 +323,20 @@ HOW TO WORK
         else out = `the human answered: "${code}". If that is a value (code, number), type it into the right field. If it is an instruction (e.g. skip / later / not now), follow it: press the page's skip / later / X / back button or go straight to the dashboard URL, and NEVER call ask_code for this step again.`;
         log(`  ↳ code received`);
       }
-      else if (call.name === "save_screen") { const before = lastPre && lastPre.step > lastSave && lastPre.step >= step - 5 ? lastPre : null; lastSave = step + 1; const s = await savePage(a.label, { description: a.description, features: a.features || [], app: true, before, customer: !!a.customer_facing, covers: a.covers || [] }); result.screens.push(s); for (const c of a.covers || []) { const it = plan.find((x) => x.name === c) || plan.find((x) => x.name.toLowerCase().includes(String(c).toLowerCase()) || String(c).toLowerCase().includes(x.name.toLowerCase())); if (it) it.done = true; } out = `saved ${s.id}${plan.some((x) => !x.done) ? ` — essentials still to do: ${plan.filter((x) => !x.done).map((x) => x.name).join(" | ")}` : ""}`; log(`  📸 ${a.customer_facing ? "[customer view] " : ""}${a.label} — ${a.description} (${s.parts.length} parts · live UI ${s.clones.screen ? "✓" : "✗"}${s.clones.before ? ` · replay: ${s.clones.before.action}` : ""})`); }
-      else if (call.name === "finish" && a.status === "done" && !finishPushed && (plan.length === 0 || plan.some((x) => !x.done)) && step < MAX_AGENT_STEPS - 12) { finishPushed = true; out = plan.length ? `not yet — these essentials are not saved: ${plan.filter((x) => !x.done).map((x) => x.name).join(" | ")}. Produce them and open them as the customer sees them. If one is truly impossible, say why in finish notes.` : "not yet — call set_plan with the product's essential outputs and produce them first"; log(`  ↩ finish refused: essentials missing`); }
+      else if (call.name === "save_screen") { const before = lastPre && lastPre.step > lastSave && lastPre.step >= step - 5 ? lastPre : null; lastSave = step + 1; const s = await savePage(a.label, { description: a.description, features: a.features || [], app: true, before, customer: !!a.customer_facing, covers: a.covers || [] }); result.screens.push(s); if (plan.length) { const nav = await inPage(page, "NAV").catch(() => null); if (!a.customer_facing) addNav({ tabs: nav?.tabs }); markSaved(page.url(), nav); } for (const c of a.covers || []) { const it = plan.find((x) => x.name === c) || plan.find((x) => x.name.toLowerCase().includes(String(c).toLowerCase()) || String(c).toLowerCase().includes(x.name.toLowerCase())); if (it) it.done = true; } out = `saved ${s.id}${missing().length ? ` — still to do: ${missing().slice(0, 12).join(" | ")}` : ""}`; log(`  📸 ${a.customer_facing ? "[customer view] " : ""}${a.label} — ${a.description} (${s.parts.length} parts · live UI ${s.clones.screen ? "✓" : "✗"}${s.clones.before ? ` · replay: ${s.clones.before.action}` : ""})`); }
+      else if (call.name === "skip_section") {
+        const sec = sections.find((x) => x.name === a.section) || sections.find((x) => x.name.toLowerCase().includes(String(a.section).toLowerCase()) || String(a.section).toLowerCase().includes(x.name.toLowerCase()));
+        if (!sec) out = `no such section — use a name from SECTIONS`;
+        else if (!sec.tab && (!sec.href || ![...opened].some((k) => k === sec.key || k.startsWith(sec.key + "/")))) out = `open it first (${sec.href ? `goto ${sec.href}` : "click it in the menu"}), then skip it only if it really is empty / locked`;
+        else { sec.visited = true; sec.note = String(a.reason).slice(0, 80); out = `section "${sec.name}" marked visited (${sec.note})`; log(`  ⤼ section skipped: ${sec.name} — ${sec.note}`); }
+      }
+      else if (call.name === "finish" && a.status === "done" && (plan.length === 0 || missing().length) && step < MAX_AGENT_STEPS - 12) { out = plan.length ? `not yet — still missing: ${missing().join(" | ")}. Produce each missing essential and open it as the customer sees it; open each missing section and save a screen there (or skip_section if it is empty / locked).` : "not yet — call set_plan with the product's essential outputs and produce them first"; log(`  ↩ finish refused: ${plan.length ? `${missing().length} missing` : "no plan"}`); }
       else if (call.name === "finish") { result.status = a.status; result.notes = a.notes; log(`  ■ agent ${a.status}: ${a.notes}`); break; }
       if (!["save_screen", "finish", "ask_code"].includes(call.name)) log(`  ↳ ${call.name} ${JSON.stringify({ ...a, text: a.text && /pass/i.test(elements.split("\n").find((l) => l.startsWith(`[${a.id}]`)) || "") ? "••••" : a.text }).slice(0, 90)}`);
       await settle();
     } catch (e) { out = `error: ${e.message.split("\n")[0].slice(0, 120)}`; }
     const lbl = a.id != null ? (elements.split("\n").find((l) => l.startsWith(`[${a.id}]`)) || "").slice(0, 90) : "";
+    if (call.name === "click" && lbl && getPage().url() !== urlAtStart) learnUrl(lbl, getPage().url());
     history.push(`- ${call.name} ${JSON.stringify(a).slice(0, 80)} on ${lbl} → ${out}`);
     trace.push({ step: step + 1, url: page.url(), action: call.name, input: a, target: lbl, result: out });
     fs.writeFileSync(path.join(stepsDir, "trace.json"), JSON.stringify(trace, null, 2));
@@ -315,5 +344,7 @@ HOW TO WORK
   if (result.status === "running") result.status = "step_limit";
   result.plan = plan;
   result.scope = { domain: scope.domain, opened: scope.opened };
+  result.sections = sections.map(({ name, href, tab, visited, note }) => ({ name, href, tab, visited, note: note || null }));
+  log(`  ■ coverage: essentials ${plan.filter((x) => x.done).length}/${plan.length} · sections ${sections.filter((x) => x.visited).length}/${sections.length} · screens ${result.screens.length} · steps ${result.steps}/${MAX_AGENT_STEPS}`);
   return result;
 }
