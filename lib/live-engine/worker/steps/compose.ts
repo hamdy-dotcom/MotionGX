@@ -76,6 +76,7 @@ export function compose({ brief, brand, script, assets, plan = {}, brandDir, run
   const lapW = Math.min(W - 160, 920), lapLeft = Math.round((W - lapW) / 2);
   const portrait = H > W;
   const devTop = portrait ? 800 : 260, coTop = portrait ? 1560 : H - 150;
+  const phW = portrait ? 480 : 430, phH = portrait ? 960 : 860, phTop = portrait ? 700 : 120; // phone body (9:16: 480 px wide)
   const scenes = [], calls = [];
 
   script.scenes.forEach((sc, i) => {
@@ -85,12 +86,12 @@ export function compose({ brief, brand, script, assets, plan = {}, brandDir, run
     const callouts = (p.callouts || []).slice(0, 2).map((c) => `<div class="co"><b>✓</b>${esc(c)}</div>`).join("");
     const co = callouts ? `<div class="cos">${callouts}</div>` : "";
     let vis = "", call = "";
-    const pop = (r.recipe === "tour" || r.recipe === "replay") && d >= 4 ? popPart(brandDir, r.ui || r.b, p.focus) : null;
+    const pop = (r.recipe === "tour" || r.recipe === "replay") && d >= 3 ? popPart(brandDir, r.ui || r.b, p.focus) : null; // every laptop scene ≥ 3 s pops its best block
     const popHtml = pop ? `<div class="pop" style="top:${Math.round(devTop + 420 - pop.h / 2)}px"><div id="p${n}" class="ui" data-clone="${pop.id}" data-w="${pop.w}" data-h="${pop.h}" data-frame="none"></div></div>` : "";
     const popArg = pop ? `,pop:"#p${n}"` : "";
     if (r.recipe === "tour") { vis = `<div class="vis"><div class="dev laptop"><div id="u${n}" class="ui" data-clone="${r.ui}"></div></div>${popHtml}</div>`; call = `K.R.tour(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d},focus:${JSON.stringify(p.focus || [])}${popArg}});`; }
     else if (r.recipe === "replay") { vis = `<div class="vis"><div class="dev laptop"><div id="u${n}a" class="ui" data-clone="${r.a}"></div><div id="u${n}b" class="ui ui-after" data-clone="${r.b}"></div><div class="ok">✓</div></div>${popHtml}</div>`; call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${p.typeKey ? `,typeKey:"${p.typeKey}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${popArg}});`; }
-    else if (r.recipe === "phone") { vis = `<div class="vis"><div class="dev phone"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="390" data-h="800" data-frame="none"></div></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}});`; }
+    else if (r.recipe === "phone") { vis = `<div class="vis"><div class="dev phone"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${phW - 40}" data-h="${phH - 60}" data-frame="none"></div></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}});`; }
     else if (r.recipe === "hero") { const c = JSON.parse(fs.readFileSync(path.join(brandDir, "clones", `${r.ui}.json`), "utf8")); const bh = Math.round(Math.min(c.h * (lapW / c.w), portrait ? 740 : H * 0.6)); vis = `<div class="vis"><div class="glow"></div><div class="dev block"><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${lapW}" data-h="${bh}" data-frame="none"></div></div></div>`; call = `K.R.hero(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}});`; }
     else if (r.recipe === "stack") { const pains = (p.pains && p.pains.length ? p.pains : (/[+،,]/.test(sc.headline) ? sc.headline : String(sc.sub || sc.headline)).split(/[+،,]| و /).map((x) => x.trim()).filter(Boolean)).slice(0, 4); vis = `<div class="vis"><div class="pains">${pains.map((x) => `<div class="pain">${esc(x)}</div>`).join("")}</div><div class="xmark">✕</div></div>`; call = `K.R.stack(tl,{sc:"#${id}",s:${s},d:${d}});`; }
     else if (r.recipe === "stat") { const num = p.number || (String(sc.headline + " " + (sc.sub || "")).match(/[0-9٠-٩][0-9٠-٩٬,.]*/) || [""])[0]; vis = `<div class="vis"><div class="ring"></div><div class="ring"></div>${num ? `<div class="bignum">${esc(num)}</div>` : ""}</div>`; call = `K.R.stat(tl,{sc:"#${id}",s:${s},d:${d}});`; }
@@ -128,7 +129,7 @@ html,body{margin:0;background:${P.background || "#0b0d12"}}
 .pop{position:absolute;left:${Math.round((W - 940) / 2)}px;opacity:0;z-index:6}
 .pop .ui{border-radius:26px;background:${P.surface || "#13161d"};box-shadow:0 50px 140px rgba(0,0,0,.65),0 0 0 3px ${P.primary || "#3b82f6"}88}
 .ok{position:absolute;${rtl ? "left" : "right"}:-30px;top:-40px;width:110px;height:110px;border-radius:50%;background:${grad};color:#fff;font:800 64px/110px sans-serif;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45);opacity:0;z-index:5}
-.phone{left:${Math.round((W - 430) / 2)}px;top:${portrait ? 700 : 120}px;width:430px;height:860px;border-radius:64px;background:#0a0a0c;box-shadow:0 0 0 3px #3a3d45,0 0 0 9px #16171b,0 60px 140px rgba(0,0,0,.6)}
+.phone{left:${Math.round((W - phW) / 2)}px;top:${phTop}px;width:${phW}px;height:${phH}px;border-radius:64px;background:#0a0a0c;box-shadow:0 0 0 3px #3a3d45,0 0 0 9px #16171b,0 60px 140px rgba(0,0,0,.6)}
 .phone .ui{position:absolute;left:20px;top:30px;border-radius:40px;overflow:hidden;background:#fff}
 .phone .notch{position:absolute;left:50%;top:14px;width:130px;height:30px;margin-left:-65px;border-radius:20px;background:#000;z-index:3}
 .block{left:${lapLeft}px;top:${portrait ? 760 : 220}px}
@@ -136,7 +137,7 @@ html,body{margin:0;background:${P.background || "#0b0d12"}}
 .glow{position:absolute;left:50%;top:${portrait ? 1050 : 520}px;width:800px;height:800px;margin:-400px 0 0 -400px;border-radius:50%;background:radial-gradient(${P.primary || "#3b82f6"}55,transparent 65%);opacity:.6}
 .cos{position:absolute;left:60px;right:60px;top:${coTop}px;display:flex;flex-wrap:wrap;gap:22px;justify-content:center}
 .co{padding:20px 34px;border-radius:999px;background:${P.surface || "#13161d"}e6;border:2px solid ${P.primary || "#3b82f6"}66;font-size:38px;font-weight:700;box-shadow:0 14px 40px rgba(0,0,0,.35)}
-.r-phone .cos{top:${portrait ? 1610 : H - 150}px}
+.r-phone .cos{top:${portrait ? phTop + phH + 30 : H - 150}px}
 .co b{color:${P.primary || "#3b82f6"};margin-inline-end:12px}
 .r-hook .head,.r-stack .head{top:${portrait ? 560 : 200}px}
 .r-hook .biglogo{position:absolute;left:50%;top:${portrait ? 330 : 60}px;height:150px;transform:translateX(-50%)}
@@ -164,6 +165,7 @@ ${scenes.join("\n")}
 </div>
 <script>
 const tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+K.R.len = ${script.length};
 K.R.bg(tl, ${script.length}, ${JSON.stringify(drops)});
 ${logo ? `K.R.mark(tl, ${script.scenes[0].bars * 2}, ${script.scenes.at(-1).start});` : ""}
 ${calls.join("\n")}
