@@ -7,6 +7,7 @@ import type { Voice } from "@/lib/types";
 import { Heading, boldTag } from "@/components/heading";
 import { FoldersIllustration } from "@/components/illustrations";
 import { PlusIcon } from "@/components/icons";
+import { liveEngineEnabled } from "@/lib/live-engine/config";
 import { NewVideoForm } from "./new-video-form";
 
 // Generation (director → script → composition + QA → music) runs in `after()` of this route's create action.
@@ -59,6 +60,7 @@ export default async function NewVideoPage({
             prices={prices}
             fxRate={fx}
             currency={ctx.workspace.currency_code}
+            liveEngine={liveEngineEnabled()}
           />
         )}
       </div>

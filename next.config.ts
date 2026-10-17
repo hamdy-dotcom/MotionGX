@@ -25,6 +25,9 @@ const nextConfig: NextConfig = {
   // The prebuilt Remotion bundle ships with the studio route (renders run in `after()` of its export action).
   outputFileTracingIncludes: {
     // Runtime files reached through projectPath() (not traced automatically).
+    // live engine: the sandbox runner bundles the worker and ships its in-page script + vendor files
+    "/[locale]/videos/**": ["./lib/live-engine/worker/**/*"],
+    "/api/live-engine/**": ["./lib/live-engine/worker/**/*"],
     "/[locale]/videos/*": ["./.remotion-bundle/**/*", "./packages/primitives/**/*", "./scripts/motion/**/*", "./scripts/music/*.py", "./data/motion-refs.json", "./tsconfig*.json", "./data/assets/**/*", "./node_modules/lucide-static/icons/**/*", "./node_modules/@phosphor-icons/core/assets/**/*", "./node_modules/flag-icons/flags/4x3/**/*", "./node_modules/harfbuzzjs/dist/**/*"],
   },
 };

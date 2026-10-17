@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition, type FormEvent } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore, useTransition, type FormEvent, type Ref } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import {
@@ -13,6 +13,7 @@ import {
   undoLastChange,
   saveLines,
   setMusicEnabled,
+  submitCaptureCode,
   type ActionResult,
 } from "./actions";
 import { toLocal } from "@/lib/pricing";
@@ -33,7 +34,9 @@ import { CheckIcon, DownloadIcon, PlayIcon, SendIcon, SparkIcon, SpinnerIcon, Un
 
 type Notice = { tone: "ok" | "info" | "error"; text: string; topUp?: boolean } | null;
 export type RenderInfo = { id: string; status: string; progress: number; downloadUrl: string | null };
-export type StudioVersion = {
+export type StudioVersion = LegacyVersion | LiveVersion;
+type LegacyVersion = {
+  engine?: "legacy";
   version: number;
   /** content revision of the spec: edits/undo are made against it and rejected if it moved on */
   revision: string;
@@ -48,6 +51,20 @@ export type StudioVersion = {
   qa: { validation?: { stage: string }[]; taste?: { score: number; note: string } | null };
   mixUrl: string | null;
   sfxUrl: string | null;
+};
+/** live engine (VIDEO_ENGINE=live): an already-rendered MP4; lines and change requests rebuild it */
+type LiveVersion = {
+  engine: "live";
+  version: number;
+  revision: string;
+  canUndo: boolean;
+  plan: Plan;
+  beats: ScriptBeat[];
+  qa: LegacyVersion["qa"];
+  mp4Url: string | null;
+  width: number;
+  height: number;
+  fps: number;
 };
 
 const STAGES = ["queued", "plan", "spec", "music", "ready", "done"] as const;
@@ -93,7 +110,7 @@ export function Studio({
   const [notice, setNotice] = useState<Notice>(null);
   const [request, setRequest] = useState("");
   const [pending, startTransition] = useTransition();
-  const [busy, setBusy] = useState<"save" | "direction" | "export" | "request" | "music" | "undo" | null>(null);
+  const [busy, setBusy] = useState<"save" | "direction" | "export" | "request" | "music" | "undo" | "code" | null>(null);
   const [render, setRender] = useState<RenderInfo | null>(initialRender);
   const [status, setStatus] = useState(video.status);
   const [gen, setGen] = useState<Record<string, unknown> | null>(generation);
@@ -104,9 +121,11 @@ export function Studio({
     () => false,
   );
 
-  const fps = current?.input.fps ?? 30;
-  const total = current?.input.durationInFrames ?? Math.round(video.length_s * 30);
-  const { width, height } = current?.input ?? { width: 1080, height: 1920 };
+  const live = current?.engine === "live" ? current : null;
+  const legacy = current && current.engine !== "live" ? current : null;
+  const fps = live?.fps ?? legacy?.input.fps ?? 30;
+  const total = legacy?.input.durationInFrames ?? Math.round(video.length_s * fps);
+  const { width, height } = live ?? legacy?.input ?? { width: 1080, height: 1920 };
   const scriptDir = video.dialect === "en" ? "ltr" : "rtl";
   const price = formatMoney(toLocal(costUsd, fxRate), currency, locale);
   const seconds = frame / fps;
@@ -115,17 +134,18 @@ export function Studio({
   const beat = beats[active];
   const generating = status === "generating";
   const stage = String(gen?.stage ?? "queued");
+  const [code, setCode] = useState("");
 
   // The props the sandbox receives. Lines edited here re-render live (the composition reads them from props).
   const previewProps: PreviewProps | null = useMemo(() => {
-    if (!current) return null;
+    if (!legacy) return null;
     return {
-      spec: current.spec,
-      custom: current.custom,
-      input: { ...current.input, script: { ...current.input.script, beats } },
-      audio: { music: musicOn ? current.mixUrl : current.sfxUrl, sfx: null, voiceover: null },
+      spec: legacy.spec,
+      custom: legacy.custom,
+      input: { ...legacy.input, script: { ...legacy.input.script, beats } },
+      audio: { music: musicOn ? legacy.mixUrl : legacy.sfxUrl, sfx: null, voiceover: null },
     };
-  }, [current, beats, musicOn]);
+  }, [legacy, beats, musicOn]);
 
   // Generation progress: poll while the background job runs; refresh when a version lands.
   useEffect(() => {
@@ -216,15 +236,19 @@ export function Studio({
   const onStarted = (res: ActionResult, text: string) => {
     if (!res.ok) return setNotice({ tone: "error", text: res.error === "generic" ? tc("error") : te(res.error) });
     setStatus("generating");
-    setGen({ stage: "queued" });
+    setGen({ stage: "queued", ...(live ? { engine: "live" } : {}) });
     setNotice({ tone: "info", text });
   };
 
   const onSave = () =>
     run("save", async () => {
       const res = await saveLines(video.id, beats);
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        if (res.error) return onStarted(res as ActionResult, "");
+        throw new Error();
+      }
       setDirty(false);
+      if (res.started) return onStarted({ ok: true }, t("editStarted"));
       setNotice({ tone: "ok", text: t("saved", { n: formatNumber(res.version, locale) }) });
       router.refresh();
     });
@@ -250,6 +274,16 @@ export function Studio({
     });
   };
 
+  const onCode = (e: FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+    run("code", async () => {
+      if (!(await submitCaptureCode(video.id, code))) throw new Error();
+      setCode("");
+      setGen((g) => ({ ...g, stage: "plan" }));
+    });
+  };
+
   const onToggleMusic = () =>
     run("music", async () => {
       if (!(await setMusicEnabled(video.id, !musicOn))) throw new Error();
@@ -262,6 +296,8 @@ export function Studio({
         const saved = await saveLines(video.id, beats);
         if (!saved.ok) throw new Error();
         setDirty(false);
+        // a live version is rebuilt with the new lines first; export it once it lands
+        if (saved.started) return onStarted({ ok: true }, t("editStarted"));
       }
       const res = await exportVideoAction(video.id);
       if (res.ok) {
@@ -281,7 +317,8 @@ export function Studio({
   const taste = current?.qa.taste ?? null;
   const repairRounds = current?.qa.validation?.filter((r) => /patch|fix|finish/.test(r.stage)).length ?? 0;
   const markers = beats.slice(1).map((b) => (b.start_s / video.length_s) * 100);
-  const stageIndex = Math.max(0, STAGES.indexOf(stage as Stage));
+  const stageIndex = stage === "awaiting_code" ? 1 : Math.max(0, STAGES.indexOf(stage as Stage));
+  const askedTo = String((gen?.ask as { sent_to?: string } | undefined)?.sent_to ?? "");
 
   return (
     <div className="space-y-5">
@@ -328,11 +365,28 @@ export function Studio({
               <SpinnerIcon className="size-4" />
               {t(`stage_${stage in STAGE_KEYS ? stage : "queued"}` as "stage_queued")}
             </span>
-            <span className="text-ink-muted">{t("generatingHint")}</span>
+            <span className="text-ink-muted">{gen?.engine === "live" ? t("liveHint") : t("generatingHint")}</span>
           </div>
           <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-primary-lavender">
             <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${Math.max(4, (stageIndex / (STAGES.length - 1)) * 100)}%` }} />
           </div>
+          {stage === "awaiting_code" ? (
+            <form onSubmit={onCode} className="mt-4">
+              <label htmlFor="sms-code" className="label mb-2 block">
+                {t("codeTitle")}
+              </label>
+              <div className="flex items-end gap-2 rounded-[22px] bg-white p-1.5">
+                <input id="sms-code" value={code} onChange={(e) => setCode(e.target.value)} dir="ltr" inputMode="numeric" autoComplete="one-time-code" maxLength={12} className="min-h-pill flex-1 bg-transparent px-3 py-2 text-sm outline-none" />
+                <button type="submit" disabled={pending || !code.trim()} className="btn btn-primary shrink-0">
+                  {busy === "code" ? <SpinnerIcon className="size-4" /> : <SendIcon className="size-4" />}
+                  {t("codeSend")}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-ink-muted">
+                {t("codeHint", { to: askedTo })}
+              </p>
+            </form>
+          ) : null}
         </div>
       ) : null}
 
@@ -447,7 +501,9 @@ export function Studio({
                   className={`mx-auto overflow-hidden rounded-2xl bg-navy ${video.format === "9:16" ? "max-w-[340px]" : video.format === "1:1" ? "max-w-[480px]" : ""}`}
                   style={{ aspectRatio: `${width} / ${height}` }}
                 >
-                  {mounted && previewProps ? (
+                  {mounted && live?.mp4Url ? (
+                    <LivePreview ref={previewRef} src={live.mp4Url} muted={!musicOn} fps={fps} title={t("preview")} onFrame={setFrame} onPlaying={setPlaying} onError={() => setNotice({ tone: "error", text: t("previewError") })} />
+                  ) : mounted && previewProps ? (
                     <MotionPreview
                       ref={previewRef}
                       props={previewProps}
@@ -605,4 +661,36 @@ export function Studio({
   );
 }
 
-const STAGE_KEYS: Record<string, true> = Object.fromEntries(STAGES.map((s) => [s, true]));
+const STAGE_KEYS: Record<string, true> = Object.fromEntries([...STAGES, "awaiting_code"].map((s) => [s, true]));
+
+/** live versions: the run's MP4 in the same preview box, driven through the same handle as the motion preview */
+function LivePreview({ ref, src, muted, fps, title, onFrame, onPlaying, onError }: { ref: Ref<PreviewHandle>; src: string; muted: boolean; fps: number; title: string; onFrame: (f: number) => void; onPlaying: (p: boolean) => void; onError: () => void }) {
+  const el = useRef<HTMLVideoElement>(null);
+  useImperativeHandle(ref, () => ({
+    seek: (f) => {
+      if (el.current) el.current.currentTime = f / fps;
+    },
+    toggle: () => {
+      const v = el.current;
+      if (v) void (v.paused ? v.play().catch(() => undefined) : v.pause());
+    },
+    play: () => void el.current?.play().catch(() => undefined),
+    pause: () => el.current?.pause(),
+  }));
+  return (
+    <video
+      ref={el}
+      src={src}
+      title={title}
+      muted={muted}
+      playsInline
+      preload="auto"
+      onTimeUpdate={(e) => onFrame(Math.round(e.currentTarget.currentTime * fps))}
+      onPlay={() => onPlaying(true)}
+      onPause={() => onPlaying(false)}
+      onEnded={() => onPlaying(false)}
+      onError={onError}
+      className="block size-full"
+    />
+  );
+}

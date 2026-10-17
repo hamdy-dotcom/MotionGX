@@ -20,6 +20,7 @@ export function NewVideoForm({
   prices,
   fxRate,
   currency,
+  liveEngine = false,
 }: {
   companies: CompanyOption[];
   initialCompanyId: string;
@@ -27,6 +28,8 @@ export function NewVideoForm({
   prices: Prices;
   fxRate: number;
   currency: string;
+  /** VIDEO_ENGINE=live: music only for now — voiceover shows disabled with a "soon" label */
+  liveEngine?: boolean;
 }) {
   const t = useTranslations("videos");
   const tc = useTranslations("common");
@@ -167,8 +170,9 @@ export function NewVideoForm({
         <div className="panel">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p id="vo-label" className="font-semibold">
+              <p id="vo-label" className="flex items-center gap-2 font-semibold">
                 {t("voiceover")}
+                {liveEngine ? <span className="chip chip-white">{t("soon")}</span> : null}
               </p>
               <p className="text-sm text-ink-muted">{t("voiceoverHint", { price: money(prices.voiceoverMinUsd) })}</p>
             </div>
@@ -178,7 +182,8 @@ export function NewVideoForm({
               aria-checked={voiceover}
               aria-labelledby="vo-label"
               onClick={() => setVoiceover((v) => !v)}
-              className={`relative h-8 w-14 shrink-0 rounded-full transition-colors ${voiceover ? "bg-primary" : "bg-primary-lavender"}`}
+              disabled={liveEngine}
+              className={`relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${voiceover ? "bg-primary" : "bg-primary-lavender"}`}
             >
               <span
                 className={`absolute top-1 size-6 rounded-full bg-white shadow transition-[inset-inline-start] ${voiceover ? "start-7" : "start-1"}`}

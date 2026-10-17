@@ -187,7 +187,8 @@
     "writeScript": "Write the script",
     "writing": "Writing the script…",
     "briefRequired": "Describe the video.",
-    "untitled": "{goal} video"
+    "untitled": "{goal} video",
+    "soon": "Soon"
   },
   "studio": {
     "scenes": "<b>Scenes</b>",
@@ -258,7 +259,12 @@
     "hitAt": "{kind} at {s}s",
     "stage_plan": "The creative director is planning the film…",
     "stage_spec": "Designing the animation…",
-    "stage_ready": "Almost there…"
+    "stage_ready": "Almost there…",
+    "codeTitle": "Verification code",
+    "codeHint": "We're signing up on your website to film the app. Enter the code sent to {to}.",
+    "codeSend": "Send code",
+    "stage_awaiting_code": "Waiting for the verification code…",
+    "liveHint": "The first video for a company takes ~10 min, later ones ~1 min. You can leave this page."
   },
   "wallet": {
     "title": "<b>Wallet</b>",
