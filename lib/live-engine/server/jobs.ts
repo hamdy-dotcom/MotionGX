@@ -83,7 +83,9 @@ async function usableCapture(companyId: string) {
 }
 
 const domainOf = async (url: string) => (await import("tldts")).parse(url, { allowPrivateDomains: true }).domain;
-const captureBrief = (siteUrl: string): Brief => ({ url: siteUrl, objective: "acquire", country: "EG", layout: "9:16", length: 30 });
+// appUrl = the site itself, as in the sandbox baseline brief (its form's "App / sign-up URL" field): without it the
+// capture only signs up when the homepage has a link matching its auto-detect pattern, else stops at "no_app_link"
+const captureBrief = (siteUrl: string): Brief & { appUrl: string } => ({ url: siteUrl, appUrl: siteUrl, objective: "acquire", country: "EG", layout: "9:16", length: 30 });
 
 // ── "Add company" (طلّع الهوية): the sandbox's capture + profile, before the company exists ──────────────
 /** start (or reuse, as the sandbox reuses brands/<site> until a re-read) the capture of a site */
