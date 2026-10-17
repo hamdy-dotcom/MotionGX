@@ -10,20 +10,28 @@ import type { MotionSpec } from "@/lib/motion/spec";
 import { runRender } from "@/lib/render/run";
 import { promoteCustom, promoteIllustrations } from "@/lib/motion/promote";
 import type { ScriptBeat } from "@motiongx/primitives";
+import { liveEngineEnabled } from "@/lib/live-engine/config";
+import { answerCode, reviveStalledJobs } from "@/lib/live-engine/server/jobs";
 
 export type ActionResult = { ok: true } | { ok: false; error: AiErrorCode | "generic" };
 
-/** Edits on-screen lines: a new version with the same spec (text elements reference lines as "sN:i"). */
-export async function saveLines(videoId: string, beats: ScriptBeat[]): Promise<{ ok: true; version: number } | { ok: false }> {
+/** Edits on-screen lines: a new version with the same spec (text elements reference lines as "sN:i").
+ *  A live version is rebuilt instead (decision Q10): the edited lines go into its saved script, then
+ *  build → music → qa → render run again on the same brand capture — `started: true`. */
+export async function saveLines(videoId: string, beats: ScriptBeat[]): Promise<{ ok: true; version: number; started?: boolean } | { ok: false; error?: AiErrorCode | "generic" }> {
   const { supabase } = await getAppContext();
   const { data: latest } = await supabase.from("video_versions").select("*").eq("video_id", videoId).order("version", { ascending: false }).limit(1).maybeSingle();
-  if (!latest?.spec) return { ok: false };
+  if (!latest?.spec && latest?.engine !== "live") return { ok: false };
   const byId = new Map(beats.map((b) => [b.id, b]));
   const scenes = (latest.scenes as ScriptBeat[]).map((b) => {
     const next = byId.get(b.id);
     const lines = (next?.lines ?? b.lines).map((l) => String(l).trim().slice(0, 48)).filter(Boolean).slice(0, 3);
     return { ...b, lines: lines.length ? lines : b.lines };
   });
+  if (latest.engine === "live") {
+    const res = await startGeneration(videoId, { kind: "lines", beats: scenes });
+    return res.ok ? { ok: true, version: latest.version, started: true } : res;
+  }
   const version = latest.version + 1;
   const { id: _id, created_at: _c, version: _v, ...rest } = latest;
   void _id;
@@ -49,12 +57,20 @@ async function startGeneration(videoId: string, mode: Parameters<typeof runGener
   }
   const { error } = await supabase
     .from("videos")
-    .update({ status: "generating", generation: { stage: "queued", mode: mode.kind, updated_at: new Date().toISOString() } })
+    .update({ status: "generating", generation: { stage: "queued", mode: mode.kind, ...(await liveMarker(videoId, mode.kind)), updated_at: new Date().toISOString() } })
     .eq("id", videoId);
   if (error) return { ok: false, error: "generic" };
   after(() => runGeneration(videoId, mode));
   revalidatePath(`/videos/${videoId}`);
   return { ok: true };
+}
+
+/** the progress panel shows the live engine's timing hint from the first poll */
+async function liveMarker(videoId: string, kind: string) {
+  if (kind === "new" || kind === "direction") return liveEngineEnabled() ? { engine: "live" } : {};
+  const { supabase } = await getAppContext();
+  const { data } = await supabase.from("video_versions").select("engine").eq("video_id", videoId).order("version", { ascending: false }).limit(1).maybeSingle();
+  return data?.engine === "live" ? { engine: "live" } : {};
 }
 
 /** "اتجاه تاني": a fresh treatment + composition. Free; counts toward the AI rate limit. */
@@ -84,7 +100,25 @@ export async function undoLastChange(videoId: string, version: number, revision:
 export async function getGenerationStatus(videoId: string): Promise<{ status: string; generation: Record<string, unknown> } | null> {
   const { supabase } = await getAppContext();
   const { data } = await supabase.from("videos").select("status, generation").eq("id", videoId).maybeSingle();
-  return data ? { status: data.status, generation: (data.generation ?? {}) as Record<string, unknown> } : null;
+  const generation = (data?.generation ?? {}) as Record<string, unknown>;
+  // live engine without a cron (local runs): the studio's poll doubles as the watchdog, at most once a minute
+  if (data?.status === "generating" && generation.engine === "live" && Date.now() - lastRevive > 60_000) {
+    lastRevive = Date.now();
+    after(() => reviveStalledJobs().then(() => undefined));
+  }
+  return data ? { status: data.status, generation } : null;
+}
+let lastRevive = 0;
+
+/** the SMS code the live engine's capture agent asked for (the progress panel's input) */
+export async function submitCaptureCode(videoId: string, code: string): Promise<boolean> {
+  const { supabase, role } = await getAppContext();
+  if (role === "viewer") return false;
+  const { data } = await supabase.from("videos").select("id").eq("id", videoId).maybeSingle(); // RLS: members only
+  if (!data || !code.trim()) return false;
+  const ok = await answerCode(videoId, code);
+  if (ok) revalidatePath(`/videos/${videoId}`);
+  return ok;
 }
 
 /** Music on/off (off keeps the SFX layer). Music is included in the export price. */
@@ -120,6 +154,8 @@ export async function renderDownloadUrl(renderId: string): Promise<string | null
   if (data?.signedUrl && render.version_id) {
     const versionId = render.version_id;
     after(async () => {
+      const { data: v } = await supabase.from("video_versions").select("engine").eq("id", versionId).maybeSingle();
+      if (v?.engine === "live") return; // no custom effects / illustrations in live versions
       await promoteCustom(render.video_id, versionId);
       await promoteIllustrations(versionId);
     });

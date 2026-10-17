@@ -11,6 +11,7 @@ import type { Plan } from "@/lib/motion/plan";
 import type { MotionSpec } from "@/lib/motion/spec";
 import type { SpecVideoProps } from "@/remotion/SpecVideo";
 import type { Video } from "@/lib/types";
+import { LIVE_BUCKET } from "@/lib/live-engine/protocol";
 
 /**
  * Renders a queued export: status `rendering` → MP4 (the version's MotionSpec, rendered in parallel
@@ -38,6 +39,21 @@ export async function runRender(renderId: string, opts: { forceFailure?: boolean
     if (opts.forceFailure || process.env.MOTIONGX_FORCE_RENDER_FAILURE === "1") throw new Error("forced failure (test)");
 
     const v = video as Video;
+    if (version.engine === "live") {
+      // live versions are already rendered: the export is the run's MP4 (without its audio track when music is off)
+      const audio = (version.audio ?? {}) as { silent?: string };
+      const source = v.music_enabled === false && audio.silent ? audio.silent : version.mp4_path;
+      if (!source) throw new Error("this live version has no MP4");
+      const { data: blob, error: dlErr } = await admin.storage.from(LIVE_BUCKET).download(source);
+      if (!blob) throw new Error(`live MP4 missing: ${dlErr?.message ?? source}`);
+      await admin.from("renders").update({ progress: 0.6, updated_at: new Date().toISOString() }).eq("id", renderId);
+      const outputPath = `${v.workspace_id}/${renderId}.mp4`;
+      const { error: upErr } = await admin.storage.from("renders").upload(outputPath, Buffer.from(await blob.arrayBuffer()), { contentType: "video/mp4", upsert: true });
+      if (upErr) throw new Error(`upload failed: ${upErr.message}`);
+      await admin.from("renders").update({ status: "done", progress: 1, output_path: outputPath, updated_at: new Date().toISOString() }).eq("id", renderId);
+      await admin.from("videos").update({ status: "ready" }).eq("id", v.id);
+      return;
+    }
     if (!version.spec || !version.plan) throw new Error("this version has no MotionSpec (made with the old engine — generate another direction)");
     const brief = await briefFor(v);
     if (!brief) throw new Error("brand missing");
