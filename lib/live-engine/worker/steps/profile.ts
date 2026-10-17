@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { callTool, imageBlock } from "../claude";
+import { LEGAL } from "./capture";
 
 const rgbToHex = (v) => {
   const m = String(v).match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/);
@@ -17,6 +18,8 @@ const merge = (lists) => { const o = {}; for (const l of lists) for (const { val
 export async function buildProfile({ brief, brandDir, capture, ledger, models, log = console.log }) {
   log("▶ profile: merging captured pages");
   const all = [...capture.pages, ...capture.app.screens];
+  // legal pages (privacy, terms…) never count as evidence for a feature (older captures may still have them)
+  const legal = capture.pages.filter((p) => LEGAL.test(`${decodeURIComponent(p.url || "")} ${p.label}`)).map((p) => p.id);
   const probes = all.map((p) => ({ ...p, data: JSON.parse(fs.readFileSync(path.join(brandDir, p.probe))) }));
   const facts = {
     site: brief.url, title: probes[0]?.data.title, description: probes[0]?.data.description, lang: probes[0]?.data.lang, dir: probes[0]?.data.dir,
@@ -84,7 +87,7 @@ export async function buildProfile({ brief, brandDir, capture, ledger, models, l
   const brand = {
     name: out.name, name_ar: out.name_ar, site: brief.url, tagline: out.tagline, summary: out.summary, audience: out.audience, language: out.language, voice: out.voice,
     palette: out.palette, fonts: { ...out.fonts, files: facts.fontFiles.map((f) => `assets/fonts/${f}`) }, logo: logo ? { file: logo, on_dark: out.logo.on_dark } : null,
-    selling_points: out.selling_points, features: out.features, look: out.look, screens: shotList, parts: partList, images: imageList,
+    selling_points: out.selling_points, features: out.features.map((f) => ({ ...f, evidence: (f.evidence || []).filter((e) => !legal.some((id) => e === id || String(e).startsWith(id + "-"))) })), look: out.look, screens: shotList, parts: partList, images: imageList,
     app_access: capture.app.status, measured: { backgrounds: facts.backgrounds.slice(0, 6), buttons: facts.buttons.slice(0, 4), text: facts.text.slice(0, 4) },
   };
   fs.writeFileSync(path.join(brandDir, "brand.json"), JSON.stringify(brand, null, 2));

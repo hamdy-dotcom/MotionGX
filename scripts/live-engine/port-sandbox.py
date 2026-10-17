@@ -41,6 +41,8 @@ port("capture", [
   lambda s: edit(s, "pg.evaluate(HUMAN)", 'inPage(pg, "HUMAN")'),
   lambda s: edit(s, "getPage().evaluate(REFUSED)", 'inPage(getPage(), "REFUSED")'),
   lambda s: edit(s, "page.evaluate(NAVBTNS)", 'inPage(page, "NAVBTNS")', count=2),
+  lambda s: edit(s, "page.evaluate(CONSENT)", 'inPage(page, "CONSENT")', count=2),
+  lambda s: edit(s, "page.evaluate(SETTLE)", 'inPage(page, "SETTLE")'),
   lambda s: edit(s, "page.evaluate(SNAPSHOT, ", 'inPage(page, "SNAPSHOT", ', count=5),
   # install the in-page functions into every page of the context
   lambda s: edit(s, '  // Save every image / css / font the site loads.', '  await installInPage(ctx);\n\n  // Save every image / css / font the site loads.'),
@@ -69,7 +71,7 @@ port("capture", [
 ])
 
 # ── profile, script, build ───────────────────────────────────────────────────────────────────────────
-port("profile", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";')])
+port("profile", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";'), lambda s: edit(s, 'from "./capture.mjs";', 'from "./capture";')])
 port("script", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";')])
 port("build", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";'), lambda s: edit(s, 'from "./script.mjs";', 'from "./script";'), lambda s: edit(s, 'from "./compose.mjs";', 'from "./compose";')])
 port("compose", [lambda s: edit(s, 'from "./script.mjs";', 'from "./script";')])

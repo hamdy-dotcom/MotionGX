@@ -15,6 +15,8 @@ import { makeScope } from "../scope";
 
 const VIEW = { width: 1440, height: 900 };
 const MAX_PUBLIC_PAGES = 6;
+// legal pages (privacy, terms, cookies, policies) are never crawled: no brand copy, no feature evidence
+export const LEGAL = /privacy|terms|cookie|policy|policies|legal|gdpr|سياسة|شروط|الشروط|الخصوصية|الأحكام|ملفات تعريف/i;
 const MAX_AGENT_STEPS = 130;
 
 const slugify = (s) => s.toLowerCase().replace(/^https?:\/\//, "").replace(/[^a-z0-9؀-ۿ]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "page";
@@ -53,12 +55,17 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   let page = await ctx.newPage();
   ctx.on("page", async (p) => { page = p; await p.waitForLoadState("domcontentloaded").catch(() => {}); });
   const settle = async () => { try { await page.waitForLoadState("networkidle", { timeout: 8000 }); } catch {} await page.waitForTimeout(800); };
-  const autoscroll = async () => { await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 700) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 120)); } scrollTo(0, 0); }); await page.waitForTimeout(500); };
+  const autoscroll = async () => { await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 700) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 120)); } scrollTo({ top: 0, behavior: "instant" }); }); await page.waitForTimeout(500); };
 
   let seq = 0;
   async function savePage(label, extra = {}) {
     const id = `${String(++seq).padStart(2, "0")}-${slugify(label)}`;
+    // cookie / consent banners never end up in a screen or a clone
+    const consent = await inPage(page, "CONSENT").catch(() => ""); if (consent) { log(`  🍪 ${consent}`); await page.waitForTimeout(400); }
     await autoscroll();
+    // the first screen is final: at the top, reveal animations done, its images loaded (max 3 s)
+    const settled = await inPage(page, "SETTLE").catch(() => null); if (settled?.stillAnimating) log(`  … first screen still animating after ${settled.ms} ms`);
+    if (await inPage(page, "CONSENT").catch(() => "")) await page.waitForTimeout(300); // a banner that appeared on scroll
     // screenshots are previews only (videos use the live UI clones): JPEG q80, full pages capped at 4000 px tall
     const docH = await page.evaluate(() => document.documentElement.scrollHeight).catch(() => 4000);
     await page.screenshot({ path: path.join(brandDir, "screens", `${id}.full.jpg`), type: "jpeg", quality: 80, fullPage: true, clip: { x: 0, y: 0, width: page.viewportSize().width, height: Math.max(1, Math.min(docH, 4000)) } });
@@ -131,7 +138,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   const home = await savePage("home"); manifest.pages.push(home);
   const homeProbe = JSON.parse(fs.readFileSync(path.join(brandDir, home.probe)));
   const origin = new URL(page.url()).hostname.replace(/^www\./, "");
-  const candidates = [...new Map(homeProbe.links.filter((l) => { try { const u = new URL(l.href); return u.hostname.replace(/^www\./, "") === origin && !u.hash && u.pathname !== "/" && !/\.(pdf|zip|png|jpg)$/i.test(u.pathname); } catch { return false; } }).sort((a, b) => b.inNav - a.inNav).map((l) => [new URL(l.href).pathname, l])).values()].slice(0, MAX_PUBLIC_PAGES - 1);
+  const candidates = [...new Map(homeProbe.links.filter((l) => { try { const u = new URL(l.href); return u.hostname.replace(/^www\./, "") === origin && u.pathname !== "/" && !/\.(pdf|zip|png|jpg)$/i.test(u.pathname) && !LEGAL.test(decodeURIComponent(u.pathname) + " " + l.text); } catch { return false; } }).sort((a, b) => b.inNav - a.inNav).map((l) => [new URL(l.href).pathname, l])).values()].slice(0, MAX_PUBLIC_PAGES - 1);
   for (const l of candidates) {
     try { log(`  · ${l.href}`); await page.goto(l.href, { waitUntil: "domcontentloaded", timeout: 30000 }); await settle(); manifest.pages.push(await savePage(l.text || new URL(l.href).pathname)); } catch (e) { log(`  ! ${l.href}: ${e.message.split("\n")[0]}`); }
   }
@@ -144,7 +151,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
 
   // single-page sites: menu entries are buttons, not links — click each, keep the page it lands on (max ${MAX_PUBLIC_PAGES} pages)
   if (candidates.length < 3) {
-    const home = page.url(), key = (u) => { const x = new URL(u); return x.pathname.replace(/\/$/, "") + x.hash; };
+    const home = page.url(), key = (u) => new URL(u).pathname.replace(/\/$/, ""); // pages that only differ by #hash are one page
     const seenKeys = new Set(manifest.pages.map((pg) => key(pg.url)));
     const btns = await inPage(page, "NAVBTNS").catch(() => []);
     if (btns.length) log(`  · single-page site: ${btns.length} menu buttons to try`);
@@ -153,7 +160,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
       try {
         if (page.url() !== home) { await page.goto(home, { waitUntil: "domcontentloaded", timeout: 30000 }); await settle(); }
         await inPage(page, "NAVBTNS"); await page.locator(`[data-mgx-nav="${b.i}"]`).first().click({ timeout: 5000 }); await settle();
-        const u = page.url(); if (new URL(u).hostname.replace(/^www\./, "") !== origin || seenKeys.has(key(u))) continue;
+        const u = page.url(); if (new URL(u).hostname.replace(/^www\./, "") !== origin || seenKeys.has(key(u)) || LEGAL.test(decodeURIComponent(new URL(u).pathname) + " " + b.text)) continue;
         seenKeys.add(key(u)); log(`  · ${u} (menu: ${b.text})`); manifest.pages.push(await savePage(b.text));
       } catch (e) { log(`  ! menu "${b.text}": ${e.message.split("\n")[0]}`); }
     }
