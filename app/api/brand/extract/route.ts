@@ -5,6 +5,7 @@ import { EMPTY_FACTS, FALLBACK_FONTS, type BrandFacts } from "@/lib/brand/types"
 import { normalizeUrl, urlKey } from "@/lib/brand/url";
 import { snapshotFolder, snapshotZip, type Snapshot } from "@/lib/brand/snapshot";
 import type { BrandProfile, Dialect } from "@/lib/types";
+import { liveEngineEnabled } from "@/lib/live-engine/config";
 
 export const maxDuration = 120;
 
@@ -22,6 +23,8 @@ type CachedCompany = {
  * ("أعد القراءة" is the only thing that re-calls Firecrawl).
  */
 export async function POST(request: NextRequest) {
+  // the old homepage extractor runs only with VIDEO_ENGINE=legacy; live uses /api/brand/capture (the sandbox's capture + profile)
+  if (liveEngineEnabled()) return Response.json({ error: "not_found" }, { status: 404 });
   const ctx = await getApiContext();
   if (!ctx) return Response.json({ error: "unauthorized" }, { status: 401 });
   if (ctx.role === "viewer") return Response.json({ error: "forbidden" }, { status: 403 });

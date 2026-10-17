@@ -29,6 +29,7 @@ import { Heading, boldTag } from "@/components/heading";
 import { StatusChip } from "@/components/status-chip";
 import { TimelineSlider } from "@/components/timeline-slider";
 import { CompanyMark } from "@/components/company-mark";
+import { CaptureCodeForm } from "@/components/live-capture";
 import { MotionPreview, type PreviewHandle, type PreviewProps } from "@/components/motion-preview";
 import { CheckIcon, DownloadIcon, PlayIcon, SendIcon, SparkIcon, SpinnerIcon, UndoIcon } from "@/components/icons";
 
@@ -110,7 +111,7 @@ export function Studio({
   const [notice, setNotice] = useState<Notice>(null);
   const [request, setRequest] = useState("");
   const [pending, startTransition] = useTransition();
-  const [busy, setBusy] = useState<"save" | "direction" | "export" | "request" | "music" | "undo" | "code" | null>(null);
+  const [busy, setBusy] = useState<"save" | "direction" | "export" | "request" | "music" | "undo" | null>(null);
   const [render, setRender] = useState<RenderInfo | null>(initialRender);
   const [status, setStatus] = useState(video.status);
   const [gen, setGen] = useState<Record<string, unknown> | null>(generation);
@@ -134,7 +135,6 @@ export function Studio({
   const beat = beats[active];
   const generating = status === "generating";
   const stage = String(gen?.stage ?? "queued");
-  const [code, setCode] = useState("");
 
   // The props the sandbox receives. Lines edited here re-render live (the composition reads them from props).
   const previewProps: PreviewProps | null = useMemo(() => {
@@ -274,16 +274,6 @@ export function Studio({
     });
   };
 
-  const onCode = (e: FormEvent) => {
-    e.preventDefault();
-    if (!code.trim()) return;
-    run("code", async () => {
-      if (!(await submitCaptureCode(video.id, code))) throw new Error();
-      setCode("");
-      setGen((g) => ({ ...g, stage: "plan" }));
-    });
-  };
-
   const onToggleMusic = () =>
     run("music", async () => {
       if (!(await setMusicEnabled(video.id, !musicOn))) throw new Error();
@@ -371,21 +361,14 @@ export function Studio({
             <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${Math.max(4, (stageIndex / (STAGES.length - 1)) * 100)}%` }} />
           </div>
           {stage === "awaiting_code" ? (
-            <form onSubmit={onCode} className="mt-4">
-              <label htmlFor="sms-code" className="label mb-2 block">
-                {t("codeTitle")}
-              </label>
-              <div className="flex items-end gap-2 rounded-[22px] bg-white p-1.5">
-                <input id="sms-code" value={code} onChange={(e) => setCode(e.target.value)} dir="ltr" inputMode="numeric" autoComplete="one-time-code" maxLength={12} className="min-h-pill flex-1 bg-transparent px-3 py-2 text-sm outline-none" />
-                <button type="submit" disabled={pending || !code.trim()} className="btn btn-primary shrink-0">
-                  {busy === "code" ? <SpinnerIcon className="size-4" /> : <SendIcon className="size-4" />}
-                  {t("codeSend")}
-                </button>
-              </div>
-              <p className="mt-2 text-xs text-ink-muted">
-                {t("codeHint", { to: askedTo })}
-              </p>
-            </form>
+            <CaptureCodeForm
+              askedTo={askedTo}
+              onSend={async (c) => {
+                const ok = await submitCaptureCode(video.id, c);
+                if (ok) setGen((g) => ({ ...g, stage: "plan" }));
+                return ok;
+              }}
+            />
           ) : null}
         </div>
       ) : null}

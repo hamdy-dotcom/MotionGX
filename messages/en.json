@@ -161,7 +161,8 @@
     "savedChanges": "Changes saved.",
     "saveChanges": "Save changes",
     "editTitle": "<b>{name}</b> brand & facts",
-    "editSubtitle": "Edit the brand and the facts scripts rely on, or press \"Re-read website\" to read the site again."
+    "editSubtitle": "Edit the brand and the facts scripts rely on, or press \"Re-read website\" to read the site again.",
+    "liveHint": "Signing up inside the product and touring its features takes about 10 minutes. If you leave, enter the same link again to pick it up."
   },
   "videos": {
     "title": "<b>New</b> video",

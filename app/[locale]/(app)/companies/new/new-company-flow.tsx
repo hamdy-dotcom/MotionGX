@@ -7,15 +7,16 @@ import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { BrandEditor } from "../brand-editor";
 import { ExtractSteps, SnapshotLink, STEP_LABEL } from "../extract-steps";
 import { useExtraction } from "../use-extraction";
+import { CaptureCodeForm, StepLog } from "@/components/live-capture";
 
-export function NewCompanyFlow() {
+export function NewCompanyFlow({ liveEngine = false }: { liveEngine?: boolean }) {
   const t = useTranslations("companies");
   const [url, setUrl] = useState("");
   const [brand, setBrand] = useState<BrandDraft | null>(null);
   const [raw, setRaw] = useState<Record<string, unknown> | null>(null);
   const [cached, setCached] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
-  const x = useExtraction();
+  const x = useExtraction(liveEngine);
 
   async function extract(refresh: boolean) {
     const result = await x.run(url, refresh);
@@ -60,7 +61,15 @@ export function NewCompanyFlow() {
             {t("invalidUrl")}
           </p>
         ) : null}
-        {x.started ? <ExtractSteps steps={x.steps} running={x.running} errorCode={x.errorCode} /> : null}
+        {x.started ? <ExtractSteps steps={x.steps} running={x.running} errorCode={x.errorCode} hide={x.live ? ["snapshot"] : []} /> : null}
+        {x.live && x.running ? (
+          <>
+            <p className="mt-3 text-sm text-ink-muted">{t("liveHint")}</p>
+            <StepLog lines={x.log} />
+            {x.ask ? <CaptureCodeForm askedTo={x.ask.to} onSend={x.sendCode} /> : null}
+          </>
+        ) : null}
+
       </form>
 
       {brand && !x.running ? (

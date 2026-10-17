@@ -6,6 +6,7 @@ import { loadLogo, logoFromBytes, type LogoFile } from "@/lib/brand/logo";
 import type { BrandFacts } from "@/lib/brand/types";
 import { redirect } from "@/i18n/navigation";
 import { DIALECTS, type BrandColor, type Dialect } from "@/lib/types";
+import { linkCapture } from "@/lib/live-engine/server/jobs";
 
 export type SaveCompanyState = { error?: "nameRequired" | "generic"; saved?: boolean };
 
@@ -23,14 +24,15 @@ function parseFacts(value: FormDataEntryValue | null): BrandFacts {
   const f = parseJson<Partial<BrandFacts>>(value, {});
   const list = (v: unknown, max: number, n: number) => (Array.isArray(v) ? v.map((x) => str(x, max)).filter(Boolean).slice(0, n) : []);
   return {
-    what_it_does: str(f.what_it_does, 300),
-    audience: str(f.audience, 200),
-    key_features: list(f.key_features, 80, 8),
+    what_it_does: str(f.what_it_does, 600),
+    audience: str(f.audience, 400),
+    // the live engine's profile lists the complete feature inventory (12-30)
+    key_features: list(f.key_features, 240, 40),
     numbers: (Array.isArray(f.numbers) ? f.numbers : [])
       .map((n) => ({ value: Number(n?.value), label: str(n?.label, 80), prefix: str(n?.prefix, 6), suffix: str(n?.suffix, 14) }))
       .filter((n) => Number.isFinite(n.value) && n.label)
       .slice(0, 8),
-    offers: list(f.offers, 120, 5),
+    offers: list(f.offers, 200, 8),
     cta_url: str(f.cta_url, 200),
   };
 }
@@ -53,8 +55,9 @@ function parseBrand(formData: FormData) {
     tone: String(formData.get("tone") ?? "").trim() || null,
     tagline: String(formData.get("tagline") ?? "").trim() || null,
     facts: parseFacts(formData.get("facts")),
-    // Raw Firecrawl payload is cached so only "أعد القراءة" re-scrapes.
-    raw: raw && raw.source === "firecrawl" ? raw : null,
+    // Raw Firecrawl payload is cached so only "أعد القراءة" re-scrapes. Live engine: {source: "live", capture_id}
+    // — the sandbox capture + brand.json every video of this company reuses.
+    raw: raw && raw.source === "firecrawl" ? raw : raw && raw.source === "live" && typeof raw.capture_id === "string" && /^[0-9a-f-]{36}$/i.test(raw.capture_id) ? { source: "live", capture_id: raw.capture_id } : null,
   };
 }
 
@@ -118,6 +121,7 @@ export async function saveCompany(_prev: SaveCompanyState, formData: FormData): 
     return { error: "generic" };
   }
 
+  if (b.raw?.source === "live") await linkCapture(ctx.workspace.id, String(b.raw.capture_id), company.id);
   await saveLogo(ctx, company.id, formData);
   revalidatePath("/", "layout");
   redirect({ href: "/", locale: ctx.locale });
@@ -148,6 +152,7 @@ export async function updateCompany(companyId: string, _prev: SaveCompanyState, 
     return { error: "generic" };
   }
 
+  if (b.raw?.source === "live") await linkCapture(ctx.workspace.id, String(b.raw.capture_id), companyId);
   await saveLogo(ctx, companyId, formData);
   revalidatePath("/", "layout");
   return { saved: true };

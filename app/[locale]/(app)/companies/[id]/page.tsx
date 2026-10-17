@@ -6,6 +6,7 @@ import { EMPTY_FACTS, FALLBACK_FONTS, type BrandDraft, type BrandFacts } from "@
 import { Heading, boldTag } from "@/components/heading";
 import { snapshotFolder } from "@/lib/brand/snapshot";
 import { urlKey } from "@/lib/brand/url";
+import { liveEngineEnabled } from "@/lib/live-engine/config";
 import { CompanyScreen } from "./company-screen";
 
 export default async function CompanyPage({ params }: { params: Promise<{ locale: string; id: string }> }) {
@@ -49,7 +50,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ locale
       </Heading>
       <p className="mt-3 max-w-2xl leading-relaxed text-ink-muted">{t("editSubtitle")}</p>
       <div className="mt-6">
-        <CompanyScreen companyId={company.id} brand={brand} hasSnapshot={hasSnapshot} />
+        <CompanyScreen companyId={company.id} brand={brand} hasSnapshot={hasSnapshot} liveEngine={liveEngineEnabled()} />
       </div>
     </div>
   );

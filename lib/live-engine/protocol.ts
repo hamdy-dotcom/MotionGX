@@ -48,20 +48,21 @@ export type Report =
 
 /**
  * Logical paths the worker uploads/downloads, relative to the worker root:
- *   brand/<rel>  → live-engine/{ws}/brands/{company}/{capture}/<rel>   (packed folders: brand/_pack/<dir>.tgz[.partNN])
+ *   brand/<rel>  → live-engine/{ws}/captures/{capture}/<rel>   (packed folders: brand/_pack/<dir>.tgz[.partNN])
  *   run/<rel>    → live-engine/{ws}/runs/{video}/{job}/<rel>
- *   private/auth.json → live-engine/_private/{ws}/brands/{company}/{capture}/auth.json (service role only)
+ *   private/auth.json → live-engine/_private/{ws}/captures/{capture}/auth.json (service role only)
+ * A capture is keyed by itself, not by a company: it runs on "Add company", before the company exists.
  */
 export type LogicalRoot = "brand" | "run" | "private";
 
 export const LIVE_BUCKET = "live-engine";
 
-export function storagePath(logical: string, ids: { workspaceId: string; companyId: string; captureId: string; videoId?: string | null; runFolder?: string | null }) {
+export function storagePath(logical: string, ids: { workspaceId: string; captureId: string; videoId?: string | null; runFolder?: string | null }) {
   const [root, ...rest] = logical.split("/");
   const rel = rest.join("/");
   if (!rel || rel.includes("..")) throw new Error(`bad logical path: ${logical}`);
-  if (root === "brand") return `${ids.workspaceId}/brands/${ids.companyId}/${ids.captureId}/${rel}`;
-  if (root === "private") return `_private/${ids.workspaceId}/brands/${ids.companyId}/${ids.captureId}/${rel}`;
+  if (root === "brand") return `${ids.workspaceId}/captures/${ids.captureId}/${rel}`;
+  if (root === "private") return `_private/${ids.workspaceId}/captures/${ids.captureId}/${rel}`;
   if (root === "run") {
     if (!ids.videoId || !ids.runFolder) throw new Error("run path without a video job");
     return `${ids.workspaceId}/runs/${ids.videoId}/${ids.runFolder}/${rel}`;

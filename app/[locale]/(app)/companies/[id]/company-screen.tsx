@@ -8,19 +8,20 @@ import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { BrandEditor } from "../brand-editor";
 import { ExtractSteps, SnapshotLink, STEP_LABEL } from "../extract-steps";
 import { useExtraction } from "../use-extraction";
+import { CaptureCodeForm, StepLog } from "@/components/live-capture";
 
 /** Company screen: edit brand + facts; "أعد القراءة" re-scrapes the site and refills the form. */
-export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false }: { companyId: string; brand: BrandDraft; hasSnapshot?: boolean }) {
+export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, liveEngine = false }: { companyId: string; brand: BrandDraft; hasSnapshot?: boolean; liveEngine?: boolean }) {
   const t = useTranslations("companies");
   const td = useTranslations("dashboard");
   const [brand, setBrand] = useState(initial);
   const [raw, setRaw] = useState<Record<string, unknown> | null>(null);
   const [editorKey, setEditorKey] = useState(0);
-  const x = useExtraction();
+  const x = useExtraction(liveEngine);
 
   async function reread() {
     if (!brand.websiteUrl) return;
-    const result = await x.run(brand.websiteUrl, true);
+    const result = await x.run(brand.websiteUrl, true, companyId);
     if (!result) return;
     // Keep what the user already set when a step failed.
     const next = result.brand;
@@ -54,7 +55,14 @@ export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false }
         </button>
         {x.started ? (
           <div className="w-full">
-            <ExtractSteps steps={x.steps} running={x.running} errorCode={x.errorCode} />
+            <ExtractSteps steps={x.steps} running={x.running} errorCode={x.errorCode} hide={x.live ? ["snapshot"] : []} />
+            {x.live && x.running ? (
+              <>
+                <p className="mt-3 text-sm text-ink-muted">{t("liveHint")}</p>
+                <StepLog lines={x.log} />
+                {x.ask ? <CaptureCodeForm askedTo={x.ask.to} onSend={x.sendCode} /> : null}
+              </>
+            ) : null}
             {!x.running && x.failed.length ? (
               <p className="mt-2 text-sm text-warning-ink">{t("fillManually", { steps: x.failed.map((s) => t(STEP_LABEL[s])).join("، ") })}</p>
             ) : null}

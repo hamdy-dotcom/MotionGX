@@ -26,13 +26,13 @@ export function SnapshotLink({ websiteUrl }: { websiteUrl: string }) {
   );
 }
 
-export function ExtractSteps({ steps, running, errorCode }: { steps: Steps; running: boolean; errorCode: AiErrorCode | null }) {
+export function ExtractSteps({ steps, running, errorCode, hide = [] }: { steps: Steps; running: boolean; errorCode: AiErrorCode | null; hide?: ExtractStep[] }) {
   const t = useTranslations("companies");
   const te = useTranslations("aiErrors");
   return (
     <>
       <ol className="mt-4 flex flex-wrap gap-2" aria-live="polite">
-        {EXTRACT_STEPS.map((step) => {
+        {EXTRACT_STEPS.filter((s) => !hide.includes(s)).map((step) => {
           const state = steps[step];
           const active = state === "pending" && running;
           return (

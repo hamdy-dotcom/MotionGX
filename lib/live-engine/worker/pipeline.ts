@@ -55,7 +55,8 @@ export async function runJob(job: JobFile, dirs: { root: string; brandDir: strin
     // 4 — brand profile (once per company)
     await step("profile", async () => {
       const brand = await buildProfile({ brief, brandDir, capture: cap, ledger, models, log });
-      await sync.uploadBrand(["library"], ["brand.json"]);
+      // the chosen logo also as a plain file: "Add company" shows it before anything is unpacked
+      await sync.uploadBrand(["library"], ["brand.json", ...(brand.logo?.file ? [brand.logo.file] : [])]);
       return brand;
     }, (b: any) => ({ profile: b }));
     return finish();
