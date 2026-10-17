@@ -112,9 +112,16 @@ export async function startBrandCapture(workspaceId: string, siteUrl: string, op
   return { captureId: cap.id, reused: false };
 }
 
+let lastRevive = 0;
 /** progress for the "Add company" page: status, the last log lines, an SMS ask, brand.json when done */
 export async function captureProgress(workspaceId: string, captureId: string) {
   const db = admin();
+  // without a cron (local runs) this poll doubles as the watchdog, at most once a minute: a worker that stopped
+  // because the app was gone is relaunched and resumes after its last acknowledged step
+  if (Date.now() - lastRevive > 60_000) {
+    lastRevive = Date.now();
+    void reviveStalledJobs().catch((e) => console.error("[live] revive failed", e));
+  }
   const { data: cap } = await db.from("live_brand_captures").select("*").eq("id", captureId).eq("workspace_id", workspaceId).maybeSingle();
   if (!cap) return null;
   const { data: job } = await db.from("live_jobs").select("id, status, stage, log, ask, error, done_steps").eq("capture_id", captureId).eq("kind", "capture").order("created_at", { ascending: false }).limit(1).maybeSingle();

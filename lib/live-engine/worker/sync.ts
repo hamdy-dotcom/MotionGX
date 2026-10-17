@@ -16,6 +16,25 @@ export class Sync {
   ) {}
 
   private queue: Promise<unknown> = Promise.resolve();
+  /** reports that failed (after their own retries) back to back, and SMS-code polls that failed back to back */
+  private failedInARow = 0;
+  private pollsFailedInARow = 0;
+  /** steps finished here, and the ones the app has acknowledged (a resume starts after the acknowledged ones) */
+  private finished: Step[] = [];
+  private acknowledged: Step[] = [];
+
+  /**
+   * The app is gone (dev server stopped, deployment down, or this job was relaunched and our token replaced):
+   * stop instead of spending more. The app resumes the job from the last step it acknowledged.
+   */
+  private stopForGood(why: string): never {
+    const state = { stoppedAt: new Date().toISOString(), why, jobId: this.job.jobId, finishedHere: this.finished, acknowledgedByApp: this.acknowledged, resumesAfter: this.acknowledged.at(-1) ?? null };
+    try {
+      fs.writeFileSync(path.join(this.dirs.root, "STOPPED.json"), JSON.stringify(state, null, 2));
+    } catch {}
+    console.error(`■ worker stopped: ${why} — state saved to STOPPED.json; the app resumes after ${state.resumesAfter ?? "the start"}`);
+    process.exit(75);
+  }
 
   /** reports go out one at a time, in order (the app appends log/ledger rows to the job row) */
   private post<T = unknown>(body: Report): Promise<T> {
@@ -29,9 +48,15 @@ export class Sync {
       try {
         const r = await fetch(this.job.callbackUrl, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${this.job.token}` }, body: JSON.stringify(body) });
         if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 200)}`);
-        return (await r.json()) as T;
+        const out = (await r.json()) as T;
+        this.failedInARow = 0;
+        return out;
       } catch (err) {
-        if (attempt >= 4) throw new Error(`callback ${body.type} failed: ${err instanceof Error ? err.message : err}`);
+        if (attempt >= 4) {
+          // 3 reports in a row could not reach the app (each after its own 5 tries): the app is gone
+          if (++this.failedInARow >= 3) this.stopForGood(`3 reports in a row failed (last: ${body.type}: ${err instanceof Error ? err.message : err})`);
+          throw new Error(`callback ${body.type} failed: ${err instanceof Error ? err.message : err}`);
+        }
         await new Promise((ok) => setTimeout(ok, 1500 * (attempt + 1)));
       }
     }
@@ -54,8 +79,10 @@ export class Sync {
   stage = (stage: Step) => this.post({ type: "stage", stage });
   ledgerRow = (row: LedgerRow) => this.post({ type: "ledger", row });
   stepDone = async (step: Step, info?: Record<string, unknown>) => {
+    this.finished.push(step);
     await this.flush();
     await this.post({ type: "step_done", step, info });
+    this.acknowledged.push(step);
   };
   done = async (summary: Record<string, unknown>) => {
     await this.flush();
@@ -74,7 +101,12 @@ export class Sync {
     while (Date.now() < end) {
       await new Promise((ok) => setTimeout(ok, 3000));
       const r = await fetch(`${this.job.callbackUrl}?ask=1`, { headers: { authorization: `Bearer ${this.job.token}` } }).catch(() => null);
-      if (!r?.ok) continue;
+      // ~1 minute without the app while waiting for a code (polls every 3 s): the app is gone
+      if (!r?.ok) {
+        if (++this.pollsFailedInARow >= 20) this.stopForGood("the app stopped answering while waiting for the SMS code");
+        continue;
+      }
+      this.pollsFailedInARow = 0;
       const j = (await r.json()) as { answered: boolean; answer: string | null };
       if (j.answered) return j.answer?.trim() || null;
     }
