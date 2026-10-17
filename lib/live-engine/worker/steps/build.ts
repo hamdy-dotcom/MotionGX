@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { callTool } from "../claude";
 import { LAYOUTS } from "./script";
-import { applyOrder, compose, fingerprintOf, readHistory, recipeFor, repairAssets, resolveArt, uniqueness } from "./compose";
+import { applyOrder, compose, fingerprintOf, matchPromises, readHistory, recipeFor, repairAssets, resolveArt, uniqueness } from "./compose";
 import { artDirect } from "./artdirect";
 
 const ROLE_ORDER = { field: 0, button: 1, stat: 2, title: 3, tab: 4, part: 5, row: 6, chart: 7, image: 8, item: 9, nav: 10 };
@@ -33,7 +33,9 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
   const byId = Object.fromEntries(assets.map((a) => [a.id, a]));
 
   // 0. dead content: broken images in the live UI clones are replaced; thin blocks / dead clones change the scene's asset
-  if (repairAssets({ script, assets, brandDir, brand, log }).some((c) => c.startsWith("scene "))) fs.writeFileSync(path.join(runDir, "script.json"), JSON.stringify(script, null, 2));
+  const repaired = repairAssets({ script, assets, brandDir, brand, log }).some((c) => c.startsWith("scene "));
+  // a promised input plays a real input → result flow, or the scene gets rewritten by the director
+  if (matchPromises({ script, assets, log }).length || repaired) fs.writeFileSync(path.join(runDir, "script.json"), JSON.stringify(script, null, 2));
 
   // 1. the look of this one video — kept on QA rebuilds and edits (a video keeps its look), new otherwise
   const artFile = path.join(runDir, "art.json"), ctx = { script, assets, brandDir, brand };
@@ -66,7 +68,7 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
   // 2. the director: what each scene shows
   const scenes = script.scenes.map((sc, i) => {
     const r = recipeFor(sc, byId, brandDir, brand);
-    const out = { n: i + 1, purpose: sc.purpose, recipe: art.scenes[i]?.recipe || r.recipe, layout: art.scenes[i]?.layout, headline: sc.headline, sub: sc.sub || "", detail: sc.visual?.detail || "" };
+    const out = { n: i + 1, ...(sc._rewrite ? { rewrite: true } : {}), purpose: sc.purpose, recipe: art.scenes[i]?.recipe || r.recipe, layout: art.scenes[i]?.layout, headline: sc.headline, sub: sc.sub || "", detail: sc.visual?.detail || "" };
     const cid = r.ui || r.b; const c = cid && loadClone(brandDir, cid);
     if (c) out.regions = c.keys.filter((k) => k.part != null && k.text).slice(0, 8).map((k) => `part:${k.part} "${k.text.slice(0, 50)}"`);
     if (r.recipe === "replay") { const b = loadClone(brandDir, r.a); if (b) out.action = b.action; }
@@ -80,6 +82,8 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
     focus: { type: "array", items: { type: "string" }, description: "tour/replay scenes: up to 2 region ids from that scene's regions that best prove the headline, most important first" },
     number: { type: "string", description: "offer scenes: the number to count up, copied from the headline/sub" },
     button: { type: "string", description: "cta scene: button text, max 3 words" },
+    headline: { type: "string", description: "ONLY for scenes marked rewrite: the new headline (same language and dialect, similar length) stating what the screen shows — never promising typing, pasting, entering or searching" },
+    sub: { type: "string", description: "ONLY for scenes marked rewrite: the new sub line (or empty)" },
     asset: { type: "string", description: "only when a change request or a QA problem needs it: another asset id from LIVE ASSETS for this scene" },
   } } } } } };
   // a client's change request and/or the problems QA found in the previous composition steer the plan
@@ -93,6 +97,10 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
     const out = await callTool({ ledger, step: "direct", model: models.qa || models.script, maxTokens: 3000, tool, content: `BRAND: ${JSON.stringify({ name: brand.name, name_ar: brand.name_ar, selling_points: brand.selling_points, voice: brand.voice })}\n\nSCENES:\n${JSON.stringify(scenes, null, 1)}${steer ? `\n\nLIVE ASSETS:\n${JSON.stringify(live)}\n\n${steer}` : ""}`,
       system: "You direct a motion-graphics ad. Write the benefit chips (callouts), pain cards and button text in the SAME language and dialect as the headlines (Arabic headlines → Arabic chips; a product name may stay as written). For each scene pick the highlight word, short benefit chips, pain cards, camera focus regions, the offer number and the button text. Copy words exactly; never invent numbers or features. Arabic stays in the same dialect as the headlines." });
     for (const p of out.scenes || []) plan[p.n] = p;
+    // rewritten scenes: their new lines go into the script (the studio shows them, the version keeps them)
+    let rewrote = 0;
+    script.scenes.forEach((sc, i) => { const p = plan[i + 1]; if (sc._rewrite && p?.headline) { sc.headline = p.headline; if (typeof p.sub === "string") sc.sub = p.sub; rewrote++; } delete sc._rewrite; });
+    if (rewrote) { fs.writeFileSync(path.join(runDir, "script.json"), JSON.stringify(script, null, 2)); log(`  ✎ ${rewrote} scene(s) rewritten: no input to show for them`); }
   } catch (e) { log(`  ! director failed (${e.message}) — composing with defaults`); }
   fs.writeFileSync(path.join(runDir, "plan.json"), JSON.stringify(plan, null, 2));
   const { html, recipes, layouts, fingerprint } = compose({ brief, brand, script, assets, plan, art, brandDir, runDir });

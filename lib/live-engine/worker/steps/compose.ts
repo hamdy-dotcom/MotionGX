@@ -65,7 +65,7 @@ const loadClone = (brandDir, id) => { const f = path.join(brandDir, "clones", `$
 
 /** the scene's words promise an input (type / paste / enter / search a link, URL, code…): which kind, or null */
 export function promised(sc) {
-  const t = `${sc.headline || ""} ${sc.sub || ""} ${sc.visual?.detail || ""}`.replace(/بدون كود|من غير كود|no[- ]code|without code/gi, "");
+  const t = `${sc.headline || ""} ${sc.sub || ""}`.replace(/بدون كود|من غير كود|no[- ]code|without code/gi, "");
   if (!/\b(type|types|typing|paste|pastes|enter|enters|search|searches|link|url|code)\b|اكتب|يكتب|تكتب|الصق|ألصق|لصق|حط اللينك|حط الرابط|أدخل|ادخل|دخّل|ابحث|بحث|رابط|لينك|كود|رمز/i.test(t)) return null;
   if (/link|url|رابط|لينك/i.test(t)) return "link";
   if (/\bcode\b|كود|رمز/i.test(t)) return "code";
@@ -123,7 +123,35 @@ export function repairAssets({ script, assets, brandDir, brand, log = () => {} }
       else changes.push(`scene ${i + 1}: ${live[0]} has ${dead} dead image(s), no other asset of its kind`);
     }
   });
+  // an empty screen (no data) is never proof: a version of it with data, else a flow that creates data, else another screen of its kind
+  script.scenes.forEach((sc, i) => {
+    const id = (sc.visual?.assets || []).find((x) => byId[x] && LIVE.test(byId[x].kind)); if (!id || !byId[id].empty) return;
+    const alt = assets.find((a) => a.kind === byId[id].kind && !a.empty && !used.has(a.id) && String(a.shows || "").split(" — ")[0] === String(byId[id].shows || "").split(" — ")[0])
+      || assets.find((a) => a.kind === "live-flow" && a.input_result && !a.empty && !used.has(a.id))
+      || assets.find((a) => a.kind === byId[id].kind && !a.empty && !used.has(a.id));
+    if (alt) { sc.visual = { ...sc.visual, assets: [alt.id] }; used.add(alt.id); changes.push(`scene ${i + 1}: ${id} is empty → ${alt.id}`); }
+  });
   if (changes.length) log(`  🩹 assets: ${changes.join(" · ")}`);
+  return changes;
+}
+
+/**
+ * A scene that promises an input (type / paste / search …) must play a real input → result flow. Its own asset if it is one,
+ * else the unused flow that best matches its words; with no flow at all the scene is marked for a rewrite (sc._rewrite: the
+ * director restates it as what the screen shows). Returns what changed.
+ */
+export function matchPromises({ script, assets, log = () => {} }) {
+  const byId = Object.fromEntries(assets.map((a) => [a.id, a])), used = new Set(script.scenes.flatMap((s) => s.visual?.assets || [])), changes = [];
+  const words = (t) => new Set(String(t || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2));
+  script.scenes.forEach((sc, i) => {
+    if (!promised(sc)) return;
+    if ((sc.visual?.assets || []).some((id) => byId[id]?.kind === "live-flow" && byId[id].input_result)) return;
+    const mine = words(`${sc.headline} ${sc.sub || ""} ${sc.visual?.detail || ""}`);
+    const flows = assets.filter((a) => a.kind === "live-flow" && a.input_result && !used.has(a.id)).map((a) => ({ a, score: [...words(`${a.shows} ${(a.features || []).join(" ")}`)].filter((w) => mine.has(w)).length })).sort((x, y) => y.score - x.score);
+    if (flows.length) { sc.visual = { ...sc.visual, assets: [flows[0].a.id] }; used.add(flows[0].a.id); changes.push(`scene ${i + 1}: plays the input → result flow ${flows[0].a.id}`); }
+    else { sc._rewrite = true; changes.push(`scene ${i + 1}: promises an input the capture never ran — the director rewrites it`); }
+  });
+  if (changes.length) log(`  ⌨ inputs: ${changes.join(" · ")}`);
   return changes;
 }
 
@@ -271,7 +299,8 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
     let headStyle = "", headWrap = null, vis = "", extra = "", call = "", co = chips.length ? `<div class="cos">${chips.map((c) => chip(c)).join("")}</div>` : "";
 
     // ── device mechanics (live product screens) ──
-    const intent = promised(sc), sample = intent ? sampleFor(intent, sc, brandDir) : null;
+    // an input is only ever shown as a real flow (replay: the typed value, the button, the result) — never an overlay bar
+    const intent = null, sample = null;
     let devStyle = "", devHtml = "", fake = "";
     if (DEVICE_RECIPES.includes(recipe)) {
       const win = portrait && recipe !== "phone"; // 9:16: desktop screens and blocks in a full-width window
@@ -299,10 +328,9 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
       // a promised input: type into a real field of the screen, else into a field built in the brand's style
       const fieldOf = (cid) => (loadClone(brandDir, cid)?.keys || []).find((k) => k.role === "field");
       let typeArg = "";
-      if (intent && recipe !== "replay") { const fk = fieldOf(r.ui); if (fk) typeArg = `,typeKey:"${fk.k}"${fk.acted ? "" : `,typeText:${JSON.stringify(sample)}`}`; else { fake = sample; typeArg = `,fake:${JSON.stringify(sample)}`; } }
-      if (intent && recipe === "replay" && !fieldOf(r.a)) { fake = sample; typeArg = `,fake:${JSON.stringify(sample)}`; }
+
       if (recipe === "tour") { devHtml = win ? `${frameOpen}${deskUi(`u${n}`, r.ui)}${frameClose}` : `<div class="dev laptop" style="${devStyle}">${deskUi(`u${n}`, r.ui)}</div>`; call = `K.R.tour(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d},focus:${JSON.stringify(p.focus || sc._focus || [])}${popArg}${typeArg}});`; }
-      else if (recipe === "replay") { devHtml = `${win ? frameOpen : `<div class="dev laptop" style="${devStyle}">`}${deskUi(`u${n}a`, r.a)}${deskUi(`u${n}b`, r.b, true)}<div class="ok">✓</div>${win ? frameClose : "</div>"}`; call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${p.typeKey ? `,typeKey:"${p.typeKey}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${popArg}${fake ? `,fake:${JSON.stringify(fake)}` : ""}});`; }
+      else if (recipe === "replay") { devHtml = `${win ? frameOpen : `<div class="dev laptop" style="${devStyle}">`}${deskUi(`u${n}a`, r.a)}${deskUi(`u${n}b`, r.b, true)}<div class="spin"></div><div class="ok">✓</div>${win ? frameClose : "</div>"}`; call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${p.typeKey ? `,typeKey:"${p.typeKey}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${popArg}${fake ? `,fake:${JSON.stringify(fake)}` : ""}});`; }
       else if (recipe === "phone") { devHtml = `<div class="dev phone" style="${devStyle}"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${phW - 40}" data-h="${phH - 60}" data-frame="none"></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${typeArg}});`; }
       else { const bh = win ? geo.h : Math.round(Math.min((loadClone(brandDir, r.ui)?.h || 400) * (lapW / (loadClone(brandDir, r.ui)?.w || 1)), H * 0.5)); devHtml = `<div class="glow"></div>${win ? `${frameOpen}<div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${geo.w}" data-h="${geo.h}" data-frame="none"></div>${frameClose}` : `<div class="dev block" style="${devStyle}"><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${lapW}" data-h="${bh}" data-frame="none"></div></div>`}`; call = `K.R.hero(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${typeArg}});`; }
       if (layout === "stack") { devHtml = `<div class="tilt">${devHtml}</div>`; extra = chips.map((c, k) => `<div class="stackcard surface" style="top:${Math.round(geo.top + geo.h * 0.5 + k * 150)}px;inset-inline-${k % 2 ? "end" : "start"}:${SX + 40}px"><b>✓</b>${esc(c)}</div>`).join(""); co = ""; }
@@ -347,10 +375,6 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
         const row = (k) => `<div class="tick" style="top:${(portrait ? 1180 : H * 0.62) + k * (portrait ? 190 : 120)}px"><div class="track"><div class="half">${half}</div><div class="half">${half}</div></div></div>`;
         extra = items.length >= 2 ? row(0) + row(1) : ""; co = "";
       }
-    }
-    if (intent && !DEVICE_RECIPES.includes(recipe) && recipe !== "logo") {
-      extra += `<div class="fakefield surface" style="top:${Math.round(portrait ? H * 0.56 : H * 0.6)}px"><span class="ff-ico">${intent === "link" ? "🔗" : intent === "search" ? "⌕" : "›"}</span><span class="ff-text"></span><span class="ff-caret"></span></div>`;
-      call += `\nK.R.fake(tl,"#${id}",${s + 0.9},${JSON.stringify(sample)});`;
     }
     const headHtml = headWrap === "card" ? `<div class="card surface"><div class="head inner">${headInner}</div></div>`
       : headWrap && headWrap.pre ? `<div class="card surface cta-card">${headWrap.pre}<div class="head inner">${headInner}</div>${headWrap.post}</div>`
@@ -417,6 +441,7 @@ ${hiCss}
 .fakefield{position:absolute;left:${SX + 30}px;right:${SX + 30}px;height:118px;display:flex;align-items:center;gap:22px;padding:0 34px;font-size:42px;font-weight:600;color:${ink};z-index:9;opacity:0;direction:ltr;box-shadow:0 24px 70px rgba(0,0,0,.4),0 0 0 3px ${primary}}
 .fakefield .ff-ico{font-size:44px;opacity:.8}.fakefield .ff-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fakefield .ff-caret{width:3px;height:52px;background:${primary};margin-inline-start:-14px}
 .ui-after{visibility:hidden}
+.spin{position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:10px solid ${ink}22;border-top-color:${primary};opacity:0;z-index:7}
 .tilt{position:absolute;inset:0;transform-origin:50% 60%}
 .pop{position:absolute;left:${Math.round((W - 940) / 2)}px;opacity:0;z-index:6}
 .pop .ui{border-radius:var(--r);background:${surface};box-shadow:0 50px 140px rgba(0,0,0,.65),0 0 0 3px ${primary}88}

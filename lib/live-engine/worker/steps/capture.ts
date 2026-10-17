@@ -100,7 +100,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
     const clones = {};
     const full = await saveSnapshot({ snap: await inPage(page, "SNAPSHOT", { mode: "page" }).catch(() => null), id, brandDir, manifest, request: page.context().request, extra: { label, kind: "screen" } }).catch(() => null);
     if (full) clones.screen = full;
-    if (extra.before) { const b = await saveSnapshot({ snap: extra.before.snap, id: `${id}-before`, brandDir, manifest, request: page.context().request, extra: { label: `${label} — before`, kind: "before", action: extra.before.action, leads_to: id } }).catch(() => null); if (b) clones.before = { ...b, action: extra.before.action }; }
+    if (extra.before) { const b = await saveSnapshot({ snap: extra.before.snap, id: `${id}-before`, brandDir, manifest, request: page.context().request, extra: { label: `${label} — before`, kind: "before", action: extra.before.action, leads_to: id } }).catch(() => null); if (b) clones.before = { ...b, action: extra.before.action, typed: extra.before.typed || null }; }
     // customer-facing pages (site, store, landing page) also as they look on a phone
     if (!extra.app || extra.customer || /preview|store|shop|landing|theme|product|\/p\//i.test(page.url())) {
       const vs = page.viewportSize();
@@ -172,6 +172,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   else {
     scope.open(appUrl, "linked from the site");
     log(`▶ capture: agent enters the product (${appUrl})`);
+    if (!brief.sampleUrl) brief.sampleUrl = await marketplaceLink(browser, brief.country, log).catch(() => null);
     // what the public site promises (headings + feature copy) — the essentials plan must cover it
     const promises = manifest.pages.map((pg) => { try { const pr = JSON.parse(fs.readFileSync(path.join(brandDir, pg.probe), "utf8")); return `[${pg.label}] ${pr.headings.join(" · ")}\n${pr.text.replace(/\s*\n\s*/g, " · ").slice(0, 1800)}`; } catch { return ""; } }).filter(Boolean).join("\n\n").slice(0, 6000);
     try { await page.goto(appUrl, { waitUntil: "domcontentloaded", timeout: 45000 }); await settle(); manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises, scope }); }
@@ -199,6 +200,31 @@ const PLACES = {
   IQ: { city: "Baghdad", city_ar: "بغداد", country: "Iraq", country_ar: "العراق", nationality: "Iraqi", nationality_ar: "عراقي", dial: "+964", address: "Al-Rasheed Street, Karrada", district: "Karrada", postal_code: "10001" },
   US: { city: "New York", city_ar: "نيويورك", country: "United States", country_ar: "الولايات المتحدة", nationality: "American", nationality_ar: "أمريكي", dial: "+1", address: "350 5th Avenue", district: "Midtown", postal_code: "10118" },
 };
+
+// input → result features need a REAL value: a public product page from a big marketplace of the brief's country
+const MARKETS = {
+  EG: [["https://www.amazon.eg/s?k=wireless+earbuds", /amazon\.eg\/.*\/dp\/[A-Z0-9]{10}|amazon\.eg\/dp\/[A-Z0-9]{10}/], ["https://www.noon.com/egypt-en/search/?q=earbuds", /noon\.com\/egypt-en\/[^?#]+\/p\/?/]],
+  SA: [["https://www.amazon.sa/s?k=wireless+earbuds", /amazon\.sa\/(.*\/)?dp\/[A-Z0-9]{10}/], ["https://www.noon.com/saudi-en/search/?q=earbuds", /noon\.com\/saudi-en\/[^?#]+\/p\/?/]],
+  AE: [["https://www.amazon.ae/s?k=wireless+earbuds", /amazon\.ae\/(.*\/)?dp\/[A-Z0-9]{10}/], ["https://www.noon.com/uae-en/search/?q=earbuds", /noon\.com\/uae-en\/[^?#]+\/p\/?/]],
+  KW: [["https://www.noon.com/kuwait-en/search/?q=earbuds", /noon\.com\/kuwait-en\/[^?#]+\/p\/?/]],
+  US: [["https://www.amazon.com/s?k=wireless+earbuds", /amazon\.com\/(.*\/)?dp\/[A-Z0-9]{10}/]],
+  ANY: [["https://www.aliexpress.com/w/wholesale-wireless-earbuds.html", /aliexpress\.com\/item\/\d+\.html/]],
+};
+async function marketplaceLink(browser, country, log) {
+  const list = [...(MARKETS[String(country || "").toUpperCase()] || []), ...MARKETS.ANY];
+  const ctx = await browser.newContext({ locale: "en-US", userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36" });
+  try {
+    for (const [url, re] of list) {
+      try {
+        const pg = await ctx.newPage(); await pg.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 }); await pg.waitForTimeout(2500);
+        const hrefs = await pg.$$eval("a[href]", (as) => as.map((a) => a.href)).catch(() => []); await pg.close();
+        const hit = hrefs.find((h) => re.test(h)); if (hit) { const clean = hit.split(/[?#]/)[0]; log(`  🔗 sample product link: ${clean}`); return clean; }
+      } catch {}
+    }
+  } finally { await ctx.close().catch(() => {}); }
+  log("  🔗 no marketplace product link found — the agent uses a link the product suggests");
+  return null;
+}
 
 // captcha frames: Cloudflare Turnstile, reCAPTCHA, hCaptcha
 const CAPTCHA_RE = /challenges\.cloudflare\.com|google\.com\/recaptcha|recaptcha\.net|hcaptcha\.com/i;
@@ -249,11 +275,13 @@ HOW TO WORK
 - Never enter payment details, delete anything, submit real orders, or change account settings.
 - If your last 3 actions did not change the page, try something different (another button, scroll, the visible error message).
 - ESSENTIALS FIRST (right after you are inside, before the tour): call set_plan with the product's ESSENTIAL OUTPUTS — the real things this product produces for its user and their customers, the proof a viewer must see. Think "what does the customer end up with?": e.g. a store builder → the live storefront home, a product page, the generated landing page, the cart/checkout form, the theme applied; an ads tool → a generated ad / creative; a CRM → a filled pipeline and a contact card; a booking tool → the public booking page. Read WHAT THE SITE PROMISES below: the plan must include EVERY core output the site promises that can be produced in a test account (e.g. for a store builder: the landing page generated from a product link, the storefront, the product page, a theme applied, the order form, orders in the dashboard, the ads tool) — at least 6 items when the site promises that many. Then actually PRODUCE each one inside the test account (create the product, generate the page, apply the theme…) and OPEN IT THE WAY THE END CUSTOMER SEES IT (the public store link / "view store" / "preview" / the generated URL, even if it opens in a new tab or another domain — use tab and goto), scroll it, and save_screen it with customer_facing=true and covers=[the plan item]. Saving a settings page ABOUT the store is not the store. The tour only counts once the essentials are done.
+- INPUT → RESULT: every core feature in your plan that turns an input into an output (link → page, prompt → result, upload → item, search → results) must be RUN for real with a realistic value — a link: ${brief.sampleUrl ? `exactly ${brief.sampleUrl}` : "a real public product page from the biggest marketplace of the brief's country"}; a prompt or search: a real phrase in ${place ? `the language of ${place.country}` : "the brief's language"}. Type it into the real field, press the real button, wait until the result is finished, then save_screen right away (the screen before your click is kept as the "before" half of the flow) with covers=[that plan item]. Never type placeholders like example.com.
 - FLAGSHIP FLOW: when the site promises an AI / automatic way to create something ("from a link", "generate", "import", "with AI", "in one click"), produce that essential THROUGH that flow — not the manual alternative. Use the manual way only if the flagship flow is impossible in a test account, and say why in the save_screen description.
 - After any generate / create / import / apply / save, call wait until the page has finished (no spinner, skeleton or "loading…"), then save the FINISHED result. An essential only counts when its screen shows the finished result; a screen still loading cannot be saved.
 - Once inside, your job is a FEATURE TOUR for a promo video, not a list of pages. The app's main navigation is read for you and shown every turn as SECTIONS (✓ visited / ☐ not visited); a section counts as visited once you opened it and saved at least one screen there, or called skip_section because it is empty / locked. Visit every SECTION AND go one level deeper: tabs inside a page, "create / new / add / import / launch / generate" flows, editors, wizards, preview screens, settings sub-tabs (themes, pixels, shipping, domains…). Save each distinct screen that shows a feature in action.
 - Empty screens make bad videos. If a section is empty and offers a create flow, create ONE demo item inside this test account (e.g. add a product${brief.sampleUrl ? ` from ${brief.sampleUrl}` : " from a product link the page suggests or a sample it offers"}, generate a page, open a wizard) and save the filled result. Do not publish ads, spend money, or connect external accounts.
 - FILL IT WITH LIFE: empty dashboards and lists make dead videos. After the essentials, generate the ACTIVITY the product exists for, through the product's OWN flows inside this test account — e.g. a test order on a store (via its own storefront / checkout, cash-on-delivery or test mode), a booking on a booking tool, a lead on a CRM, a submission on a form builder, a message on a chat tool. Invented test data only, at most 2-3 items. Never a real payment, never publishing, never messaging real people. Then revisit the dashboard and the lists so they are saved WITH that data.
+- SEED ACTIVITY (when you are told to start it; about 8 steps): use the product the way its real customers would on its own customer-facing side — 2-3 test actions there (e.g. cash-on-delivery test orders on its own storefront, a booking, a form submission). Never a real payment, never KYC. Then return to the dashboards and lists and save them again WITH that data.
 - APPEARANCE: settings that change how the customer-facing side looks (themes, branding, templates, appearance) are SECTIONS too: open one, apply a different option, then re-open the customer view and save it (customer_facing=true) to show the result.
 - The video replays what you do: every click and the typed values are recorded with the screen before and after. So run flows for real (type a real value, press the real button, wait for the result) and save the RESULT screen right after it appears. Make sure to open and save what the merchant's customers see too: the store front / store preview, a generated landing or product page, the theme gallery and a theme applied, plus orders, dashboard stats, ad / TikTok tools.
 - save_screen: short English label, one line on what it shows, and the features visible on it (name + what it does for the merchant).
@@ -291,7 +319,7 @@ ${promises || "(no public pages captured)"}`;
   };
   let lastSig = "", same = 0;
   const history = [], trace = []; let asks = 0, lastPre = null, lastSave = 0, fillPass = false, waitedAt = "";
-  let captchaClicks = 0, captchaAsked = false, humanNote = ""; const refused = new Map(); // submit key → times refused
+  let captchaClicks = 0, captchaAsked = false, humanNote = "", seedFrom = null, lastTyped = null; const SEED_STEPS = 8; const refused = new Map(); // submit key → times refused
   // a captcha on the page: a known challenge frame, or a visible "verify you are human" box
   const captchaOn = async (pg) => { const f = pg.frames().find((x) => CAPTCHA_RE.test(x.url())); if (f) return { frame: f, provider: providerOf(f.url()) }; const t = await inPage(pg, "HUMAN").catch(() => ""); return t ? { frame: null, provider: `box "${t.slice(0, 40)}"` } : null; };
   // after 2 failed captcha clicks (or 3 refused submits behind a captcha): ask the human ONCE for an existing login, else stop with public pages only
@@ -328,7 +356,17 @@ ${promises || "(no public pages captured)"}`;
   // empty states on saved app screens: "no data" style texts, or stats that are all zero
   const EMPTY = /\bno (data|results?|records|items|orders|products|customers|bookings|leads|contacts|messages|campaigns|activity|entries|submissions)\b|nothing (here|yet|to show)|you (don't|do not) have any|get started by|لا توجد|لا يوجد|ليس لديك|لم تقم|فارغ|ابدأ بإضافة|لا .{1,20} بعد/i;
   const num = (v) => parseFloat(String(v).replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[^\d.]/g, ""));
-  const isEmpty = (s) => { try { const pr = JSON.parse(fs.readFileSync(path.join(brandDir, s.probe), "utf8")); const stats = s.parts.flatMap((p) => p.object?.stats || []).map((x) => num(x.value)).filter((v) => !Number.isNaN(v)); return EMPTY.test(pr.text || "") || (stats.length >= 2 && stats.every((v) => v === 0)); } catch { return false; } };
+  const isEmpty = (s) => {
+    try {
+      const pr = JSON.parse(fs.readFileSync(path.join(brandDir, s.probe), "utf8")), objs = s.parts.map((p) => p.object || {});
+      const stats = objs.flatMap((o) => o.stats || []).map((x) => num(x.value)).filter((v) => !Number.isNaN(v));
+      const tables = objs.filter((o) => o.table), lists = objs.filter((o) => Array.isArray(o.list));
+      const thinTables = tables.length && tables.every((o) => o.table.length <= 2); // a header + at most one row
+      const flatCharts = objs.some((o) => o.chart) && objs.filter((o) => o.chart).every((o) => !(o.stats || []).some((x) => num(x.value) > 9));
+      const smallStats = stats.length >= 2 && stats.filter((v) => v <= 9).length / stats.length >= 0.7; // metrics mostly 0-9
+      return EMPTY.test(pr.text || "") || smallStats || thinTables || (flatCharts && !stats.some((v) => v > 9)) || (lists.length > 0 && lists.every((o) => o.list.length === 0));
+    } catch { return false; }
+  };
   const emptyCount = () => { const app = result.screens.filter((x) => !x.customer); const e = app.filter(isEmpty); return { empty: e.length, total: app.length, ids: e.map((x) => x.id) }; };
   const missing = () => [...plan.filter((x) => !x.done).map((x) => `essential: ${x.name}`), ...sections.filter((x) => !x.visited).map((x) => `section: ${x.name}${where(x)}`)];
   for (let step = 0; step < MAX_AGENT_STEPS; step++) {
@@ -352,7 +390,7 @@ ${promises || "(no public pages captured)"}`;
     // the app's navigation: read right after set_plan (inside the app), and again while it is still empty
     if (plan.length && !sections.some((x) => !x.tab)) { const n = addNav(await inPage(page, "NAV").catch(() => null)); if (n) log(`  🧭 sections: ${sections.map((x) => x.name).join(" | ")}`); }
     const tabs = ctx.pages().map((p, i) => `[${i}] ${p.url().slice(0, 100)}${p === page ? "  ← current" : ""}`).join("\n");
-    const text = wellFormed(`Step ${step + 1}/${MAX_AGENT_STEPS}\nURL: ${page.url()}\nTitle: ${await page.title().catch(() => "")}\nTabs:\n${tabs}\nESSENTIALS PLAN:\n${planText()}\nSECTIONS:\n${sectionsText()}\nSaved so far: ${result.screens.map((s) => s.label).join(", ") || "none"}\nLast actions:\n${history.slice(-14).join("\n") || "(none)"}${stuck}${cap ? `\n⚠ CAPTCHA on this page (${cap.provider}): click [${cap.id}] (attempt ${captchaClicks + 1} of 2). Do not re-submit the form while it is there.` : ""}${humanNote}\n\nElements:\n${elements}`);
+    const text = wellFormed(`Step ${step + 1}/${MAX_AGENT_STEPS}\nURL: ${page.url()}\nTitle: ${await page.title().catch(() => "")}\nTabs:\n${tabs}\nESSENTIALS PLAN:\n${planText()}\nSECTIONS:\n${sectionsText()}\nSaved so far: ${result.screens.map((s) => s.label).join(", ") || "none"}\nLast actions:\n${history.slice(-14).join("\n") || "(none)"}${stuck}${cap ? `\n⚠ CAPTCHA on this page (${cap.provider}): click [${cap.id}] (attempt ${captchaClicks + 1} of 2). Do not re-submit the form while it is there.` : ""}${humanNote}${seedFrom != null ? (step + 1 - seedFrom < SEED_STEPS ? `\nSEED ACTIVITY: step ${step + 2 - seedFrom}/${SEED_STEPS} — test actions on the customer side, then re-save the dashboards.` : "\nSEED ACTIVITY is over: re-save the dashboards with data if you have not, then finish.") : ""}\n\nElements:\n${elements}`);
     const content = shot ? [imageBlock(shot), { type: "text", text }] : [{ type: "text", text }];
     const res = await rawCall({ ledger, step: "capture-agent", model: models.agent, system, messages: [{ role: "user", content }], tools, effort: "low" });
     const call = res.content.find((c) => c.type === "tool_use");
@@ -387,7 +425,7 @@ ${promises || "(no public pages captured)"}`;
         await el.click({ timeout: 6000 });
         await page.evaluate(() => document.querySelectorAll("[data-acted=click]").forEach((e) => e.removeAttribute("data-acted"))).catch(() => {});
       }
-      else if (call.name === "type") { await el.fill("", { timeout: 6000 }).catch(() => {}); await el.pressSequentially(String(a.text), { delay: 20 }); await el.evaluate((e) => e.setAttribute("data-acted", "type")).catch(() => {}); if (a.enter) { const snap = await inPage(page, "SNAPSHOT", { mode: "page" }).catch(() => null); if (snap) lastPre = { snap, step: step + 1, action: `type "${String(a.text).slice(0, 40)}" + Enter` }; await el.press("Enter"); } }
+      else if (call.name === "type") { lastTyped = { text: String(a.text), step: step + 1 }; await el.fill("", { timeout: 6000 }).catch(() => {}); await el.pressSequentially(String(a.text), { delay: 20 }); await el.evaluate((e) => e.setAttribute("data-acted", "type")).catch(() => {}); if (a.enter) { const snap = await inPage(page, "SNAPSHOT", { mode: "page" }).catch(() => null); if (snap) lastPre = { snap, step: step + 1, action: `type "${String(a.text).slice(0, 40)}" + Enter` }; await el.press("Enter"); } }
       else if (call.name === "select") await el.selectOption({ label: a.label });
       else if (call.name === "goto") await page.goto(a.url, { waitUntil: "domcontentloaded", timeout: 30000 });
       else if (call.name === "tab") { const p = ctx.pages()[a.index]; if (!p) out = "no such tab"; else { setPage(p); await p.bringToFront().catch(() => {}); out = `now on tab ${a.index}: ${p.url()}`; } }
@@ -428,7 +466,7 @@ ${promises || "(no public pages captured)"}`;
         log(`  ↳ code received`);
       }
       else if (call.name === "save_screen" && (await inPage(page, "BUSY").catch(() => ({ busy: false }))).busy && waitedAt !== page.url()) { out = "the page is still loading / generating — call wait, then save the finished result"; }
-      else if (call.name === "save_screen") { const loading = (await inPage(page, "BUSY").catch(() => ({ busy: false }))).busy; const before = lastPre && lastPre.step > lastSave && lastPre.step >= step - 5 ? lastPre : null; lastSave = step + 1; const s = await savePage(a.label, { description: a.description, features: a.features || [], app: true, before, customer: !!a.customer_facing, covers: a.covers || [] }); result.screens.push(s); if (plan.length) { const nav = await inPage(page, "NAV").catch(() => null); if (!a.customer_facing) addNav({ tabs: nav?.tabs, looks: nav?.looks }); markSaved(page.url(), nav, step + 1); } for (const c of loading ? [] : a.covers || []) { const it = plan.find((x) => x.name === c) || plan.find((x) => x.name.toLowerCase().includes(String(c).toLowerCase()) || String(c).toLowerCase().includes(x.name.toLowerCase())); if (it) it.done = true; } out = `saved ${s.id}${loading ? " (still loading — it does not count for the essentials)" : ""}${missing().length ? ` — still to do: ${missing().slice(0, 12).join(" | ")}` : ""}`; log(`  📸 ${a.customer_facing ? "[customer view] " : ""}${a.label} — ${a.description} (${s.parts.length} parts · live UI ${s.clones.screen ? "✓" : "✗"}${s.clones.before ? ` · replay: ${s.clones.before.action}` : ""})`); }
+      else if (call.name === "save_screen") { const loading = (await inPage(page, "BUSY").catch(() => ({ busy: false }))).busy; const before = lastPre && lastPre.step > lastSave && lastPre.step >= step - 10 ? { ...lastPre, typed: lastTyped && lastTyped.step >= lastPre.step - 6 && lastTyped.step <= lastPre.step ? lastTyped.text : null } : null; lastSave = step + 1; const s = await savePage(a.label, { description: a.description, features: a.features || [], app: true, before, customer: !!a.customer_facing, covers: a.covers || [] }); s.empty = isEmpty(s); if (s.empty && s.clones?.screen) { try { const cf = path.join(brandDir, s.clones.screen.file); const cj = JSON.parse(fs.readFileSync(cf, "utf8")); cj.empty = true; fs.writeFileSync(cf, JSON.stringify(cj)); } catch {} } result.screens.push(s); if (plan.length) { const nav = await inPage(page, "NAV").catch(() => null); if (!a.customer_facing) addNav({ tabs: nav?.tabs, looks: nav?.looks }); markSaved(page.url(), nav, step + 1); } for (const c of loading ? [] : a.covers || []) { const it = plan.find((x) => x.name === c) || plan.find((x) => x.name.toLowerCase().includes(String(c).toLowerCase()) || String(c).toLowerCase().includes(x.name.toLowerCase())); if (it) it.done = true; } out = `saved ${s.id}${loading ? " (still loading — it does not count for the essentials)" : ""}${missing().length ? ` — still to do: ${missing().slice(0, 12).join(" | ")}` : ""}`; log(`  📸 ${a.customer_facing ? "[customer view] " : ""}${a.label} — ${a.description} (${s.parts.length} parts · live UI ${s.clones.screen ? "✓" : "✗"}${s.clones.before ? ` · replay: ${s.clones.before.action}` : ""})`); }
       else if (call.name === "wait") {
         const until = Date.now() + Math.max(5, Math.min(90, +a.seconds || 10)) * 1000; let b = { busy: true, why: "" };
         while (Date.now() < until) { b = await inPage(page, "BUSY").catch(() => ({ busy: false, why: "" })); if (!b.busy) break; await page.waitForTimeout(1500); }
@@ -442,6 +480,11 @@ ${promises || "(no public pages captured)"}`;
         else { sec.visited = true; sec.note = String(a.reason).slice(0, 80); out = `section "${sec.name}" marked visited (${sec.note})`; log(`  ⤼ section skipped: ${sec.name} — ${sec.note}`); }
       }
       else if (call.name === "finish" && a.status === "done" && (plan.length === 0 || missing().length) && step < MAX_AGENT_STEPS - 12) { out = plan.length ? `not yet — still missing: ${missing().join(" | ")}. Produce each missing essential and open it as the customer sees it; open each missing section and save a screen there (or skip_section if it is empty / locked).` : "not yet — call set_plan with the product's essential outputs and produce them first"; log(`  ↩ finish refused: ${plan.length ? `${missing().length} missing` : "no plan"}`); }
+      else if (call.name === "finish" && a.status === "done" && seedFrom == null && plan.length && step < MAX_AGENT_STEPS - 12 && result.screens.some((x) => x.customer)) {
+        seedFrom = step + 1;
+        out = `not yet — SEED ACTIVITY now (about ${SEED_STEPS} steps): on the product's own customer-facing side (store / booking / form / checkout) make 2-3 test actions a real customer would (e.g. cash-on-delivery test orders). No real payment, no KYC. Then return to the dashboards / lists and save them again with that data. Then finish.`;
+        log(`  🌱 seed activity: up to ${SEED_STEPS} steps`);
+      }
       else if (call.name === "finish" && ["done", "blocked"].includes(a.status) && !fillPass && step < MAX_AGENT_STEPS - 12 && (() => { const c = emptyCount(); return c.total && c.empty > c.total / 2; })()) {
         fillPass = true; const c = emptyCount();
         out = `not yet — ${c.empty} of ${c.total} saved app screens are EMPTY (${c.ids.join(", ")}). FILL IT WITH LIFE: create 2-3 test items of the product's core activity through its own flows (invented data, no real payments / publishing / messages), then revisit those screens and save them again with data. Then finish.`;
