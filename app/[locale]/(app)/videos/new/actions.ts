@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
 import { redirect } from "@/i18n/navigation";
 import { runGeneration } from "@/lib/motion/app";
+import { liveEngineEnabled } from "@/lib/live-engine/config";
 import { assertWithinRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { DIALECTS, FORMATS, GOALS, LENGTHS, PACES, type Dialect, type Goal, type Pace, type VideoFormat, type VideoLength } from "@/lib/types";
 
@@ -30,7 +31,9 @@ export async function createVideo(_prev: CreateVideoState, formData: FormData): 
   const pace = pick<Pace>(formData.get("pace"), PACES);
   const dialect = pick<Dialect>(formData.get("dialect"), DIALECTS);
   const companyId = String(formData.get("company_id") ?? "");
-  const voiceover = formData.get("voiceover") === "on";
+  const live = liveEngineEnabled();
+  // the live engine is music-only for now (decision Q4): voiceover is never set, so never charged
+  const voiceover = !live && formData.get("voiceover") === "on";
   const voiceId = voiceover ? String(formData.get("voice_id") ?? "") || null : null;
   if (!goal || !format || !length || !pace || !dialect || !companyId || (voiceover && !voiceId)) return { error: "generic" };
 
@@ -56,7 +59,7 @@ export async function createVideo(_prev: CreateVideoState, formData: FormData): 
       voiceover,
       voice_id: voiceId,
       status: "generating",
-      generation: { stage: "queued", mode: "new", updated_at: new Date().toISOString() },
+      generation: { stage: "queued", mode: "new", ...(live ? { engine: "live" } : {}), updated_at: new Date().toISOString() },
     })
     .select("id")
     .single();

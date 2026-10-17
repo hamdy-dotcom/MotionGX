@@ -5,9 +5,9 @@ import { useTranslations } from "next-intl";
 import { saveCompany, updateCompany, type SaveCompanyState } from "./actions";
 import type { BrandDraft, BrandFacts } from "@/lib/brand/types";
 import { DIALECTS, type BrandColor, type Dialect } from "@/lib/types";
-import { FilmStrip } from "@/components/film-strip";
 import { Heading, boldTag } from "@/components/heading";
 import { CompanyMark } from "@/components/company-mark";
+import { BrandCard } from "./brand-card";
 import { CheckIcon, PlusIcon, SpinnerIcon, UploadIcon } from "@/components/icons";
 
 const lines = (value: string) => value.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -17,10 +17,13 @@ export function BrandEditor({
   brand,
   raw,
   companyId,
+  captureId = null,
 }: {
   brand: BrandDraft;
   raw: Record<string, unknown> | null;
   companyId?: string;
+  /** live engine: the capture whose homepage hero the brand card shows */
+  captureId?: string | null;
 }) {
   const t = useTranslations("companies");
   const td = useTranslations("dialects");
@@ -40,8 +43,6 @@ export function BrandEditor({
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const logoPreview = uploadPreview ?? brand.logoUrl;
-  const ink = colors.find((c) => c.role === "ink")?.hex ?? colors[1]?.hex ?? "#10184A";
-  const primary = colors.find((c) => c.role === "primary")?.hex ?? colors[0]?.hex ?? "#5558E3";
   const factsValue: BrandFacts = { ...facts, key_features: lines(featuresText), offers: lines(offersText) };
 
   useEffect(() => () => void (uploadPreview && URL.revokeObjectURL(uploadPreview)), [uploadPreview]);
@@ -60,6 +61,7 @@ export function BrandEditor({
       <input type="hidden" name="colors" value={JSON.stringify(colors)} />
       <input type="hidden" name="default_dialect" value={dialect} />
       <input type="hidden" name="logo_url" value={uploadPreview ? "" : (brand.logoUrl ?? "")} />
+      <input type="hidden" name="logo_on_dark" value={brand.logoOnDark == null ? "" : brand.logoOnDark ? "1" : "0"} />
       <input type="hidden" name="raw" value={raw ? JSON.stringify(raw) : ""} />
       <input type="hidden" name="facts" value={JSON.stringify(factsValue)} />
 
@@ -68,34 +70,7 @@ export function BrandEditor({
           <Heading as="h2" className="mb-3 text-xl">
             {t.rich("previewTitle", boldTag)}
           </Heading>
-          <FilmStrip>
-            <div className="p-6 sm:p-8" style={{ backgroundColor: ink }}>
-              <div className="flex items-center gap-3">
-                <CompanyMark name={name || "?"} logoUrl={logoPreview} colors={colors} size="size-14" />
-                <div className="min-w-0">
-                  <p className="truncate text-xl font-bold text-white" style={{ fontFamily: fontArabic || undefined }}>
-                    {name}
-                  </p>
-                  <p className="truncate text-sm text-white/70" dir="ltr" style={{ fontFamily: fontLatin || undefined }}>
-                    {brand.websiteUrl.replace(/^https?:\/\//, "")}
-                  </p>
-                </div>
-              </div>
-              <p className="mt-8 text-3xl leading-snug font-bold sm:text-4xl" style={{ color: primary, fontFamily: fontArabic || undefined }}>
-                {tagline}
-              </p>
-              <div className="mt-6 flex gap-2">
-                {colors.map((c, i) => (
-                  <span key={i} className="h-3 flex-1 rounded-full" style={{ backgroundColor: c.hex }} />
-                ))}
-              </div>
-              {tone ? (
-                <p className="mt-4 text-xs text-white/60">
-                  {t("tone")}: {tone}
-                </p>
-              ) : null}
-            </div>
-          </FilmStrip>
+          <BrandCard captureId={captureId} name={name} tagline={tagline} websiteUrl={brand.websiteUrl} colors={colors} fontArabic={fontArabic} logoUrl={logoPreview} logoOnDark={uploadPreview ? null : brand.logoOnDark} />
         </div>
 
         {/* Brand facts — what scripts are allowed to say */}
@@ -167,7 +142,7 @@ export function BrandEditor({
 
         <Field label={t("logo")} htmlFor="logo">
           <div className="flex items-center gap-3">
-            <CompanyMark name={name || "?"} logoUrl={logoPreview} colors={colors} />
+            <CompanyMark name={name || "?"} logoUrl={logoPreview} logoOnDark={uploadPreview ? null : brand.logoOnDark} colors={colors} />
             <button type="button" onClick={() => fileRef.current?.click()} className="btn btn-white">
               <UploadIcon className="size-4" />
               {t("changeLogo")}

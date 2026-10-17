@@ -5,17 +5,19 @@ import { useTranslations } from "next-intl";
 import type { BrandDraft } from "@/lib/brand/types";
 import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { BrandEditor } from "../brand-editor";
-import { ExtractSteps, STEP_LABEL } from "../extract-steps";
+import { BrandFiles } from "../brand-files";
+import { ExtractSteps, SnapshotLink, STEP_LABEL } from "../extract-steps";
 import { useExtraction } from "../use-extraction";
+import { CaptureCodeForm, StepLog } from "@/components/live-capture";
 
-export function NewCompanyFlow() {
+export function NewCompanyFlow({ liveEngine = false }: { liveEngine?: boolean }) {
   const t = useTranslations("companies");
   const [url, setUrl] = useState("");
   const [brand, setBrand] = useState<BrandDraft | null>(null);
   const [raw, setRaw] = useState<Record<string, unknown> | null>(null);
   const [cached, setCached] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
-  const x = useExtraction();
+  const x = useExtraction(liveEngine);
 
   async function extract(refresh: boolean) {
     const result = await x.run(url, refresh);
@@ -60,7 +62,15 @@ export function NewCompanyFlow() {
             {t("invalidUrl")}
           </p>
         ) : null}
-        {x.started ? <ExtractSteps steps={x.steps} running={x.running} errorCode={x.errorCode} /> : null}
+        {x.started ? <ExtractSteps steps={x.steps} running={x.running} errorCode={x.errorCode} hide={x.live ? ["snapshot"] : []} /> : null}
+        {x.live && x.running ? (
+          <>
+            <p className="mt-3 text-sm text-ink-muted">{t("liveHint")}</p>
+            <StepLog lines={x.log} />
+            {x.ask ? <CaptureCodeForm askedTo={x.ask.to} onSend={x.sendCode} /> : null}
+          </>
+        ) : null}
+
       </form>
 
       {brand && !x.running ? (
@@ -71,12 +81,14 @@ export function NewCompanyFlow() {
             ) : (
               <p className="flex-1 text-sm text-ink-muted">{cached ? t("cachedNote") : t("reviewNote")}</p>
             )}
+            {x.steps.snapshot === "done" ? <SnapshotLink websiteUrl={brand.websiteUrl} /> : null}
             <button type="button" onClick={() => void extract(true)} className="btn btn-soft">
               <SparkIcon className="size-4" />
               {t("reread")}
             </button>
           </div>
-          <BrandEditor key={editorKey} brand={brand} raw={raw} />
+          <BrandEditor key={editorKey} brand={brand} raw={raw} captureId={raw?.source === "live" ? String(raw.capture_id) : null} />
+          {raw?.source === "live" ? <BrandFiles key={String(raw.capture_id)} captureId={String(raw.capture_id)} /> : null}
         </>
       ) : null}
     </div>

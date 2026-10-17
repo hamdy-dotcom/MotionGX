@@ -45,6 +45,8 @@ export type Company = {
   created_at: string;
   brand_profiles: BrandProfile | null;
   logo_url?: string | null;
+  /** the logo was designed for a dark background (live engine's brand.json logo.on_dark); null = unknown */
+  logo_on_dark?: boolean | null;
 };
 
 export type Voice = {

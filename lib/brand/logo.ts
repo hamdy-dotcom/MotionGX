@@ -15,7 +15,7 @@ export const LOGO_TYPES: Record<string, string> = {
 
 export type LogoFile = { bytes: Uint8Array; contentType: string; ext: string };
 
-function isPrivateHost(hostname: string) {
+export function isPrivateHost(hostname: string) {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return true;
   const kind = isIP(h);
@@ -28,7 +28,7 @@ function isPrivateHost(hostname: string) {
 }
 
 /** Strip anything executable from an SVG before we store it. */
-function sanitizeSvg(svg: string) {
+export function sanitizeSvg(svg: string) {
   return svg
     .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
     .replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, "")
@@ -89,7 +89,13 @@ export async function loadLogo(source: string): Promise<LogoFile | null> {
     const declared = Number(res.headers.get("content-length") ?? 0);
     if (declared > MAX_BYTES) return null;
     const bytes = new Uint8Array(await res.arrayBuffer());
-    return logoFromBytes(bytes, res.headers.get("content-type") ?? "");
+    // storage can serve a file as application/octet-stream: fall back to the file extension
+    let type = res.headers.get("content-type") ?? "";
+    if (!LOGO_TYPES[type.split(";")[0].trim().toLowerCase()]) {
+      const ext = url.pathname.split(".").pop()?.toLowerCase();
+      type = Object.keys(LOGO_TYPES).find((k) => LOGO_TYPES[k] === (ext === "jpeg" ? "jpg" : ext)) ?? type;
+    }
+    return logoFromBytes(bytes, type);
   } catch {
     return null;
   }

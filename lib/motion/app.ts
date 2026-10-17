@@ -21,9 +21,30 @@ import { dimensionsFor, type MotionBrief } from "./types";
 import { historyFor, specRevision, undoSpec, type VersionHistory } from "./revision";
 import { envFor } from "./inspect";
 import { slideshowRisk } from "./slideshow";
+import type { ScriptBeat } from "@motiongx/primitives";
+import { liveEngineEnabled } from "@/lib/live-engine/config";
+import { startLiveGeneration } from "@/lib/live-engine/server/jobs";
+import { liveRevision, undoLive } from "@/lib/live-engine/server/versions";
 import type { ValidateCtx } from "./validate";
 
-export type GenerationMode = { kind: "new" } | { kind: "direction" } | { kind: "edit"; instruction: string; baseRevision?: string };
+export type GenerationMode = { kind: "new" } | { kind: "direction" } | { kind: "edit"; instruction: string; baseRevision?: string } | { kind: "lines"; beats: ScriptBeat[] };
+
+/** the live engine makes new videos / another direction unless VIDEO_ENGINE=legacy; an edit stays on its version's engine */
+async function liveDispatch(videoId: string, mode: GenerationMode): Promise<boolean> {
+  if (mode.kind === "new" || mode.kind === "direction") {
+    if (!liveEngineEnabled()) return false;
+    await startLiveGeneration(videoId, mode);
+    return true;
+  }
+  const { data: v } = await createAdminClient().from("video_versions").select("id, engine").eq("video_id", videoId).order("version", { ascending: false }).limit(1).maybeSingle();
+  if (v?.engine !== "live") return false;
+  if (mode.kind === "edit" && mode.baseRevision && mode.baseRevision !== liveRevision(v)) {
+    await setGeneration(videoId, { stage: "edit_stale", mode: "edit" }, "ready");
+    return true;
+  }
+  await startLiveGeneration(videoId, mode.kind === "edit" ? { kind: "edit", instruction: mode.instruction } : mode);
+  return true;
+}
 
 export async function briefFor(video: Video): Promise<MotionBrief | null> {
   const admin = createAdminClient();
@@ -128,6 +149,7 @@ export type UndoResult = { ok: true; version: number } | { ok: false; error: "st
 export async function undoLatest(videoId: string, expect: { version: number; revision: string }): Promise<UndoResult> {
   const admin = createAdminClient();
   const latest = await latestVersion(videoId);
+  if (latest?.engine === "live") return undoLive(videoId, expect);
   if (!latest?.spec) return { ok: false, error: "nothing" };
   if (latest.version !== expect.version || specRevision(latest.spec) !== expect.revision) return { ok: false, error: "stale" };
   const h = ((latest.qa ?? {}) as { history?: VersionHistory }).history;
@@ -183,6 +205,14 @@ const vctxFor = (b: MotionBrief, plan: Plan): ValidateCtx => ({ width: b.width, 
  * user, counts toward the hourly limit and is capped per generation.
  */
 export async function runGeneration(videoId: string, mode: GenerationMode) {
+  try {
+    if (await liveDispatch(videoId, mode)) return;
+  } catch (err) {
+    console.error("[live] could not start", { videoId, err });
+    const editing = mode.kind === "edit" || mode.kind === "lines";
+    return setGeneration(videoId, { stage: editing ? "edit_failed" : "error", mode: mode.kind, engine: "live" }, editing ? "ready" : "needs_direction");
+  }
+  if (mode.kind === "lines") return; // legacy line edits are saved directly (saveLines)
   const admin = createAdminClient();
   const { data } = await admin.from("videos").select("*").eq("id", videoId).single();
   const video = data as Video | null;

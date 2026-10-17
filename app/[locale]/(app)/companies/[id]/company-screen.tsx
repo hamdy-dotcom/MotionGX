@@ -6,21 +6,25 @@ import { Link } from "@/i18n/navigation";
 import type { BrandDraft } from "@/lib/brand/types";
 import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { BrandEditor } from "../brand-editor";
-import { ExtractSteps, STEP_LABEL } from "../extract-steps";
+import { BrandFiles } from "../brand-files";
+import { ExtractSteps, SnapshotLink, STEP_LABEL } from "../extract-steps";
 import { useExtraction } from "../use-extraction";
+import { CaptureCodeForm, StepLog } from "@/components/live-capture";
 
 /** Company screen: edit brand + facts; "أعد القراءة" re-scrapes the site and refills the form. */
-export function CompanyScreen({ companyId, brand: initial }: { companyId: string; brand: BrandDraft }) {
+export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, liveEngine = false, captureId = null }: { companyId: string; brand: BrandDraft; hasSnapshot?: boolean; liveEngine?: boolean; captureId?: string | null }) {
   const t = useTranslations("companies");
   const td = useTranslations("dashboard");
   const [brand, setBrand] = useState(initial);
   const [raw, setRaw] = useState<Record<string, unknown> | null>(null);
   const [editorKey, setEditorKey] = useState(0);
-  const x = useExtraction();
+  const x = useExtraction(liveEngine);
+  // a re-read shows its own capture's files; otherwise the one saved with the company
+  const liveCapture = (raw?.source === "live" ? String(raw.capture_id) : null) ?? captureId;
 
   async function reread() {
     if (!brand.websiteUrl) return;
-    const result = await x.run(brand.websiteUrl, true);
+    const result = await x.run(brand.websiteUrl, true, companyId);
     if (!result) return;
     // Keep what the user already set when a step failed.
     const next = result.brand;
@@ -47,20 +51,29 @@ export function CompanyScreen({ companyId, brand: initial }: { companyId: string
           {td("newVideo")}
           <ArrowIcon className="size-4" />
         </Link>
+        {brand.websiteUrl && !x.running && (x.started ? x.steps.snapshot === "done" : hasSnapshot) ? <SnapshotLink websiteUrl={brand.websiteUrl} /> : null}
         <button type="button" onClick={() => void reread()} disabled={x.running || !brand.websiteUrl} className="btn btn-soft">
           {x.running ? <SpinnerIcon className="size-4" /> : <SparkIcon className="size-4" />}
           {x.running ? t("extracting") : t("reread")}
         </button>
         {x.started ? (
           <div className="w-full">
-            <ExtractSteps steps={x.steps} running={x.running} errorCode={x.errorCode} />
+            <ExtractSteps steps={x.steps} running={x.running} errorCode={x.errorCode} hide={x.live ? ["snapshot"] : []} />
+            {x.live && x.running ? (
+              <>
+                <p className="mt-3 text-sm text-ink-muted">{t("liveHint")}</p>
+                <StepLog lines={x.log} />
+                {x.ask ? <CaptureCodeForm askedTo={x.ask.to} onSend={x.sendCode} /> : null}
+              </>
+            ) : null}
             {!x.running && x.failed.length ? (
               <p className="mt-2 text-sm text-warning-ink">{t("fillManually", { steps: x.failed.map((s) => t(STEP_LABEL[s])).join("، ") })}</p>
             ) : null}
           </div>
         ) : null}
       </div>
-      {!x.running ? <BrandEditor key={editorKey} brand={brand} raw={raw} companyId={companyId} /> : null}
+      {!x.running ? <BrandEditor key={editorKey} brand={brand} raw={raw} companyId={companyId} captureId={liveCapture} /> : null}
+      {!x.running && liveCapture ? <BrandFiles key={liveCapture} captureId={liveCapture} /> : null}
     </div>
   );
 }

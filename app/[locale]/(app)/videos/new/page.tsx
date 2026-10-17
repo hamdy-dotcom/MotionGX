@@ -7,6 +7,7 @@ import type { Voice } from "@/lib/types";
 import { Heading, boldTag } from "@/components/heading";
 import { FoldersIllustration } from "@/components/illustrations";
 import { PlusIcon } from "@/components/icons";
+import { liveEngineEnabled } from "@/lib/live-engine/config";
 import { NewVideoForm } from "./new-video-form";
 
 // Generation (director → script → composition + QA → music) runs in `after()` of this route's create action.
@@ -53,12 +54,13 @@ export default async function NewVideoPage({
           </div>
         ) : (
           <NewVideoForm
-            companies={companies.map((c) => ({ id: c.id, name: c.name, defaultDialect: c.default_dialect, colors: c.brand_profiles?.colors ?? [], logoUrl: c.logo_url ?? null }))}
+            companies={companies.map((c) => ({ id: c.id, name: c.name, defaultDialect: c.default_dialect, colors: c.brand_profiles?.colors ?? [], logoUrl: c.logo_url ?? null, logoOnDark: c.logo_on_dark ?? null }))}
             initialCompanyId={companies.some((c) => c.id === company) ? company! : companies[0].id}
             voices={(voicesRes.data ?? []) as Voice[]}
             prices={prices}
             fxRate={fx}
             currency={ctx.workspace.currency_code}
+            liveEngine={liveEngineEnabled()}
           />
         )}
       </div>

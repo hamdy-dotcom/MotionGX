@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // local design reference + generated output
     "reference/**",
+    ".work/**",
+    "lib/live-engine/worker/vendor/**",
     ".remotion-bundle/**",
     "out/**",
     "scripts/music/out/**",

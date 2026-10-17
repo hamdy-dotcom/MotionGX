@@ -5,6 +5,7 @@ allowBuilds:
   "@swc/core": false
   esbuild: false
   onnxruntime-node: true
+  ffmpeg-static: true
   protobufjs: false
 minimumReleaseAgeExclude:
   - zod@4.5.4 || 4.6.6

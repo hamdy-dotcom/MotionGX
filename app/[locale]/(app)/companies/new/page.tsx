@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Heading, boldTag } from "@/components/heading";
+import { liveEngineEnabled } from "@/lib/live-engine/config";
 import { NewCompanyFlow } from "./new-company-flow";
 
 export default async function NewCompanyPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -14,7 +15,7 @@ export default async function NewCompanyPage({ params }: { params: Promise<{ loc
       </Heading>
       <p className="mt-3 max-w-2xl leading-relaxed text-ink-muted">{t("subtitle")}</p>
       <div className="mt-6">
-        <NewCompanyFlow />
+        <NewCompanyFlow liveEngine={liveEngineEnabled()} />
       </div>
     </div>
   );

@@ -132,7 +132,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
               {companies.map((c) => (
                 <li key={c.id}>
                   <Link href={`/companies/${c.id}`} className="flex items-center gap-3 rounded-full bg-white p-1.5 pe-4 transition-colors hover:bg-primary-light">
-                  <CompanyMark name={c.name} logoUrl={c.logo_url} colors={c.brand_profiles?.colors} size="size-10" />
+                  <CompanyMark name={c.name} logoUrl={c.logo_url} logoOnDark={c.logo_on_dark} colors={c.brand_profiles?.colors} size="size-10" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{c.name}</p>
                     {c.website_url ? (

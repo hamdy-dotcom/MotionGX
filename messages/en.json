@@ -140,6 +140,8 @@
     "role_accent": "Accent",
     "role_background": "Background",
     "stepFacts": "Facts",
+    "stepSnapshot": "Page files",
+    "downloadSnapshot": "Download page files",
     "factsTitle": "<b>Company</b> facts",
     "factsHint": "Scripts only use these facts — and no numbers that aren't on the site.",
     "factWhat": "What it does",
@@ -159,7 +161,25 @@
     "savedChanges": "Changes saved.",
     "saveChanges": "Save changes",
     "editTitle": "<b>{name}</b> brand & facts",
-    "editSubtitle": "Edit the brand and the facts scripts rely on, or press \"Re-read website\" to read the site again."
+    "editSubtitle": "Edit the brand and the facts scripts rely on, or press \"Re-read website\" to read the site again.",
+    "liveHint": "Signing up inside the product and touring its features takes about 10 minutes. If you leave, enter the same link again to pick it up.",
+    "filesTitle": "<b>Brand</b> files",
+    "filesTitlePlain": "Brand files",
+    "files_customer": "What customers see",
+    "files_app": "Inside the app",
+    "files_public": "Public pages",
+    "filesParts": "UI blocks",
+    "filesImages": "Images",
+    "filesTrace": "Agent steps",
+    "filesOpen": "Open {name}",
+    "filesClose": "Close",
+    "kind_product": "Product",
+    "kind_lifestyle": "Lifestyle",
+    "kind_illustration": "Illustration",
+    "kind_icon": "Icon",
+    "kind_people": "People",
+    "kind_background": "Background",
+    "kind_partner_logo": "Partner logos"
   },
   "videos": {
     "title": "<b>New</b> video",
@@ -185,7 +205,8 @@
     "writeScript": "Write the script",
     "writing": "Writing the script…",
     "briefRequired": "Describe the video.",
-    "untitled": "{goal} video"
+    "untitled": "{goal} video",
+    "soon": "Soon"
   },
   "studio": {
     "scenes": "<b>Scenes</b>",
@@ -256,7 +277,12 @@
     "hitAt": "{kind} at {s}s",
     "stage_plan": "The creative director is planning the film…",
     "stage_spec": "Designing the animation…",
-    "stage_ready": "Almost there…"
+    "stage_ready": "Almost there…",
+    "codeTitle": "Verification code",
+    "codeHint": "We're signing up on your website to film the app. Enter the code sent to {to}.",
+    "codeSend": "Send code",
+    "stage_awaiting_code": "Waiting for the verification code…",
+    "liveHint": "The first video for a company takes ~10 min, later ones ~1 min. You can leave this page."
   },
   "wallet": {
     "title": "<b>Wallet</b>",

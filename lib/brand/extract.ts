@@ -6,6 +6,7 @@ import { mapColors, mapFonts, pickLogo, pickBrandName, type FirecrawlScrape } fr
 import { EXTRACT_STEPS, emptyDraft, type ExtractEvent } from "./types";
 import { analyzeTone } from "./tone";
 import { pickFactPages, scrapeFactPages, summarizeFacts, type FactPage } from "./facts";
+import { buildSnapshot, type Snapshot } from "./snapshot";
 
 export { normalizeUrl } from "./url";
 export * from "./types";
@@ -28,7 +29,12 @@ function rawFor(url: string, scrape: FirecrawlScrape, pages: FactPage[] = []) {
  * Live extraction. Yields one event per step as it finishes, then the result.
  * Any step can fail; the result always comes, with whatever succeeded.
  */
-export async function* extractBrand(workspaceId: string, url: string): AsyncGenerator<ExtractEvent> {
+export async function* extractBrand(
+  workspaceId: string,
+  url: string,
+  /** Stores the page snapshot; resolves true when it was saved. */
+  storeSnapshot?: (snapshot: Snapshot) => Promise<boolean>,
+): AsyncGenerator<ExtractEvent> {
   const draft = emptyDraft(url);
 
   let scrape: FirecrawlScrape;
@@ -85,6 +91,23 @@ export async function* extractBrand(workspaceId: string, url: string): AsyncGene
     if (err instanceof AiError && err.code !== "ai_invalid") yield { type: "error", code: err.code };
     yield { type: "step", step: "facts", status: "failed" };
   }
+
+  // Page snapshot ("save page as… complete"): html + images/css/fonts + inline SVG objects + screenshot.
+  let snapshotSaved = false;
+  if (storeSnapshot && scrape.rawHtml) {
+    try {
+      const snapshot = await buildSnapshot({
+        pageUrl: scrape.metadata?.url || scrape.metadata?.sourceURL || url,
+        rawHtml: scrape.rawHtml,
+        screenshotUrl: scrape.screenshot ?? null,
+        imageUrls: scrape.images ?? [],
+      });
+      snapshotSaved = await storeSnapshot(snapshot);
+    } catch (err) {
+      console.error("[brand/extract] snapshot failed", { url, err });
+    }
+  }
+  yield { type: "step", step: "snapshot", status: snapshotSaved ? "done" : "failed" };
 
   yield { type: "result", brand: draft, raw: rawFor(url, scrape, pages), cached: false };
 }

@@ -2,7 +2,7 @@
 import type { AiErrorCode } from "@/lib/ai/errors";
 import type { BrandColor, BrandFonts, Dialect } from "@/lib/types";
 
-export const EXTRACT_STEPS = ["logo", "colors", "fonts", "tone", "facts"] as const;
+export const EXTRACT_STEPS = ["logo", "colors", "fonts", "tone", "facts", "snapshot"] as const;
 export type ExtractStep = (typeof EXTRACT_STEPS)[number];
 
 export const FALLBACK_FONTS = { arabic: "Readex Pro", latin: "Inter" } as const;
@@ -23,6 +23,8 @@ export type BrandDraft = {
   name: string;
   websiteUrl: string;
   logoUrl: string | null;
+  /** brand.json logo.on_dark (live engine); null/undefined = unknown */
+  logoOnDark?: boolean | null;
   colors: BrandColor[];
   fonts: Required<BrandFonts>;
   tone: string;

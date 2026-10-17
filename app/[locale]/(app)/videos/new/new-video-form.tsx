@@ -11,7 +11,7 @@ import { Heading, boldTag } from "@/components/heading";
 import { CompanyMark } from "@/components/company-mark";
 import { ArrowIcon, SpinnerIcon } from "@/components/icons";
 
-type CompanyOption = { id: string; name: string; defaultDialect: Dialect; colors: BrandColor[]; logoUrl: string | null };
+type CompanyOption = { id: string; name: string; defaultDialect: Dialect; colors: BrandColor[]; logoUrl: string | null; logoOnDark?: boolean | null };
 
 export function NewVideoForm({
   companies,
@@ -20,6 +20,7 @@ export function NewVideoForm({
   prices,
   fxRate,
   currency,
+  liveEngine = false,
 }: {
   companies: CompanyOption[];
   initialCompanyId: string;
@@ -27,6 +28,8 @@ export function NewVideoForm({
   prices: Prices;
   fxRate: number;
   currency: string;
+  /** VIDEO_ENGINE=live: music only for now — voiceover shows disabled with a "soon" label */
+  liveEngine?: boolean;
 }) {
   const t = useTranslations("videos");
   const tc = useTranslations("common");
@@ -82,7 +85,7 @@ export function NewVideoForm({
           <ChipGroup label={t("company")}>
             {companies.map((c) => (
               <button key={c.id} type="button" role="radio" aria-checked={companyId === c.id} onClick={() => chooseCompany(c)} className="chip ps-1.5">
-                <CompanyMark name={c.name} logoUrl={c.logoUrl} colors={c.colors} size="size-8" />
+                <CompanyMark name={c.name} logoUrl={c.logoUrl} logoOnDark={c.logoOnDark} colors={c.colors} size="size-8" />
                 {c.name}
               </button>
             ))}
@@ -167,8 +170,9 @@ export function NewVideoForm({
         <div className="panel">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p id="vo-label" className="font-semibold">
+              <p id="vo-label" className="flex items-center gap-2 font-semibold">
                 {t("voiceover")}
+                {liveEngine ? <span className="chip chip-white">{t("soon")}</span> : null}
               </p>
               <p className="text-sm text-ink-muted">{t("voiceoverHint", { price: money(prices.voiceoverMinUsd) })}</p>
             </div>
@@ -178,7 +182,8 @@ export function NewVideoForm({
               aria-checked={voiceover}
               aria-labelledby="vo-label"
               onClick={() => setVoiceover((v) => !v)}
-              className={`relative h-8 w-14 shrink-0 rounded-full transition-colors ${voiceover ? "bg-primary" : "bg-primary-lavender"}`}
+              disabled={liveEngine}
+              className={`relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${voiceover ? "bg-primary" : "bg-primary-lavender"}`}
             >
               <span
                 className={`absolute top-1 size-6 rounded-full bg-white shadow transition-[inset-inline-start] ${voiceover ? "start-7" : "start-1"}`}
@@ -207,7 +212,7 @@ export function NewVideoForm({
           {t.rich("summary", boldTag)}
         </Heading>
         <div className="mt-4 flex items-center gap-3">
-          <CompanyMark name={company.name} logoUrl={company.logoUrl} colors={company.colors} size="size-10" />
+          <CompanyMark name={company.name} logoUrl={company.logoUrl} logoOnDark={company.logoOnDark} colors={company.colors} size="size-10" />
           <p className="font-semibold">{company.name}</p>
         </div>
         <ul className="mt-4 flex flex-wrap gap-2 text-sm">
