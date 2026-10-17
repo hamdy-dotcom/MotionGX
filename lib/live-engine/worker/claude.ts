@@ -32,7 +32,7 @@ export class Ledger {
   constructor(
     public file: string,
     public log: (line: string) => void = console.log,
-    public onRow?: (row: LedgerRow) => void | Promise<void>,
+    public onRow?: (row: LedgerRow) => unknown,
   ) {}
   add(step: string, model: string, usage: Usage, ms: number) {
     const usd = priceOf(model, usage);
