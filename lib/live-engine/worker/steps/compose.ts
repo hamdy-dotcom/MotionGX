@@ -66,7 +66,10 @@ const loadClone = (brandDir, id) => { const f = path.join(brandDir, "clones", `$
 /** the scene's words promise an input (type / paste / enter / search a link, URL, code…): which kind, or null */
 export function promised(sc) {
   const t = `${sc.headline || ""} ${sc.sub || ""}`.replace(/بدون كود|من غير كود|no[- ]code|without code/gi, "");
-  if (!/\b(type|types|typing|paste|pastes|enter|enters|search|searches|link|url|code)\b|اكتب|يكتب|تكتب|الصق|ألصق|لصق|حط اللينك|حط الرابط|أدخل|ادخل|دخّل|ابحث|بحث|رابط|لينك|كود|رمز/i.test(t)) return null;
+  const verb = /\b(type|types|typing|paste|pastes|enter|enters|search|searches|code)\b|اكتب|يكتب|تكتب|الصق|ألصق|لصق|حط اللينك|حط الرابط|أدخل|ادخل|دخّل|ابحث|بحث|كود|رمز/i.test(t);
+  // a link / URL alone is not an input ("a public store link"): only with something done from it (generate, analyze, search…)
+  const fromLink = /\b(link|url)\b|رابط|لينك/i.test(t) && ["generate", "analyze", "search"].some((k) => INTENTS[k].test(t));
+  if (!verb && !fromLink) return null;
   if (/link|url|رابط|لينك/i.test(t)) return "link";
   if (/\bcode\b|كود|رمز/i.test(t)) return "code";
   if (/search|ابحث|بحث/i.test(t)) return "search";
@@ -127,7 +130,7 @@ export function repairAssets({ script, assets, brandDir, brand, log = () => {} }
   script.scenes.forEach((sc, i) => {
     const id = (sc.visual?.assets || []).find((x) => byId[x] && LIVE.test(byId[x].kind)); if (!id || !byId[id].empty) return;
     const alt = assets.find((a) => a.kind === byId[id].kind && !a.empty && !used.has(a.id) && String(a.shows || "").split(" — ")[0] === String(byId[id].shows || "").split(" — ")[0])
-      || assets.find((a) => a.kind === "live-flow" && a.input_result && !a.empty && !used.has(a.id))
+      || assets.find((a) => { const f = flowInfo(a, brandDir); return f.input && !f.nav && !a.empty && !used.has(a.id) && sameScreen(f.result, byId[id].shows); })
       || assets.find((a) => a.kind === byId[id].kind && !a.empty && !used.has(a.id));
     if (alt) { sc.visual = { ...sc.visual, assets: [alt.id] }; used.add(alt.id); changes.push(`scene ${i + 1}: ${id} is empty → ${alt.id}`); }
   });
@@ -140,20 +143,75 @@ export function repairAssets({ script, assets, brandDir, brand, log = () => {} }
  * else the unused flow that best matches its words; with no flow at all the scene is marked for a rewrite (sc._rewrite: the
  * director restates it as what the screen shows). Returns what changed.
  */
-export function matchPromises({ script, assets, log = () => {} }) {
-  const byId = Object.fromEntries(assets.map((a) => [a.id, a])), used = new Set(script.scenes.flatMap((s) => s.visual?.assets || [])), changes = [];
-  const words = (t) => new Set(String(t || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2));
+export function matchPromises({ script, assets, brandDir, log = () => {} }) {
+  const byId = Object.fromEntries(assets.map((a) => [a.id, a])), changes = [];
+  const flows = assets.filter((a) => a.kind === "live-flow").map((a) => ({ a, ...flowInfo(a, brandDir) })).filter((f) => f.input && !f.nav);
+  const holds = (sc) => (sc.visual?.assets || []).find((id) => byId[id]?.kind === "live-flow" && byId[id].input_result);
+  // every (promising scene, real input flow) pair, scored on intent; the best pairs are assigned first, one flow per scene
+  const pairs = [];
+  // a scene already playing a real input flow keeps it unless a scene that promises it scores clearly higher
+  script.scenes.forEach((sc, i) => { const p = promised(sc); for (const f of flows) { const own = holds(sc) === f.a.id; if (!p && !own) continue; const v = (own ? Math.max(2, matchScore(sc, f) + 1) : matchScore(sc, f)) - (i === 0 ? 2 : 0); if (v > 0) pairs.push({ i, f, v }); } });
+  pairs.sort((x, y) => y.v - x.v || x.i - y.i);
+  const got = new Map(), taken = new Set();
+  for (const p of pairs) if (!got.has(p.i) && !taken.has(p.f.a.id)) { got.set(p.i, p.f); taken.add(p.f.a.id); }
   script.scenes.forEach((sc, i) => {
-    if (!promised(sc)) return;
-    if ((sc.visual?.assets || []).some((id) => byId[id]?.kind === "live-flow" && byId[id].input_result)) return;
-    const mine = words(`${sc.headline} ${sc.sub || ""} ${sc.visual?.detail || ""}`);
-    const flows = assets.filter((a) => a.kind === "live-flow" && a.input_result && !used.has(a.id)).map((a) => ({ a, score: [...words(`${a.shows} ${(a.features || []).join(" ")}`)].filter((w) => mine.has(w)).length })).sort((x, y) => y.score - x.score);
-    if (flows.length) { sc.visual = { ...sc.visual, assets: [flows[0].a.id] }; used.add(flows[0].a.id); changes.push(`scene ${i + 1}: plays the input → result flow ${flows[0].a.id}`); }
-    else { sc._rewrite = true; changes.push(`scene ${i + 1}: promises an input the capture never ran — the director rewrites it`); }
+    const had = holds(sc), f = got.get(i);
+    if (f) { if (had !== f.a.id) { sc.visual = { ...sc.visual, assets: [f.a.id] }; changes.push(`scene ${i + 1}: plays the input → result flow ${f.a.id} (typed ${JSON.stringify(f.typed.slice(0, 40))} → «${f.button}»)`); } return; }
+    if (had) { // a flow it shouldn't play (navigation, or a better scene took it): its result screen instead
+      const sid = had.replace(/-flow$/, ""), screen = byId[sid] && LIVE.test(byId[sid].kind) ? sid : null;
+      const info = flowInfo(byId[had], brandDir), wrong = info.nav || !info.input || taken.has(had);
+      if (wrong) { sc.visual = { ...sc.visual, assets: screen ? [screen] : (sc.visual.assets || []).filter((x) => x !== had) }; changes.push(`scene ${i + 1}: ${had} ${info.nav ? "is a menu click, not an input" : info.input ? "plays in a scene that promises it better" : "has no typed value"} → ${screen || "dropped"}`); }
+    }
+    if (promised(sc) && !got.has(i)) {
+      // its flow plays in a scene that promises it better: this one shows that flow's result; with no matching flow at all, a rewrite
+      const best = flows.map((f) => ({ f, v: matchScore(sc, f) })).filter((x) => x.v > 0).sort((x, y) => y.v - x.v)[0], sid = best && best.f.a.id.replace(/-flow$/, "");
+      if (sid && byId[sid] && LIVE.test(byId[sid].kind)) { sc.visual = { ...sc.visual, assets: [sid] }; changes.push(`scene ${i + 1}: ${best.f.a.id} plays in another scene → its result ${sid}`); }
+      else { sc._rewrite = true; changes.push(`scene ${i + 1}: promises an input no captured flow matches — the director rewrites it`); }
+    }
   });
   if (changes.length) log(`  ⌨ inputs: ${changes.join(" · ")}`);
   return changes;
 }
+
+/** what a captured flow really did, from its "before" clone: the typed values, the button pressed, whether that was a menu click */
+export function flowInfo(a, brandDir) {
+  const sid = String(a.id).replace(/-flow$/, ""), c = brandDir ? loadClone(brandDir, `${sid}-before`) : null, keys = c?.keys || [];
+  const click = keys.find((k) => k.acted === "click"), fields = keys.filter((k) => k.acted === "type" && k.text && !/^•+$/.test(k.text));
+  const button = click?.text || (String(a.shows || "").match(/click "(?:<[^>]+>\s*)?([^"]+)"/) || [])[1] || "";
+  const navs = new Set(keys.filter((k) => k.role === "nav").map((k) => String(k.text || "").trim()));
+  const nav = click ? click.role === "nav" || (navs.has(String(click.text || "").trim()) && !fields.length) : !a.input_result;
+  // the typed value only counts when it was typed on this screen (a stale value from an earlier step is not this flow's input)
+  const typedAll = c ? fields.map((k) => k.text) : a.typed ? [a.typed] : [];
+  const typed = typedAll.find(isUrl) || [...typedAll].sort((x, y) => y.length - x.length)[0] || "";
+  const result = String(a.shows || "").split("→").slice(1).join("→").trim();
+  return { input: Boolean(typed), nav, typed, typedAll, button: String(button).trim(), result, typeKey: (fields.find((k) => isUrl(k.text)) || fields.sort((x, y) => y.text.length - x.text.length)[0])?.k || null };
+}
+const isUrl = (v) => /^(https?:\/\/|www\.)|\.[a-z]{2,}\//i.test(String(v || ""));
+const sceneText = (sc) => `${sc.headline || ""} ${sc.sub || ""}`;
+// what an input → result flow can promise; each scene and flow is read for these intents (Arabic + English, any dialect)
+const INTENTS = {
+  link: /\b(link|url|paste)\b|لينك|رابط|الصق|ألصق|لصق/i,
+  generate: /\b(generat\w*|creat\w*|build\w*|make|ready)\b|توليد|ولّ?د|يولد|إنشاء|انشاء|أنشئ|انشئ|اعمل|بيعمل|جاهز|ذكاء|\bAI\b/i,
+  analyze: /\b(analy\w*|score\w*|check)\b|حلل|تحليل|محلل|يحلل/i,
+  search: /\b(search\w*|find|research|discover)\b|بحث|ابحث|دوّ?ر|اكتشف/i,
+  order: /\b(order\w*|checkout|buy|cart)\b|اطلب|يطلب|طلب|الدفع|السلة|شراء/i,
+  write: /\b(type|write|enter)\b|اكتب|يكتب|أدخل|ادخل/i,
+};
+const intentsOf = (t) => new Set(Object.entries(INTENTS).filter(([, re]) => re.test(t)).map(([k]) => k));
+/** how well a scene promises a flow: shared intents (a typed URL is the link intent), plus shared words with its button and result */
+function matchScore(sc, f) {
+  const mine = intentsOf(sceneText(sc)), theirs = intentsOf(`${f.button} ${f.result}`);
+  if (isUrl(f.typed)) theirs.add("link"); else if (f.typed) theirs.add("write");
+  // a scene that promises an action (generate / analyze / search / order) only matches a flow doing that action — a shared link is not enough
+  const acts = ["generate", "analyze", "search", "order"].filter((k) => mine.has(k));
+  if (acts.length && !acts.some((k) => theirs.has(k))) return 0;
+  let v = 0; for (const k of mine) if (theirs.has(k)) v += k === "link" ? 4 : 3;
+  if (!v) return 0;
+  const words = (t) => new Set(String(t).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).map((w) => w.replace(/^(وال|بال|لل|ال|و|ب)(?=\p{L}{3})/u, "")).filter((w) => w.length > 2));
+  const a = words(sceneText(sc)), b = words(`${f.button} ${f.result} ${(f.a.features || []).join(" ")}`);
+  return v + Math.min(3, [...a].filter((w) => b.has(w)).length);
+}
+const sameScreen = (result, shows) => { const w = (t) => new Set(String(t || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((x) => x.length > 3)); const a = w(result), b = w(String(shows || "").split(" — ")[0]); return [...a].some((x) => b.has(x)); };
 
 const withAsset = (sc, p, byId) => (p.asset && byId[p.asset] && LIVE.test(byId[p.asset].kind) ? { ...sc, visual: { ...sc.visual, assets: [p.asset] } } : sc);
 
@@ -310,7 +368,6 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
         const room = H - SY - (chips.length ? 170 : 30) - devTop; // down to the chips row (or the safe bottom)
         if (!portrait) return { top: layout === "split" ? Math.round((H - lapH) / 2) : devTop, h: recipe === "hero" ? Math.round(H * 0.5) : lapH + 30, w: lapW };
         if (layout === "split") return { top: SY + 40, h: 900, w: winW }; // +40: the 3% push-in moves the top edge up
-        if (layout === "stack") return { top: devTop, h: room, w: winW - 60 }; // tilted ≤4°: w·cos + h·sin stays inside the safe width
         return { top: devTop, h: room, w: winW };
       })();
       const left = Math.round((W - geo.w) / 2);
@@ -330,10 +387,10 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
       let typeArg = "";
 
       if (recipe === "tour") { devHtml = win ? `${frameOpen}${deskUi(`u${n}`, r.ui)}${frameClose}` : `<div class="dev laptop" style="${devStyle}">${deskUi(`u${n}`, r.ui)}</div>`; call = `K.R.tour(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d},focus:${JSON.stringify(p.focus || sc._focus || [])}${popArg}${typeArg}});`; }
-      else if (recipe === "replay") { devHtml = `${win ? frameOpen : `<div class="dev laptop" style="${devStyle}">`}${deskUi(`u${n}a`, r.a)}${deskUi(`u${n}b`, r.b, true)}<div class="spin"></div><div class="ok">✓</div>${win ? frameClose : "</div>"}`; call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${p.typeKey ? `,typeKey:"${p.typeKey}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${popArg}${fake ? `,fake:${JSON.stringify(fake)}` : ""}});`; }
+      else if (recipe === "replay") { devHtml = `${win ? frameOpen : `<div class="dev laptop" style="${devStyle}">`}${deskUi(`u${n}a`, r.a)}${deskUi(`u${n}b`, r.b, true)}<div class="spin"></div><div class="ok">✓</div>${win ? frameClose : "</div>"}`; const tk = p.typeKey || (r.asset && flowInfo(r.asset, brandDir).typeKey); call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${tk ? `,typeKey:"${tk}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${popArg}${fake ? `,fake:${JSON.stringify(fake)}` : ""}});`; }
       else if (recipe === "phone") { devHtml = `<div class="dev phone" style="${devStyle}"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${phW - 40}" data-h="${phH - 60}" data-frame="none"></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${typeArg}});`; }
       else { const bh = win ? geo.h : Math.round(Math.min((loadClone(brandDir, r.ui)?.h || 400) * (lapW / (loadClone(brandDir, r.ui)?.w || 1)), H * 0.5)); devHtml = `<div class="glow"></div>${win ? `${frameOpen}<div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${geo.w}" data-h="${geo.h}" data-frame="none"></div>${frameClose}` : `<div class="dev block" style="${devStyle}"><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${lapW}" data-h="${bh}" data-frame="none"></div></div>`}`; call = `K.R.hero(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${typeArg}});`; }
-      if (layout === "stack") { devHtml = `<div class="tilt">${devHtml}</div>`; extra = chips.map((c, k) => `<div class="stackcard surface" style="top:${Math.round(geo.top + geo.h * 0.5 + k * 150)}px;inset-inline-${k % 2 ? "end" : "start"}:${SX + 40}px"><b>✓</b>${esc(c)}</div>`).join(""); co = ""; }
+      if (layout === "stack") { extra = chips.map((c, k) => `<div class="stackcard surface" style="top:${Math.round(geo.top + geo.h * 0.5 + k * 150)}px;inset-inline-${k % 2 ? "end" : "start"}:${SX + 40}px"><b>✓</b>${esc(c)}</div>`).join(""); co = ""; }
       // callouts sit in a row under the device, inside the safe area — never on its edge
       else if (chips.length && layout !== "split") co = `<div class="cos" style="top:${Math.min(H - SY - 130, geo.top + geo.h + 34)}px">${chips.map((c) => chip(c)).join("")}</div>`;
       if (layout === "card") headWrap = "card";
@@ -442,7 +499,6 @@ ${hiCss}
 .fakefield .ff-ico{font-size:44px;opacity:.8}.fakefield .ff-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fakefield .ff-caret{width:3px;height:52px;background:${primary};margin-inline-start:-14px}
 .ui-after{visibility:hidden}
 .spin{position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:10px solid ${ink}22;border-top-color:${primary};opacity:0;z-index:7}
-.tilt{position:absolute;inset:0;transform-origin:50% 60%}
 .pop{position:absolute;left:${Math.round((W - 940) / 2)}px;opacity:0;z-index:6}
 .pop .ui{border-radius:var(--r);background:${surface};box-shadow:0 50px 140px rgba(0,0,0,.65),0 0 0 3px ${primary}88}
 .ok{position:absolute;${rtl ? "left" : "right"}:18px;top:18px;width:110px;height:110px;border-radius:50%;background:${grad};color:#fff;font:800 64px/110px sans-serif;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45);opacity:0;z-index:5}

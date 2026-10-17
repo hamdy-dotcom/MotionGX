@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { callTool } from "../claude";
-import { LAYOUTS } from "./script";
+import { LAYOUTS, enforceTiming } from "./script";
 import { applyOrder, compose, fingerprintOf, matchPromises, readHistory, recipeFor, repairAssets, resolveArt, uniqueness } from "./compose";
 import { artDirect } from "./artdirect";
 
@@ -26,6 +26,13 @@ export async function buildVideo(args) {
   return buildFreeform(args);
 }
 
+/** readable scene lengths after the play order / asset swaps: cut scenes (never shorten them); art.scenes follow the kept ones */
+function retime(script, art, assets, brief, log) {
+  const kept = enforceTiming(script, assets, brief.length || script.length, log);
+  if (kept.length === art.scenes.length) return art;
+  return { ...art, scenes: kept.map((k, i) => ({ ...art.scenes[k], n: i + 1 })), order: kept.map((_, i) => i + 1) };
+}
+
 /** art direction (the look) + a cheap director call (what each scene shows); compose() writes it from the motion recipes */
 async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger, models, fixIssues, request, history, keepArt, log = console.log }) {
   log("▶ build (art direction + director + motion recipes)");
@@ -35,7 +42,7 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
   // 0. dead content: broken images in the live UI clones are replaced; thin blocks / dead clones change the scene's asset
   const repaired = repairAssets({ script, assets, brandDir, brand, log }).some((c) => c.startsWith("scene "));
   // a promised input plays a real input → result flow, or the scene gets rewritten by the director
-  if (matchPromises({ script, assets, log }).length || repaired) fs.writeFileSync(path.join(runDir, "script.json"), JSON.stringify(script, null, 2));
+  if (matchPromises({ script, assets, brandDir, log }).length || repaired) fs.writeFileSync(path.join(runDir, "script.json"), JSON.stringify(script, null, 2));
 
   // 1. the look of this one video — kept on QA rebuilds and edits (a video keeps its look), new otherwise
   const artFile = path.join(runDir, "art.json"), ctx = { script, assets, brandDir, brand };
@@ -44,6 +51,7 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
   if (fs.existsSync(artFile) && (fixIssues || request || keepArt)) {
     art = JSON.parse(fs.readFileSync(artFile, "utf8"));
     log(`  ↺ art direction kept: ${art.background} · ${art.transition} · hook ${art.hook} · cta ${art.cta}`);
+    art = retime(script, art, assets, brief, log);
   } else {
     const recent = (history ?? readHistory(runDir)).slice(0, 5);
     let raw = null;
@@ -61,6 +69,7 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
       if (fails.length) log(`  ! still close to ${fails.length} recent video(s) — kept the more different answer`);
     }
     art = applyOrder(script, art); // the play order: the script is re-timed in place (scenes, start times, music drops)
+    art = retime(script, art, assets, brief, log); // readable lengths again (the new first scene is the hook; swapped flows need their time)
     fs.writeFileSync(path.join(runDir, "script.json"), JSON.stringify(script, null, 2));
     fs.writeFileSync(artFile, JSON.stringify({ ...art, raw }, null, 2));
   }

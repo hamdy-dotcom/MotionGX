@@ -13,7 +13,7 @@ const LAYOUT_NOTES = {
   photo: "full-bleed brand photo with a slow push, text on a scrim (no product screen)",
   split: "half visual / half text (device or photo)",
   card: "the headline sits in a card; a device or nothing under it",
-  stack: "the device tilted, with benefit cards stacked over it",
+  stack: "the device level and still, with straight benefit cards offset over it",
   device: "the device centred, benefit callouts floating around it",
   bigtype: "big type only (optionally a counting number or pain cards)",
   tiles: "a 2×2 grid of the product's real UI blocks or benefit tiles",

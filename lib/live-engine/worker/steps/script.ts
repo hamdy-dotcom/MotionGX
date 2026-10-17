@@ -18,6 +18,37 @@ export const OBJECTIVES = {
 export const COUNTRIES = { EG: "Egypt — Egyptian Arabic", SA: "Saudi Arabia — Saudi (Najdi/Hijazi) Arabic", AE: "UAE — Gulf Arabic", KW: "Kuwait — Gulf Arabic", MA: "Morocco — Darija", JO: "Jordan — Levantine Arabic", SY: "Syria — Levantine Arabic", IQ: "Iraq — Iraqi Arabic", US: "United States — English" };
 export const LAYOUTS = { "9:16": [1080, 1920], "1:1": [1080, 1080], "16:9": [1920, 1080], "4:5": [1080, 1350] };
 
+/**
+ * Readability, enforced after the model: a scene lasts at least max(3 s, 0.5 s per on-screen word + 2 s with UI); the hook and
+ * any scene with UI at least 4 s; an input → result flow at least 6 s (typing, tap, loading, result) — rounded up to the 2 s bar
+ * grid. When that no longer fits the length, scenes are CUT (least important first), never shortened; spare time goes to the
+ * scenes with UI. Start times and music drops follow.
+ */
+export function enforceTiming(script, assets, length, log = () => {}) {
+  const byId = Object.fromEntries(assets.map((a) => [a.id, a]));
+  const kinds = (sc) => (sc.visual?.assets || []).map((id) => byId[id]?.kind || "");
+  const ui = (sc) => kinds(sc).some((k) => /^(live-|object-|app-screen|site-page)/.test(k));
+  const flow = (sc) => (sc.visual?.assets || []).some((id) => byId[id]?.kind === "live-flow" && byId[id]?.input_result);
+  const words = (sc) => `${sc.headline || ""} ${sc.sub || ""}`.trim().split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+  const minBars = (sc, i) => Math.ceil(Math.max(3, 0.5 * words(sc) + (ui(sc) ? 2 : 0), i === 0 || ui(sc) ? 4 : 0, flow(sc) ? 6 : 0) / 2);
+  const drops = new Set(script.music?.drops || []);
+  let scenes = script.scenes.map((sc, i) => ({ sc, i, bars: Math.max(sc.bars || 1, minBars(sc, i)), drop: drops.has(sc.start) }));
+  const total = () => scenes.reduce((a, x) => a + x.bars * 2, 0), before = script.scenes.length, cut = [];
+  // too long: cut the least important scene (never the hook or the CTA / offer; UI and flows last)
+  const rank = (x, i) => (i === 0 || i === scenes.length - 1 ? 1000 : ["cta", "offer"].includes(x.sc.purpose) ? 900 : flow(x.sc) ? 600 : ui(x.sc) ? 400 + (x.sc.purpose === "how-it-works" ? 50 : 0) : x.sc.purpose === "problem" ? 150 : 200) - i * 0.01;
+  // too long: first take back bars the model gave above a scene's readable minimum (the most padded first), then cut
+  for (let x; total() > length && (x = scenes.map((y, i) => ({ y, ex: y.bars - minBars(y.sc, i) })).filter((z) => z.ex > 0).sort((p, q) => q.ex - p.ex)[0]);) x.y.bars--;
+  while (total() > length && scenes.length > 2) { let k = 1; scenes.forEach((x, i) => { if (rank(x, i) < rank(scenes[k], k)) k = i; }); cut.push(scenes[k].sc.headline); scenes.splice(k, 1); }
+  // too short: the spare bars go to the scenes with UI (shortest first), then to the rest
+  while (total() < length) { const pool = scenes.map((x, i) => ({ x, i })).filter(({ x }) => ui(x.sc)); const pick = (pool.length ? pool : scenes.map((x, i) => ({ x, i }))).sort((a, b) => a.x.bars - b.x.bars)[0]; pick.x.bars++; }
+  let t = 0; const newDrops = [], kept = scenes.map((x) => x.i);
+  scenes = scenes.map(({ sc, bars, drop }) => { const s = { ...sc, start: t, bars }; if (drop && t > 0) newDrops.push(t); t += bars * 2; return s; });
+  script.scenes.splice(0, script.scenes.length, ...scenes);
+  if (script.music) script.music.drops = newDrops;
+  log(`  ⏱ readable timing: ${scenes.length}/${before} scenes${cut.length ? ` (cut: ${cut.map((h) => `«${h}»`).join(", ")})` : ""}`);
+  return kept;
+}
+
 export async function writeScript({ brief, brand, runDir, ledger, models, log = console.log }) {
   log("▶ script");
   const bars = Math.round(brief.length / 2);
@@ -82,7 +113,7 @@ ASSETS YOU MAY USE (by id)
 ${JSON.stringify(assets)}`;
   const script = await callTool({ ledger, step: "script", model: models.script, maxTokens: 8000, tool, content, effort: brief.effort?.script || "low",
     system: `You write short motion-graphics ad scripts for Arabic-speaking markets.
-Rules: never use an asset marked "empty" (no data, zero metrics, empty tables) as proof or as a feature's main visual — use another screen, or the live-flow that creates that data. A scene may promise typing / pasting / entering / searching something ONLY when its asset is a live-flow with input_result (it plays the real value typed into the real field and the real result); otherwise describe what the screen shows. Scenes cover 0..${brief.length}s with no gaps; every start and length sits on the 2-second bar grid; the first scene is a hook (max 2 bars); the last is a CTA with the website. Cover the product's breadth: pick the features that serve the objective and show as many distinct ones as the length allows (roughly one feature per 1-2 bars after the hook), grouping small ones into fast montage scenes. SHOW THE REAL PRODUCT, AS IT WAS USED: live-* assets are the product's real screens copied out of the browser during the test drive (real DOM, real styles) — the video should feel cut out of the product's source code. live-screen = a whole real screen (camera starts on it, then zooms into the block that matters); live-flow = a recorded action (the screen before, the exact value typed / button pressed, then the result screen) — replay it: type, tap, result appears; live-phone = a customer-facing page (store, landing page, theme) on a phone, scrolling; live-block-* = one real block of a screen, shown big. The ESSENTIALS come first: assets with customer_view:true are what the product actually produces, as the end customer sees it (e.g. the live store with products, a product page, the generated landing page, checkout) — they are the strongest proof, so the video MUST show them (at least 2 scenes when they exist), ideally right after the flow that creates them (flow → the real result). Prefer live-flow for "how it works" moments and live-screen/live-block for proof. In visual.detail name what the camera zooms to, what gets typed, what gets tapped. Every feature scene must show an asset from that feature's evidence list or a live asset whose 'shows'/'features' clearly match the headline (object-* assets are fallbacks rebuilt as components; *-full screenshots only for a quick scrolling device shot). Never show a website page for an in-app feature, and never an asset whose 'shows' does not match the headline. Never invent numbers, prices or features that are not in BRAND / FEATURE INVENTORY. Write headlines in the dialect of the target country, natural and punchy, not formal MSA. One idea per scene.` });
+Rules: never use an asset marked "empty" (no data, zero metrics, empty tables) as proof or as a feature's main visual — use another screen, or the live-flow that creates that data. A scene may promise typing / pasting / entering / searching something ONLY when its asset is a live-flow with input_result (it plays the real value typed into the real field and the real result); otherwise describe what the screen shows. Scenes cover 0..${brief.length}s with no gaps; every start and length sits on the 2-second bar grid; the first scene is a hook (2 bars); READABILITY: every scene stays on screen long enough to read — about 0.5 s per word of on-screen text, plus 2 s when a UI is shown, never under 3 s; the hook and any scene showing UI at least 2 bars (4 s); a live-flow that types an input at least 3 bars — fewer, readable scenes beat many short ones; the last is a CTA with the website. Cover the product's breadth: pick the features that serve the objective and show as many distinct ones as the length allows (one feature per scene, each long enough to read), grouping small ones into fast montage scenes. SHOW THE REAL PRODUCT, AS IT WAS USED: live-* assets are the product's real screens copied out of the browser during the test drive (real DOM, real styles) — the video should feel cut out of the product's source code. live-screen = a whole real screen (camera starts on it, then zooms into the block that matters); live-flow = a recorded action (the screen before, the exact value typed / button pressed, then the result screen) — replay it: type, tap, result appears; live-phone = a customer-facing page (store, landing page, theme) on a phone, scrolling; live-block-* = one real block of a screen, shown big. The ESSENTIALS come first: assets with customer_view:true are what the product actually produces, as the end customer sees it (e.g. the live store with products, a product page, the generated landing page, checkout) — they are the strongest proof, so the video MUST show them (at least 2 scenes when they exist), ideally right after the flow that creates them (flow → the real result). Prefer live-flow for "how it works" moments and live-screen/live-block for proof. In visual.detail name what the camera zooms to, what gets typed, what gets tapped. Every feature scene must show an asset from that feature's evidence list or a live asset whose 'shows'/'features' clearly match the headline (object-* assets are fallbacks rebuilt as components; *-full screenshots only for a quick scrolling device shot). Never show a website page for an in-app feature, and never an asset whose 'shows' does not match the headline. Never invent numbers, prices or features that are not in BRAND / FEATURE INVENTORY. Write headlines in the dialect of the target country, natural and punchy, not formal MSA. One idea per scene.` });
   // normalise timing to the grid: shrink the longest middle scenes until everything fits the length exactly
   const maxBars = Math.round(brief.length / 2);
   for (const sc of script.scenes) sc.bars = Math.max(1, Math.round(sc.bars || 1));
@@ -92,6 +123,7 @@ Rules: never use an asset marked "empty" (no data, zero metrics, empty tables) a
   if (sum() < maxBars) script.scenes.at(-1).bars += maxBars - sum();
   let t = 0; for (const sc of script.scenes) { sc.start = t; t += sc.bars * 2; }
   script.length = brief.length; script.bpm = 120;
+  enforceTiming(script, assets, brief.length, log);
   fs.writeFileSync(path.join(runDir, "script.json"), JSON.stringify(script, null, 2));
   log(`✓ script: "${script.idea}" · ${script.scenes.length} scenes`);
   script.scenes.forEach((s) => log(`   ${String(s.start).padStart(2)}s ${s.purpose.padEnd(12)} ${s.headline}`));
