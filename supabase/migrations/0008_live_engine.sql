@@ -63,7 +63,7 @@ create index if not exists live_brand_captures_company_idx on public.live_brand_
 create table if not exists public.live_jobs (
   id              uuid primary key default gen_random_uuid(),
   workspace_id    uuid not null references public.workspaces(id) on delete cascade,
-  video_id        uuid references public.videos(id) on delete cascade,     -- null for a capture job
+  video_id        uuid references public.videos(id) on delete cascade,     -- the video that triggered it (a capture job serves every video of the company)
   company_id      uuid not null references public.companies(id) on delete cascade,
   capture_id      uuid references public.live_brand_captures(id) on delete set null,
   kind            text not null check (kind in ('capture', 'video')),

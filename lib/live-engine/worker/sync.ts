@@ -15,7 +15,16 @@ export class Sync {
     private dirs: { root: string; brandDir: string; runDir: string },
   ) {}
 
-  private async post<T = unknown>(body: Report): Promise<T> {
+  private queue: Promise<unknown> = Promise.resolve();
+
+  /** reports go out one at a time, in order (the app appends log/ledger rows to the job row) */
+  private post<T = unknown>(body: Report): Promise<T> {
+    const next = this.queue.then(() => this.send<T>(body));
+    this.queue = next.catch(() => undefined);
+    return next;
+  }
+
+  private async send<T = unknown>(body: Report): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
         const r = await fetch(this.job.callbackUrl, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${this.job.token}` }, body: JSON.stringify(body) });
