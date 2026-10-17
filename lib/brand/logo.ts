@@ -89,7 +89,13 @@ export async function loadLogo(source: string): Promise<LogoFile | null> {
     const declared = Number(res.headers.get("content-length") ?? 0);
     if (declared > MAX_BYTES) return null;
     const bytes = new Uint8Array(await res.arrayBuffer());
-    return logoFromBytes(bytes, res.headers.get("content-type") ?? "");
+    // storage can serve a file as application/octet-stream: fall back to the file extension
+    let type = res.headers.get("content-type") ?? "";
+    if (!LOGO_TYPES[type.split(";")[0].trim().toLowerCase()]) {
+      const ext = url.pathname.split(".").pop()?.toLowerCase();
+      type = Object.keys(LOGO_TYPES).find((k) => LOGO_TYPES[k] === (ext === "jpeg" ? "jpg" : ext)) ?? type;
+    }
+    return logoFromBytes(bytes, type);
   } catch {
     return null;
   }

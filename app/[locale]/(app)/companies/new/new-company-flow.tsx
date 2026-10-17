@@ -87,7 +87,7 @@ export function NewCompanyFlow({ liveEngine = false }: { liveEngine?: boolean })
               {t("reread")}
             </button>
           </div>
-          <BrandEditor key={editorKey} brand={brand} raw={raw} />
+          <BrandEditor key={editorKey} brand={brand} raw={raw} captureId={raw?.source === "live" ? String(raw.capture_id) : null} />
           {raw?.source === "live" ? <BrandFiles key={String(raw.capture_id)} captureId={String(raw.capture_id)} /> : null}
         </>
       ) : null}

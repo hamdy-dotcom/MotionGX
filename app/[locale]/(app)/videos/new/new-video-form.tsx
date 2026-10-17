@@ -11,7 +11,7 @@ import { Heading, boldTag } from "@/components/heading";
 import { CompanyMark } from "@/components/company-mark";
 import { ArrowIcon, SpinnerIcon } from "@/components/icons";
 
-type CompanyOption = { id: string; name: string; defaultDialect: Dialect; colors: BrandColor[]; logoUrl: string | null };
+type CompanyOption = { id: string; name: string; defaultDialect: Dialect; colors: BrandColor[]; logoUrl: string | null; logoOnDark?: boolean | null };
 
 export function NewVideoForm({
   companies,
@@ -85,7 +85,7 @@ export function NewVideoForm({
           <ChipGroup label={t("company")}>
             {companies.map((c) => (
               <button key={c.id} type="button" role="radio" aria-checked={companyId === c.id} onClick={() => chooseCompany(c)} className="chip ps-1.5">
-                <CompanyMark name={c.name} logoUrl={c.logoUrl} colors={c.colors} size="size-8" />
+                <CompanyMark name={c.name} logoUrl={c.logoUrl} logoOnDark={c.logoOnDark} colors={c.colors} size="size-8" />
                 {c.name}
               </button>
             ))}
@@ -212,7 +212,7 @@ export function NewVideoForm({
           {t.rich("summary", boldTag)}
         </Heading>
         <div className="mt-4 flex items-center gap-3">
-          <CompanyMark name={company.name} logoUrl={company.logoUrl} colors={company.colors} size="size-10" />
+          <CompanyMark name={company.name} logoUrl={company.logoUrl} logoOnDark={company.logoOnDark} colors={company.colors} size="size-10" />
           <p className="font-semibold">{company.name}</p>
         </div>
         <ul className="mt-4 flex flex-wrap gap-2 text-sm">

@@ -155,7 +155,7 @@ export class Sync {
       for (const d of fs.readdirSync(abs, { withFileTypes: true })) {
         const r = `${rel}/${d.name}`;
         if (d.isDirectory()) walk(r);
-        else if (/\.(jpe?g|png|webp|gif|svg|json)$/i.test(d.name)) out.push({ logical: `brand/${r}`, file: path.join(b, r) });
+        else if (/\.(jpe?g|png|webp|gif|svg|ico|json|css|woff2?|ttf|otf)$/i.test(d.name)) out.push({ logical: `brand/${r}`, file: path.join(b, r) });
       }
     };
     folders.forEach(walk);

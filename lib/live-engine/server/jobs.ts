@@ -82,6 +82,11 @@ async function usableCapture(companyId: string) {
   return usable(data as CaptureRow | null);
 }
 
+/** the capture a company's pages show (brand card, brand files): the one its videos use */
+export async function companyCaptureId(companyId: string) {
+  return (await usableCapture(companyId))?.id ?? null;
+}
+
 const domainOf = async (url: string) => (await import("tldts")).parse(url, { allowPrivateDomains: true }).domain;
 // appUrl = the site itself, as in the sandbox baseline brief (its form's "App / sign-up URL" field): without it the
 // capture only signs up when the homepage has a link matching its auto-detect pattern, else stops at "no_app_link"

@@ -6,14 +6,14 @@ import type { BrandProfile, Company } from "@/lib/types";
 export async function listCompanies(ctx: AppContext): Promise<Company[]> {
   const { data, error } = await ctx.supabase
     .from("companies")
-    .select("id, name, website_url, default_dialect, created_at, brand_profiles(colors, fonts, tone, tagline), brand_assets(kind, storage_path)")
+    .select("id, name, website_url, default_dialect, created_at, brand_profiles(colors, fonts, tone, tagline), brand_assets(kind, storage_path, meta)")
     .eq("workspace_id", ctx.workspace.id)
     .order("created_at", { ascending: false });
   if (error) throw error;
 
   const rows = (data ?? []) as unknown as (Omit<Company, "brand_profiles"> & {
     brand_profiles: BrandProfile | BrandProfile[] | null;
-    brand_assets: { kind: string; storage_path: string }[];
+    brand_assets: { kind: string; storage_path: string; meta: { on_dark?: boolean } | null }[];
   })[];
 
   const logoPaths = rows.flatMap((r) => r.brand_assets.filter((a) => a.kind === "logo").map((a) => a.storage_path));
@@ -29,6 +29,7 @@ export async function listCompanies(ctx: AppContext): Promise<Company[]> {
       ...company,
       brand_profiles: Array.isArray(brand_profiles) ? (brand_profiles[0] ?? null) : brand_profiles,
       logo_url: logo ? (signed.get(logo.storage_path) ?? null) : null,
+      logo_on_dark: typeof logo?.meta?.on_dark === "boolean" ? logo.meta.on_dark : null,
     };
   });
 }

@@ -84,7 +84,9 @@ async function saveLogo(ctx: AppContext, companyId: string, formData: FormData) 
   }
   await ctx.supabase.from("brand_assets").delete().eq("company_id", companyId).eq("kind", "logo").neq("storage_path", path);
   const { data: existing } = await ctx.supabase.from("brand_assets").select("id").eq("company_id", companyId).eq("storage_path", path).maybeSingle();
-  const meta = { content_type: logo.contentType, size: logo.bytes.byteLength, source };
+  // the surface the extracted logo was designed for (brand.json logo.on_dark); an uploaded logo: unknown
+  const onDark = source === "extracted" ? String(formData.get("logo_on_dark") ?? "") : "";
+  const meta = { content_type: logo.contentType, size: logo.bytes.byteLength, source, ...(onDark ? { on_dark: onDark === "1" } : {}) };
   const { error } = existing
     ? await ctx.supabase.from("brand_assets").update({ meta }).eq("id", existing.id)
     : await ctx.supabase.from("brand_assets").insert({ company_id: companyId, kind: "logo", storage_path: path, meta });

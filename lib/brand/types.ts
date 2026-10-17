@@ -23,6 +23,8 @@ export type BrandDraft = {
   name: string;
   websiteUrl: string;
   logoUrl: string | null;
+  /** brand.json logo.on_dark (live engine); null/undefined = unknown */
+  logoOnDark?: boolean | null;
   colors: BrandColor[];
   fonts: Required<BrandFonts>;
   tone: string;

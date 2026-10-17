@@ -72,7 +72,7 @@ export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, 
           </div>
         ) : null}
       </div>
-      {!x.running ? <BrandEditor key={editorKey} brand={brand} raw={raw} companyId={companyId} /> : null}
+      {!x.running ? <BrandEditor key={editorKey} brand={brand} raw={raw} companyId={companyId} captureId={liveCapture} /> : null}
       {!x.running && liveCapture ? <BrandFiles key={liveCapture} captureId={liveCapture} /> : null}
     </div>
   );

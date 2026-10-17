@@ -7,6 +7,7 @@ import { Heading, boldTag } from "@/components/heading";
 import { snapshotFolder } from "@/lib/brand/snapshot";
 import { urlKey } from "@/lib/brand/url";
 import { liveEngineEnabled } from "@/lib/live-engine/config";
+import { companyCaptureId } from "@/lib/live-engine/server/jobs";
 import { CompanyScreen } from "./company-screen";
 
 export default async function CompanyPage({ params }: { params: Promise<{ locale: string; id: string }> }) {
@@ -20,13 +21,15 @@ export default async function CompanyPage({ params }: { params: Promise<{ locale
   if (!company) notFound();
   const { data: profile } = await ctx.supabase.from("brand_profiles").select("facts, raw").eq("company_id", id).maybeSingle();
   const raw = profile?.raw as { source?: string; capture_id?: string } | null;
-  const captureId = raw?.source === "live" ? (raw.capture_id ?? null) : null;
+  // live engine: the capture its videos use (the saved one, or a newer re-read of the company)
+  const captureId = liveEngineEnabled() || raw?.source === "live" ? await companyCaptureId(id) : null;
   const facts = { ...EMPTY_FACTS, ...((profile?.facts ?? {}) as Partial<BrandFacts>) };
 
   const brand: BrandDraft = {
     name: company.name,
     websiteUrl: company.website_url ?? "",
     logoUrl: company.logo_url ?? null,
+    logoOnDark: company.logo_on_dark ?? null,
     colors: company.brand_profiles?.colors ?? [],
     fonts: { arabic: company.brand_profiles?.fonts?.arabic || FALLBACK_FONTS.arabic, latin: company.brand_profiles?.fonts?.latin || FALLBACK_FONTS.latin },
     tone: company.brand_profiles?.tone ?? "",

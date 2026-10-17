@@ -18,7 +18,7 @@ type BrandJson = {
   voice?: string;
   palette?: Partial<Record<"background" | "surface" | "ink" | "muted" | "primary" | "accent", string>>;
   fonts?: { display?: string; body?: string };
-  logo?: { file: string } | null;
+  logo?: { file: string; on_dark?: boolean } | null;
   selling_points?: string[];
   features?: { name: string; detail?: string }[];
 };
@@ -51,6 +51,7 @@ export async function brandDraftFrom(brand: BrandJson, opts: { siteUrl: string; 
     name: (rtl && brand.name_ar) || brand.name || "",
     websiteUrl: site,
     logoUrl,
+    logoOnDark: brand.logo ? Boolean(brand.logo.on_dark) : null,
     colors,
     fonts,
     tone: brand.voice ?? "",
