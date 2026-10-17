@@ -56,7 +56,7 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
   let plan = {};
   try {
     const out = await callTool({ ledger, step: "direct", model: models.qa || models.script, maxTokens: 3000, tool, content: `BRAND: ${JSON.stringify({ name: brand.name, name_ar: brand.name_ar, selling_points: brand.selling_points, voice: brand.voice })}\n\nSCENES:\n${JSON.stringify(scenes, null, 1)}${steer ? `\n\nLIVE ASSETS:\n${JSON.stringify(live)}\n\n${steer}` : ""}`,
-      system: "You direct a motion-graphics ad. For each scene pick the highlight word, short benefit chips, pain cards, camera focus regions, the offer number and the button text. Copy words exactly; never invent numbers or features. Arabic stays in the same dialect as the headlines." });
+      system: "You direct a motion-graphics ad. Write the benefit chips (callouts), pain cards and button text in the SAME language and dialect as the headlines (Arabic headlines → Arabic chips; a product name may stay as written). For each scene pick the highlight word, short benefit chips, pain cards, camera focus regions, the offer number and the button text. Copy words exactly; never invent numbers or features. Arabic stays in the same dialect as the headlines." });
     for (const p of out.scenes || []) plan[p.n] = p;
   } catch (e) { log(`  ! director failed (${e.message}) — composing with defaults`); }
   fs.writeFileSync(path.join(runDir, "plan.json"), JSON.stringify(plan, null, 2));

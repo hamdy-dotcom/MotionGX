@@ -83,7 +83,8 @@ export function compose({ brief, brand, script, assets, plan = {}, brandDir, run
     const n = i + 1, s = sc.start, d = sc.bars * 2, p = plan[n] || {};
     const r = recipeFor(withAsset(sc, p, byId), byId, brandDir, brand), id = `sc${n}`;
     const hl = `<div class="head"><div class="hl">${headline(sc.headline, p.highlight)}</div>${sc.sub ? `<div class="sub">${esc(sc.sub)}</div>` : ""}</div>`;
-    const callouts = (p.callouts || []).slice(0, 2).map((c) => `<div class="co"><b>✓</b>${esc(c)}</div>`).join("");
+    // chips speak the headlines' language: with Arabic headlines, a chip without any Arabic letter is dropped
+    const callouts = (p.callouts || []).filter((c) => !rtl || /[\u0600-\u06FF]/.test(c)).slice(0, 2).map((c) => `<div class="co"><b>✓</b>${esc(c)}</div>`).join("");
     const co = callouts ? `<div class="cos">${callouts}</div>` : "";
     let vis = "", call = "";
     const pop = (r.recipe === "tour" || r.recipe === "replay") && d >= 3 ? popPart(brandDir, r.ui || r.b, p.focus) : null; // every laptop scene ≥ 3 s pops its best block
