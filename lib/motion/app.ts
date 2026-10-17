@@ -29,7 +29,7 @@ import type { ValidateCtx } from "./validate";
 
 export type GenerationMode = { kind: "new" } | { kind: "direction" } | { kind: "edit"; instruction: string; baseRevision?: string } | { kind: "lines"; beats: ScriptBeat[] };
 
-/** VIDEO_ENGINE=live picks the engine for new videos / another direction; an edit stays on its version's engine */
+/** the live engine makes new videos / another direction unless VIDEO_ENGINE=legacy; an edit stays on its version's engine */
 async function liveDispatch(videoId: string, mode: GenerationMode): Promise<boolean> {
   if (mode.kind === "new" || mode.kind === "direction") {
     if (!liveEngineEnabled()) return false;

@@ -259,3 +259,8 @@ Proposed smallest addition (approval item **A3**), in the studio's existing styl
 - Worker reports are posted one at a time, in order. `lib/live-engine/worker/package.json` marks the folder ESM (the ports use top-level await / `import.meta.url`).
 - Verified locally against a mock callback (sandbox mantoog brand): full video job $0.0927 / 183 s; resume after `music` skips script/build/music and re-embeds the clones.
 - Sandbox runner: written to the @vercel/sandbox 3.6.1 API, untested (no valid Vercel credentials on this machine).
+
+## Default flipped (2026-10-17)
+- `VIDEO_ENGINE` now defaults to live; `VIDEO_ENGINE=legacy` brings the old engine back for new videos (edits always follow the engine of the version they edit). The legacy engine code stays for one week, then it is deleted in its own commit.
+- `LIVE_ENGINE_RUNNER` defaults to `sandbox` on Vercel (`VERCEL` set) and `local` elsewhere.
+- The scorecard rounds were stopped after round 0 (see the conversation report); the round-1 fixes are in, unmeasured.
