@@ -251,3 +251,11 @@ Proposed smallest addition (approval item **A3**), in the studio's existing styl
 - **Q11 — Music toggle.** Live has one music bed and no separate SFX stem. With music off, export the MP4 with silent audio (one ffmpeg pass in a short sandbox job), or keep the music?
 - **Q12 — Capture consent/scope.** The agent signs up on the company's website with a throwaway identity and test values. Only for companies the workspace owns? Any domain allow/deny list or a confirmation checkbox before the first capture?
 - **Q13 — Music mood labels.** The studio shows `music.mood_*` for `energetic|warm|corporate|luxury`; live moods are `driving|uplifting|tense-then-release|chill`. Map them (driving→energetic, uplifting→warm, tense-then-release→energetic, chill→warm), or add 4 i18n keys (UI change)?
+
+## Implementation notes (2026-10-17)
+- Studio: besides the approved items, `onSave` / `onExport` treat `saveLines → {started: true}` as a started generation (needed for Q10 "Edit lines" on live versions: the rebuild is async, so the panel must switch to progress instead of showing "saved").
+- Watchdog: `GET /api/live-engine/watchdog` (Bearer `CRON_SECRET`) relaunches silent jobs (12 min without a report, max 3 attempts). Without a cron (local runs), the studio's status poll triggers the same check at most once a minute.
+- A capture job's `video_id` is the video that triggered it; other videos of the same company queue behind it (`live_jobs.capture_id` null) and launch when it finishes.
+- Worker reports are posted one at a time, in order. `lib/live-engine/worker/package.json` marks the folder ESM (the ports use top-level await / `import.meta.url`).
+- Verified locally against a mock callback (sandbox mantoog brand): full video job $0.0927 / 183 s; resume after `music` skips script/build/music and re-embeds the clones.
+- Sandbox runner: written to the @vercel/sandbox 3.6.1 API, untested (no valid Vercel credentials on this machine).
