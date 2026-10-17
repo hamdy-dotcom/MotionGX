@@ -67,7 +67,7 @@ async function getJob(id: string): Promise<JobRow | null> {
 
 type CaptureRow = { id: string; status: string; version: number; app_screens: number | null; app_status: string | null; company_id: string | null; domain: string | null; created_at: string };
 /** the sandbox's reuse rule: a v4 capture that got inside the app, or had nothing to get into */
-const usable = (c: CaptureRow | null) => (c && c.status === "done" && c.version >= 4 && ((c.app_screens ?? 0) > 0 || ["no_app_link", "skipped"].includes(c.app_status ?? "")) ? c : null);
+const usable = (c: CaptureRow | null) => (c && c.status === "done" && c.version >= 4 && ((c.app_screens ?? 0) > 0 || ["no_app_link", "skipped", "captcha"].includes(c.app_status ?? "")) ? c : null);
 
 /** the company's capture: the one saved with it on "Add company" (brand_profiles.raw.capture_id), else its latest */
 async function usableCapture(companyId: string) {

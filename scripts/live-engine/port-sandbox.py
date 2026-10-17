@@ -38,6 +38,9 @@ port("capture", [
   lambda s: edit(s, "page.evaluate(OBJECTS)", 'inPage(page, "OBJECTS")'),
   lambda s: edit(s, "page.evaluate(NAV)", 'inPage(page, "NAV")', count=2),
   lambda s: edit(s, "page.evaluate(BUSY)", 'inPage(page, "BUSY")', count=3),
+  lambda s: edit(s, "pg.evaluate(HUMAN)", 'inPage(pg, "HUMAN")'),
+  lambda s: edit(s, "getPage().evaluate(REFUSED)", 'inPage(getPage(), "REFUSED")'),
+  lambda s: edit(s, "page.evaluate(NAVBTNS)", 'inPage(page, "NAVBTNS")', count=2),
   lambda s: edit(s, "page.evaluate(SNAPSHOT, ", 'inPage(page, "SNAPSHOT", ', count=5),
   # install the in-page functions into every page of the context
   lambda s: edit(s, '  // Save every image / css / font the site loads.', '  await installInPage(ctx);\n\n  // Save every image / css / font the site loads.'),

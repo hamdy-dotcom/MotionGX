@@ -140,6 +140,23 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   for (const ic of homeProbe.icons) if (manifest.assets[ic]) logoFiles.push({ file: manifest.assets[ic], icon: true, src: ic });
   manifest.logoCandidates = logoFiles;
 
+  // single-page sites: menu entries are buttons, not links — click each, keep the page it lands on (max ${MAX_PUBLIC_PAGES} pages)
+  if (candidates.length < 3) {
+    const home = page.url(), key = (u) => { const x = new URL(u); return x.pathname.replace(/\/$/, "") + x.hash; };
+    const seenKeys = new Set(manifest.pages.map((pg) => key(pg.url)));
+    const btns = await inPage(page, "NAVBTNS").catch(() => []);
+    if (btns.length) log(`  · single-page site: ${btns.length} menu buttons to try`);
+    for (const b of btns) {
+      if (manifest.pages.length >= MAX_PUBLIC_PAGES) break;
+      try {
+        if (page.url() !== home) { await page.goto(home, { waitUntil: "domcontentloaded", timeout: 30000 }); await settle(); }
+        await inPage(page, "NAVBTNS"); await page.locator(`[data-mgx-nav="${b.i}"]`).first().click({ timeout: 5000 }); await settle();
+        const u = page.url(); if (new URL(u).hostname.replace(/^www\./, "") !== origin || seenKeys.has(key(u))) continue;
+        seenKeys.add(key(u)); log(`  · ${u} (menu: ${b.text})`); manifest.pages.push(await savePage(b.text));
+      } catch (e) { log(`  ! menu "${b.text}": ${e.message.split("\n")[0]}`); }
+    }
+  }
+
   // ---------- B) app agent ----------
   const appUrl = brief.appUrl || homeProbe.links.find((l) => /app\.|dashboard|signup|sign-up|register|login|ابدأ|سجل|تسجيل|انضم|start|get started/i.test(l.href + " " + l.text))?.href;
   if (brief.skipApp || !appUrl) { manifest.app.status = appUrl ? "skipped" : "no_app_link"; }
@@ -161,6 +178,23 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
 
 const wellFormed = (x) => (typeof x === "string" ? (x.toWellFormed ? x.toWellFormed() : x.replace(/[\uD800-\uDFFF]/g, "")) : x);
 
+// test identity by country (brief.country): where the test user lives, so forms get a consistent country, city, nationality and phone code
+const PLACES = {
+  EG: { city: "Cairo", city_ar: "القاهرة", country: "Egypt", country_ar: "مصر", nationality: "Egyptian", nationality_ar: "مصري", dial: "+20", address: "26 July Street, Zamalek", district: "Zamalek", postal_code: "11211" },
+  SA: { city: "Riyadh", city_ar: "الرياض", country: "Saudi Arabia", country_ar: "السعودية", nationality: "Saudi", nationality_ar: "سعودي", dial: "+966", address: "King Fahd Road, Al Olaya", district: "Al Olaya", postal_code: "12211" },
+  AE: { city: "Dubai", city_ar: "دبي", country: "United Arab Emirates", country_ar: "الإمارات", nationality: "Emirati", nationality_ar: "إماراتي", dial: "+971", address: "Sheikh Zayed Road, Business Bay", district: "Business Bay", postal_code: "00000" },
+  KW: { city: "Kuwait City", city_ar: "مدينة الكويت", country: "Kuwait", country_ar: "الكويت", nationality: "Kuwaiti", nationality_ar: "كويتي", dial: "+965", address: "Fahad Al-Salem Street, Qibla", district: "Qibla", postal_code: "13001" },
+  MA: { city: "Casablanca", city_ar: "الدار البيضاء", country: "Morocco", country_ar: "المغرب", nationality: "Moroccan", nationality_ar: "مغربي", dial: "+212", address: "Boulevard Mohammed V", district: "Maârif", postal_code: "20000" },
+  JO: { city: "Amman", city_ar: "عمّان", country: "Jordan", country_ar: "الأردن", nationality: "Jordanian", nationality_ar: "أردني", dial: "+962", address: "Mecca Street, Um Uthaina", district: "Um Uthaina", postal_code: "11183" },
+  SY: { city: "Damascus", city_ar: "دمشق", country: "Syria", country_ar: "سوريا", nationality: "Syrian", nationality_ar: "سوري", dial: "+963", address: "Baghdad Street, Al-Shaalan", district: "Al-Shaalan", postal_code: "0100" },
+  IQ: { city: "Baghdad", city_ar: "بغداد", country: "Iraq", country_ar: "العراق", nationality: "Iraqi", nationality_ar: "عراقي", dial: "+964", address: "Al-Rasheed Street, Karrada", district: "Karrada", postal_code: "10001" },
+  US: { city: "New York", city_ar: "نيويورك", country: "United States", country_ar: "الولايات المتحدة", nationality: "American", nationality_ar: "أمريكي", dial: "+1", address: "350 5th Avenue", district: "Midtown", postal_code: "10118" },
+};
+
+// captcha frames: Cloudflare Turnstile, reCAPTCHA, hCaptcha
+const CAPTCHA_RE = /challenges\.cloudflare\.com|google\.com\/recaptcha|recaptcha\.net|hcaptcha\.com/i;
+const providerOf = (url) => (/cloudflare/i.test(url) ? "cloudflare-turnstile" : /hcaptcha/i.test(url) ? "hcaptcha" : "recaptcha");
+
 async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises = "", scope }) {
   const creds = brief.login?.email ? brief.login : null;
   const id = Date.now().toString(36);
@@ -173,11 +207,14 @@ async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models
   let inbox = null;
   const fixedEmail = brief.testEmail || process.env.TEST_EMAIL || settings.email;
   if (!creds && !fixedEmail) { inbox = await createInbox().catch((e) => { log(`  ! throwaway inbox unavailable (${e.message}) — email confirmations will need you`); return null; }); if (inbox) log(`  ✉ sign-up email: ${inbox.address} (read automatically)`); }
+  // where the test user lives follows the brief's country (no fixed default country)
+  const place = PLACES[String(brief.country || "").toUpperCase()] || null;
   const identity = creds || {
     full_name: "Video Test", first_name: "Video", last_name: "Test",
     email: inbox?.address || (fixedEmail || "video.test+{id}@gmail.com").replace("{id}", id),
-    password: `Vt!${id}9aZ`, phone: brief.testPhone || process.env.TEST_PHONE || settings.phone || "", store_name: `Demo Store ${id}`, city: "Riyadh",
-    company: `Demo Trading ${id}`, website: `https://demo-${id}.example.com`, address: "King Fahd Road, Al Olaya", district: "Al Olaya", postal_code: "12211", country: "Saudi Arabia",
+    password: `Vt!${id}9aZ`, phone: brief.testPhone || process.env.TEST_PHONE || settings.phone || "", store_name: `Demo Store ${id}`,
+    company: `Demo Trading ${id}`, website: `https://demo-${id}.example.com`,
+    ...(place ? { city: place.city, city_ar: place.city_ar, country: place.country, country_ar: place.country_ar, country_of_residence: place.country, nationality: place.nationality, nationality_ar: place.nationality_ar, phone_country_code: place.dial, address: place.address, district: place.district, postal_code: place.postal_code } : {}),
     birth_date: "1992-04-15", gender: "male", job_title: "Owner", team_size: "1-10", monthly_orders: "100-500", industry: "Electronics & accessories",
     sample_product: { name: "Wireless Earbuds Pro", price: 149, compare_at_price: 199, cost: 60, quantity: 50, sku: `DEMO-${id}`, description: "Bluetooth 5.3 earbuds with noise cancellation and 30-hour battery." },
   };
@@ -188,7 +225,9 @@ ${creds ? `LOG IN with email/phone "${creds.email}" and password "${creds.passwo
 HOW TO WORK
 - Each turn you get a screenshot plus a numbered list of interactive elements with their labels, placeholders and current values. Make ONE tool call per turn.
 - Match each value to the right field by its label/placeholder/type (phone → tel/phone field, never the password field). Check the "value=" of fields you already filled before typing again.
-- Tick required terms checkboxes. Pick sensible options in required dropdowns (country Saudi Arabia / Egypt, any category).
+- Tick required terms checkboxes. The element list says "checked" / "unchecked" for checkboxes, radios and switches: NEVER click one that is already checked (that would untick it).
+- Country, city, nationality, country of residence, phone country code and address: use the identity's values (${place ? `${place.country} / ${place.country_ar}, ${place.city}, ${place.nationality_ar}, ${place.dial}` : `the country of the brief: ${brief.country || "the site's own market"}`}) — never another country. Any other required dropdown: the first sensible option, any category.
+- CAPTCHA / "verify you are human": it is listed as "[n] captcha <provider>". Click it (at most twice). Never re-submit a form while a captcha is still there.
 - EMAIL confirmation (link or code sent to the test email): call check_email — the inbox is read for you. Do not ask the human for email codes.
 - BE AUTONOMOUS — this is a test account, nothing you type is real:
   · Optional fields: leave them empty. Optional questions, surveys, "tell us about you", onboarding tours, tips, cookie banners, "complete your profile", upsells, rate-us popups: skip / later / X / Escape / close — never stop for them.
@@ -243,6 +282,22 @@ ${promises || "(no public pages captured)"}`;
   };
   let lastSig = "", same = 0;
   const history = [], trace = []; let asks = 0, lastPre = null, lastSave = 0, fillPass = false, waitedAt = "";
+  let captchaClicks = 0, captchaAsked = false, humanNote = ""; const refused = new Map(); // submit key → times refused
+  // a captcha on the page: a known challenge frame, or a visible "verify you are human" box
+  const captchaOn = async (pg) => { const f = pg.frames().find((x) => CAPTCHA_RE.test(x.url())); if (f) return { frame: f, provider: providerOf(f.url()) }; const t = await inPage(pg, "HUMAN").catch(() => ""); return t ? { frame: null, provider: `box "${t.slice(0, 40)}"` } : null; };
+  // after 2 failed captcha clicks (or 3 refused submits behind a captcha): ask the human ONCE for an existing login, else stop with public pages only
+  const captchaHelp = async () => {
+    if (captchaAsked) return "stop";
+    captchaAsked = true; asks++;
+    const q = "this site needs a human check: log in with an existing account email:password, or type skip";
+    log(`  ⌨ waiting for the human: ${q}`);
+    const ans = brief.askCode ? String((await brief.askCode(q)) || "").trim() : "";
+    const m = ans.match(/^(\S+@\S+|\+?\d[\d\s-]{6,}\d)\s*[:\s]\s*(\S+)$/);
+    if (!m) return "stop";
+    humanNote = `\nHUMAN LOGIN: the human gave an existing account — LOG IN (not sign up) with "${m[1]}" and password "${m[2]}".`;
+    log("  ↳ the human gave an existing login");
+    return "login";
+  };
   const plan = []; // [{ name, done }]
   const track = (p, fromAllowed) => { let last = fromAllowed ? "about:blank" : "chrome-error://"; p.on("framenavigated", (f) => { if (f !== p.mainFrame()) return; const u = f.url(); if (scope.allows(last) && !scope.allows(u)) { scope.open(u, `opened by the site from ${last.slice(0, 80)}`); log(`  ↪ scope: the site opened ${new URL(u).origin}`); } last = u; }); };
   for (const p of ctx.pages()) track(p, true);
@@ -271,7 +326,14 @@ ${promises || "(no public pages captured)"}`;
     const page = getPage();
     result.steps = step + 1;
     const urlAtStart = page.url();
-    const elements = wellFormed(await inPage(page, "MARK").catch(() => ""));
+    let elements = wellFormed(await inPage(page, "MARK").catch(() => ""));
+    // a captcha is its own clickable item (its checkbox lives inside a cross-origin frame the list cannot see)
+    const cap = await captchaOn(page);
+    if (cap) { cap.id = (elements.match(/^\[\d+\]/gm) || []).length + 1; elements += `\n[${cap.id}] captcha ${cap.provider}`; }
+    if (cap && captchaClicks >= 2) {
+      if ((await captchaHelp()) === "stop") { result.status = "captcha"; result.notes = "blocked: captcha — the brand is built from the public pages"; log(`  ■ agent blocked: captcha (${cap.provider})`); break; }
+      captchaClicks = 0; // one more round of clicks while logging in with the human's account
+    }
     const sig = page.url() + "|" + elements.length + "|" + elements.slice(0, 400);
     same = sig === lastSig ? same + 1 : 0; lastSig = sig;
     const stuck = same >= 3 ? `\n⚠ STUCK: the page has not changed for ${same + 1} turns. Do something different now: read the error, skip/later/X, key Escape, scroll, or goto the app's dashboard URL and continue with another section.` : "";
@@ -281,7 +343,7 @@ ${promises || "(no public pages captured)"}`;
     // the app's navigation: read right after set_plan (inside the app), and again while it is still empty
     if (plan.length && !sections.some((x) => !x.tab)) { const n = addNav(await inPage(page, "NAV").catch(() => null)); if (n) log(`  🧭 sections: ${sections.map((x) => x.name).join(" | ")}`); }
     const tabs = ctx.pages().map((p, i) => `[${i}] ${p.url().slice(0, 100)}${p === page ? "  ← current" : ""}`).join("\n");
-    const text = wellFormed(`Step ${step + 1}/${MAX_AGENT_STEPS}\nURL: ${page.url()}\nTitle: ${await page.title().catch(() => "")}\nTabs:\n${tabs}\nESSENTIALS PLAN:\n${planText()}\nSECTIONS:\n${sectionsText()}\nSaved so far: ${result.screens.map((s) => s.label).join(", ") || "none"}\nLast actions:\n${history.slice(-14).join("\n") || "(none)"}${stuck}\n\nElements:\n${elements}`);
+    const text = wellFormed(`Step ${step + 1}/${MAX_AGENT_STEPS}\nURL: ${page.url()}\nTitle: ${await page.title().catch(() => "")}\nTabs:\n${tabs}\nESSENTIALS PLAN:\n${planText()}\nSECTIONS:\n${sectionsText()}\nSaved so far: ${result.screens.map((s) => s.label).join(", ") || "none"}\nLast actions:\n${history.slice(-14).join("\n") || "(none)"}${stuck}${cap ? `\n⚠ CAPTCHA on this page (${cap.provider}): click [${cap.id}] (attempt ${captchaClicks + 1} of 2). Do not re-submit the form while it is there.` : ""}${humanNote}\n\nElements:\n${elements}`);
     const content = shot ? [imageBlock(shot), { type: "text", text }] : [{ type: "text", text }];
     const res = await rawCall({ ledger, step: "capture-agent", model: models.agent, system, messages: [{ role: "user", content }], tools, effort: "low" });
     const call = res.content.find((c) => c.type === "tool_use");
@@ -292,7 +354,23 @@ ${promises || "(no public pages captured)"}`;
     if (refusal) { out = refusal; log(`  ⛔ ${refusal}`); }
     else try {
       const el = a.id != null ? page.locator(`[data-mgx="${a.id}"]`).first() : null;
-      if (call.name === "click") {
+      if (call.name === "click" && cap && a.id === cap.id) {
+        // the captcha's checkbox is inside its frame: click it there (or the frame's checkbox area), then give it 5 s
+        captchaClicks++;
+        let done = false;
+        if (cap.frame) {
+          const box = cap.frame.locator("input[type=checkbox], [role=checkbox], .recaptcha-checkbox-border, #checkbox, label").first();
+          done = await box.click({ timeout: 5000 }).then(() => true).catch(() => false);
+          if (!done) { const fb = await (await cap.frame.frameElement().catch(() => null))?.boundingBox().catch(() => null); if (fb) { await page.mouse.click(fb.x + Math.min(30, fb.width / 2), fb.y + fb.height / 2); done = true; } }
+        }
+        await page.waitForTimeout(5000);
+        const still = await captchaOn(page);
+        out = !still ? "captcha passed — continue (submit the form now)" : `captcha still there after click ${captchaClicks}/2${done ? "" : " (its checkbox was not reachable)"}`;
+        log(`  🤖 captcha ${cap.provider}: click ${captchaClicks} → ${still ? "still there" : "passed"}`);
+      }
+      else if (call.name === "click" && / checked>/.test(elements.split("\n").find((l) => l.startsWith(`[${a.id}]`)) || "")) { out = "already checked — leave it (clicking would untick it)"; }
+      else if (call.name === "click" && refused.get(`${page.url()}|${(elements.split("\n").find((l) => l.startsWith(`[${a.id}]`)) || "").replace(/^\[\d+\]\s*/, "")}`) >= 3) { out = "this submit was refused 3 times — do not press it again; skip this step (later / X / another section)"; }
+      else if (call.name === "click") {
         // remember the screen exactly as it was before this click (with the button marked) — videos replay it
         await el.evaluate((e) => e.setAttribute("data-acted", "click"), null, { timeout: 3000 }).catch(() => {});
         const snap = await inPage(page, "SNAPSHOT", { mode: "page" }).catch(() => null);
@@ -367,6 +445,16 @@ ${promises || "(no public pages captured)"}`;
     const lbl = a.id != null ? (elements.split("\n").find((l) => l.startsWith(`[${a.id}]`)) || "").slice(0, 90) : "";
     if (call.name === "click" && lbl && getPage().url() !== urlAtStart) learnUrl(lbl, getPage().url());
     if (call.name === "click" && lbl) clicked(lbl, step + 1);
+    // a submit that leaves us on the same page with an error is "refused": the same one 3 times is never pressed again
+    if (call.name === "click" && lbl && !(cap && a.id === cap.id) && /<button|type=submit/.test(lbl) && getPage().url() === urlAtStart && (await inPage(getPage(), "REFUSED").catch(() => false))) {
+      const k = `${urlAtStart}|${lbl.replace(/^\[\d+\]\s*/, "")}`, n = (refused.get(k) || 0) + 1; refused.set(k, n);
+      if (n >= 3) {
+        log(`  ↩ the same submit was refused 3 times (${lbl.slice(0, 60)})`);
+        if (cap || (await captchaOn(getPage()))) {
+          if ((await captchaHelp()) === "stop") { result.status = "captcha"; result.notes = "blocked: captcha — the same form was refused 3 times; the brand is built from the public pages"; log("  ■ agent blocked: captcha"); trace.push({ step: step + 1, url: getPage().url(), action: call.name, input: a, target: lbl, result: out }); break; }
+        }
+      }
+    }
     history.push(`- ${call.name} ${JSON.stringify(a).slice(0, 80)} on ${lbl} → ${out}`);
     trace.push({ step: step + 1, url: page.url(), action: call.name, input: a, target: lbl, result: out });
     fs.writeFileSync(path.join(stepsDir, "trace.json"), JSON.stringify(trace, null, 2));
