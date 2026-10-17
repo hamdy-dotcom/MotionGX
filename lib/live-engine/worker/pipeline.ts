@@ -95,9 +95,12 @@ export async function runJob(job: JobFile, dirs: { root: string; brandDir: strin
     }, (s: any) => ({ scenes: s.scenes.length }))) ?? JSON.parse(fs.readFileSync(scriptFile, "utf8"));
 
   const htmlFile = path.join(runDir, "video.html");
-  const fixIssues = job.mode === "edit" && job.edit?.request ? [{ msg: `The client asks for this change: ${job.edit.request}` }] : undefined;
+  // "Request a change" (Q10): the composed path hands the client's text to the director as an instruction;
+  // the freeform path (brief.composer = "freeform") gets it as a fix for the model-written composition
+  const request = job.mode === "edit" && job.edit?.request ? job.edit.request : undefined;
+  const fixIssues = request && brief.composer === "freeform" ? [{ msg: `The client asks for this change: ${request}` }] : undefined;
   await step("build", async () => {
-    const f = await buildVideo({ brief, brand, script, runDir, brandDir, ledger, models, log, fixIssues });
+    const f = await buildVideo({ brief, brand, script, runDir, brandDir, ledger, models, log, fixIssues, request });
     await sync.uploadRun(["video.src.html"]);
     return f;
   });
@@ -117,7 +120,7 @@ export async function runJob(job: JobFile, dirs: { root: string; brandDir: strin
   });
 
   const qa: any = await step("qa", async () => {
-    const r = await safetyNet({ htmlFile, brief, brand, script, runDir, brandDir, ledger, models, log, rebuild: (issues: any) => buildVideo({ brief, brand, script, runDir, brandDir, ledger, models, log, fixIssues: issues }) });
+    const r = await safetyNet({ htmlFile, brief, brand, script, runDir, brandDir, ledger, models, log, rebuild: (issues: any) => buildVideo({ brief, brand, script, runDir, brandDir, ledger, models, log, fixIssues: issues, request }) });
     await sync.uploadRun(["video.src.html", "qa.json", ...fs.readdirSync(runDir).filter((f) => /^qa-.*\.jpg$/.test(f))]);
     return r;
   }, (r: any) => ({ shipped: r.shipped, errors: r.errors }));

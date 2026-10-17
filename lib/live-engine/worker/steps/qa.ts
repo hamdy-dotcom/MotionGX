@@ -32,7 +32,9 @@ export async function inspect({ htmlFile, layout, script, runDir, tag }) {
     const p = await inPage(page, "QA_PROBE");
     const label = `scene ${i + 1} (${s.purpose}, ${s.start}-${s.start + dur}s)`;
     if (!p.texts.length && !p.media) add("error", "blank", `${label}: nothing visible at ${t}s`, t);
-    if ((s.visual.assets || []).some((id) => liveIds.has(id)) && !p.clones) add("error", "no-live", `${label}: the script shows a live product screen here, but none is visible at ${t}s`, t);
+    // composed scenes whose recipe shows no device by design (offer number, cta, hook, problem cards) are exempt
+    const noDevice = /\br-(stat|cta|hook|stack)\b/.test(await page.evaluate((n) => document.querySelector(`[data-scene="${n}"]`)?.className || "", i + 1).catch(() => ""));
+    if (!noDevice && (s.visual.assets || []).some((id) => liveIds.has(id)) && !p.clones) add("error", "no-live", `${label}: the script shows a live product screen here, but none is visible at ${t}s`, t);
     const seen = norm(p.texts.map((x) => x.text).join(""));
     const words = String(s.headline || "").split(/\s+/).filter((w) => norm(w).length > 1).slice(0, 3);
     if (words.length && words.filter((w) => seen.includes(norm(w))).length < Math.ceil(words.length / 2)) add("error", "headline", `${label}: headline "${s.headline}" is not readable at ${t}s`, t);
@@ -103,7 +105,10 @@ export async function safetyNet({ htmlFile, brief, brand, script, runDir, brandD
   let cur = await check("v0"), best = { html: readSrc(), r: cur, tag: "v0" };
   history.push({ tag: "v0", errors: score(cur), warnings: cur.issues.length - score(cur) });
   log(`  v0: ${score(cur)} errors, ${cur.issues.length - score(cur)} warnings`); cur.issues.filter((x) => x.sev === "error").slice(0, 6).forEach((x) => log(`   ✗ ${x.msg}`));
-  for (let round = 1; round <= 2 && score(best.r) > 0; round++) {
+  // composed videos (code from recipes) are not patched by the model — the edits could never apply to generated HTML;
+  // QA problems go back to the director instead, and compose runs again (one retry)
+  const composed = brief.composer !== "freeform";
+  for (let round = 1; round <= 2 && score(best.r) > 0 && !composed; round++) {
     const model = round === 1 ? models.repair : models.repair2 || models.repair;
     const fix = await repair({ html: best.html, issues: best.r.issues.filter((x) => x.sev === "error"), script, ledger, model, round });
     if (!fix.applied) { log(`  repair ${round}: no applicable edits (${fix.proposed} proposed)`); history.push({ tag: `v${round}`, applied: 0 }); continue; }
@@ -114,8 +119,8 @@ export async function safetyNet({ htmlFile, brief, brand, script, runDir, brandD
     if (score(r) < score(best.r)) best = { html: fix.html, r, tag: `v${round}` };
   }
   const severe = (r) => new Set(r.issues.filter((x) => ["blank", "headline", "js", "contract", "no-live"].includes(x.code)).map((x) => x.t)).size;
-  if (severe(best.r) >= 2 && rebuild) {
-    log(`  ${severe(best.r)} scenes still broken → one full rebuild`);
+  if (rebuild && (composed ? score(best.r) > 0 : severe(best.r) >= 2)) {
+    log(composed ? `  ${score(best.r)} errors → the director gets them, compose runs again (one retry)` : `  ${severe(best.r)} scenes still broken → one full rebuild`);
     await rebuild(best.r.issues.filter((x) => x.sev === "error"));
     const r = await check("v3");
     history.push({ tag: "v3-rebuild", errors: score(r), warnings: r.issues.length - score(r) });

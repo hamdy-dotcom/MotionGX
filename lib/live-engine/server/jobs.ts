@@ -44,7 +44,7 @@ const admin = () => createAdminClient();
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const now = () => new Date().toISOString();
 
-const AI_KIND: Record<string, string> = { "capture-agent": "live_capture", profile: "live_profile", script: "live_script", build: "live_build", rebuild: "live_build", "qa-vision": "live_qa" };
+const AI_KIND: Record<string, string> = { "capture-agent": "live_capture", profile: "live_profile", script: "live_script", direct: "live_direct", build: "live_build", rebuild: "live_build", "qa-vision": "live_qa" };
 const aiKind = (step: string) => AI_KIND[step] ?? (step.startsWith("qa-repair") ? "live_repair" : "live_build");
 
 // ── videos.generation (same write rule as the legacy setGeneration: replace the whole object) ────────

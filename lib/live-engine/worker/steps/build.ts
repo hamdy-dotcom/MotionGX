@@ -25,7 +25,7 @@ export async function buildVideo(args) {
 }
 
 /** a cheap director call picks what each scene shows; compose() writes the motion */
-async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger, models, fixIssues, log = console.log }) {
+async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger, models, fixIssues, request, log = console.log }) {
   log("▶ build (director + motion recipes)");
   const assets = JSON.parse(fs.readFileSync(path.join(runDir, "assets.json")));
   const byId = Object.fromEntries(assets.map((a) => [a.id, a]));
@@ -45,10 +45,17 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
     focus: { type: "array", items: { type: "string" }, description: "tour/replay scenes: up to 2 region ids from that scene's regions that best prove the headline, most important first" },
     number: { type: "string", description: "offer scenes: the number to count up, copied from the headline/sub" },
     button: { type: "string", description: "cta scene: button text, max 3 words" },
+    asset: { type: "string", description: "only when a change request or a QA problem needs it: another asset id from LIVE ASSETS for this scene" },
   } } } } } };
+  // a client's change request and/or the problems QA found in the previous composition steer the plan
+  const live = assets.filter((a) => /^live-/.test(a.kind)).map((a) => ({ id: a.id, kind: a.kind, shows: a.shows }));
+  const steer = [
+    request ? `CLIENT CHANGE REQUEST (apply it through highlight, callouts, pains, focus, number, button, or another asset for a scene): ${request}` : "",
+    fixIssues?.length ? `QA FOUND THESE PROBLEMS IN THE PREVIOUS COMPOSITION — change the plan so they do not happen again (other focus regions, shorter callouts/button text, another asset for a scene whose screen did not work):\n${fixIssues.map((x) => "- " + x.msg).join("\n")}` : "",
+  ].filter(Boolean).join("\n\n");
   let plan = {};
   try {
-    const out = await callTool({ ledger, step: "direct", model: models.qa || models.script, maxTokens: 3000, tool, content: `BRAND: ${JSON.stringify({ name: brand.name, name_ar: brand.name_ar, selling_points: brand.selling_points, voice: brand.voice })}\n\nSCENES:\n${JSON.stringify(scenes, null, 1)}`,
+    const out = await callTool({ ledger, step: "direct", model: models.qa || models.script, maxTokens: 3000, tool, content: `BRAND: ${JSON.stringify({ name: brand.name, name_ar: brand.name_ar, selling_points: brand.selling_points, voice: brand.voice })}\n\nSCENES:\n${JSON.stringify(scenes, null, 1)}${steer ? `\n\nLIVE ASSETS:\n${JSON.stringify(live)}\n\n${steer}` : ""}`,
       system: "You direct a motion-graphics ad. For each scene pick the highlight word, short benefit chips, pain cards, camera focus regions, the offer number and the button text. Copy words exactly; never invent numbers or features. Arabic stays in the same dialect as the headlines." });
     for (const p of out.scenes || []) plan[p.n] = p;
   } catch (e) { log(`  ! director failed (${e.message}) — composing with defaults`); }

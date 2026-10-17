@@ -23,6 +23,7 @@ export type AiKind =
   | "live_capture"
   | "live_profile"
   | "live_script"
+  | "live_direct"
   | "live_build"
   | "live_qa"
   | "live_repair";

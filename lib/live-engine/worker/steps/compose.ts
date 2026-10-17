@@ -53,8 +53,14 @@ function popPart(brandDir, screenId, focus) {
 function headline(text, hi) {
   const words = String(text || "").split(/\s+/).filter(Boolean);
   const h = hi && words.find((w) => w.replace(/[^\p{L}\p{N}]/gu, "") === String(hi).replace(/[^\p{L}\p{N}]/gu, "")) ? hi : words[words.length - 1];
-  return words.map((w) => (w === h ? `<span class="w hi">${esc(w)}<i class="hi-line"></i></span>` : `<span class="w">${esc(w)}</span>`)).join(" ");
+  const spans = words.map((w) => (w === h ? `<span class="w hi">${esc(w)}<i class="hi-line"></i></span>` : `<span class="w">${esc(w)}</span>`));
+  // the last two words stay on one line: never a single-word last line
+  if (spans.length >= 3) spans.splice(-2, 2, `<span class="nb">${spans.at(-2)} ${spans.at(-1)}</span>`);
+  return spans.join(" ");
 }
+
+/** the director may swap which asset a scene plays (a change request, or a QA retry): only one of the scene's own assets or another live asset */
+const withAsset = (sc, p, byId) => (p.asset && byId[p.asset] && LIVE.test(byId[p.asset].kind) ? { ...sc, visual: { ...sc.visual, assets: [p.asset] } } : sc);
 
 export function compose({ brief, brand, script, assets, plan = {}, brandDir, runDir }) {
   const [W, H] = LAYOUTS[brief.layout] || LAYOUTS["9:16"];
@@ -74,7 +80,7 @@ export function compose({ brief, brand, script, assets, plan = {}, brandDir, run
 
   script.scenes.forEach((sc, i) => {
     const n = i + 1, s = sc.start, d = sc.bars * 2, p = plan[n] || {};
-    const r = recipeFor(sc, byId, brandDir, brand), id = `sc${n}`;
+    const r = recipeFor(withAsset(sc, p, byId), byId, brandDir, brand), id = `sc${n}`;
     const hl = `<div class="head"><div class="hl">${headline(sc.headline, p.highlight)}</div>${sc.sub ? `<div class="sub">${esc(sc.sub)}</div>` : ""}</div>`;
     const callouts = (p.callouts || []).slice(0, 2).map((c) => `<div class="co"><b>✓</b>${esc(c)}</div>`).join("");
     const co = callouts ? `<div class="cos">${callouts}</div>` : "";
@@ -108,7 +114,8 @@ html,body{margin:0;background:${P.background || "#0b0d12"}}
 #mark{position:absolute;top:56px;${rtl ? "right" : "left"}:64px;height:64px;z-index:40;visibility:hidden}
 .scene{position:absolute;inset:0;visibility:hidden;opacity:0}
 .head{position:absolute;left:${Math.round(W * 0.07)}px;right:${Math.round(W * 0.07)}px;top:${portrait ? 300 : 80}px;text-align:center}
-.hl{font-family:${disp};font-weight:800;font-size:${Math.round(W / 11.5)}px;line-height:1.3;color:${P.ink || "#fff"}}
+.hl{font-family:${disp};font-weight:800;font-size:${Math.round(W / 11.5)}px;line-height:1.3;color:${P.ink || "#fff"};text-wrap:balance}
+.hl .nb{white-space:nowrap}
 .hl .w{display:inline-block;margin:0 .1em}
 .hl .hi{background:${grad};-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;position:relative}
 .hl .hi-line{position:absolute;left:0;right:0;bottom:.02em;height:.09em;border-radius:9px;background:${grad};transform-origin:${rtl ? "right" : "left"}}
@@ -161,6 +168,8 @@ K.R.bg(tl, ${script.length}, ${JSON.stringify(drops)});
 ${logo ? `K.R.mark(tl, ${script.scenes[0].bars * 2}, ${script.scenes.at(-1).start});` : ""}
 ${calls.join("\n")}
 K.done(tl, ${script.length});
+// once the fonts are in: shrink any text that would run off the frame, move badges off the headline
+window.__ready = Promise.resolve(window.__ready).then(() => K.R.fit()).then(() => true);
 </script></body></html>`;
-  return { html, recipes: script.scenes.map((sc) => recipeFor(sc, byId, brandDir, brand).recipe) };
+  return { html, recipes: script.scenes.map((sc, i) => recipeFor(withAsset(sc, plan[i + 1] || {}, byId), byId, brandDir, brand).recipe) };
 }
