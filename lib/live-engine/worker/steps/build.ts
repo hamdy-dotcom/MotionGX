@@ -7,7 +7,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { callTool } from "../claude";
 import { LAYOUTS } from "./script";
-import { compose, recipeFor } from "./compose";
+import { applyOrder, compose, fingerprintOf, readHistory, recipeFor, resolveArt, uniqueness } from "./compose";
+import { artDirect } from "./artdirect";
 
 const ROLE_ORDER = { field: 0, button: 1, stat: 2, title: 3, tab: 4, part: 5, row: 6, chart: 7, image: 8, item: 9, nav: 10 };
 const loadClone = (brandDir, id) => { const f = path.join(brandDir, "clones", `${id}.json`); return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : null; };
@@ -18,20 +19,51 @@ const keyList = (c, n = 40) => [...c.keys].sort((a, b) => (a.acted ? -1 : 0) - (
 const liveInfo = (c, n) => ({ clone: c.id, size: [c.w, c.h], dir: c.dir, keys: keyList(c, n) });
 
 export async function buildVideo(args) {
-  // default: the director plans each scene, code composes it from tested motion recipes (alive by construction).
+  // default: the art director picks the look (from the brand's site, unlike recent videos), the director plans what each
+  // scene shows, code composes it from tested motion recipes (alive by construction).
   // brief.composer = "freeform" keeps the old path where the model writes the whole GSAP file.
   if (args.brief.composer !== "freeform") return directAndCompose(args);
   return buildFreeform(args);
 }
 
-/** a cheap director call picks what each scene shows; compose() writes the motion */
-async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger, models, fixIssues, request, log = console.log }) {
-  log("▶ build (director + motion recipes)");
+/** art direction (the look) + a cheap director call (what each scene shows); compose() writes it from the motion recipes */
+async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger, models, fixIssues, request, history, keepArt, log = console.log }) {
+  log("▶ build (art direction + director + motion recipes)");
   const assets = JSON.parse(fs.readFileSync(path.join(runDir, "assets.json")));
   const byId = Object.fromEntries(assets.map((a) => [a.id, a]));
+
+  // 1. the look of this one video — kept on QA rebuilds and edits (a video keeps its look), new otherwise
+  const artFile = path.join(runDir, "art.json"), ctx = { script, assets, brandDir, brand };
+  const fpOf = (a) => fingerprintOf({ ...a, scenes: a.order.map((n) => a.scenes[n - 1]) }); // in play order
+  let art;
+  if (fs.existsSync(artFile) && (fixIssues || request || keepArt)) {
+    art = JSON.parse(fs.readFileSync(artFile, "utf8"));
+    log(`  ↺ art direction kept: ${art.background} · ${art.transition} · hook ${art.hook} · cta ${art.cta}`);
+  } else {
+    const recent = (history ?? readHistory(runDir)).slice(0, 5);
+    let raw = null;
+    try { raw = await artDirect({ brief, brand, script, assets, brandDir, ledger, models, history: recent, log }); } catch (e) { log(`  ! art direction failed (${e.message}) — a default look`); }
+    art = resolveArt(raw || {}, ctx);
+    // no repeats: at least 3 of the 5 fingerprint fields differ from each recent video, else one more answer
+    let fails = uniqueness(fpOf(art), recent);
+    if (raw && fails.length) {
+      log(`  ↻ too close to ${fails.length} recent video(s) (${fails.map((f) => `${f.differ}/5 differ`).join(", ")}) — asking the art director again`);
+      try {
+        const raw2 = await artDirect({ brief, brand, script, assets, brandDir, ledger, models, history: recent, avoid: fails.map((f) => f.h), log });
+        const art2 = resolveArt(raw2, ctx), fails2 = uniqueness(fpOf(art2), recent);
+        if (fails2.length <= fails.length) { art = art2; fails = fails2; raw = raw2; }
+      } catch (e) { log(`  ! second art direction failed (${e.message})`); }
+      if (fails.length) log(`  ! still close to ${fails.length} recent video(s) — kept the more different answer`);
+    }
+    art = applyOrder(script, art); // the play order: the script is re-timed in place (scenes, start times, music drops)
+    fs.writeFileSync(path.join(runDir, "script.json"), JSON.stringify(script, null, 2));
+    fs.writeFileSync(artFile, JSON.stringify({ ...art, raw }, null, 2));
+  }
+
+  // 2. the director: what each scene shows
   const scenes = script.scenes.map((sc, i) => {
     const r = recipeFor(sc, byId, brandDir, brand);
-    const out = { n: i + 1, purpose: sc.purpose, recipe: r.recipe, headline: sc.headline, sub: sc.sub || "", detail: sc.visual?.detail || "" };
+    const out = { n: i + 1, purpose: sc.purpose, recipe: art.scenes[i]?.recipe || r.recipe, layout: art.scenes[i]?.layout, headline: sc.headline, sub: sc.sub || "", detail: sc.visual?.detail || "" };
     const cid = r.ui || r.b; const c = cid && loadClone(brandDir, cid);
     if (c) out.regions = c.keys.filter((k) => k.part != null && k.text).slice(0, 8).map((k) => `part:${k.part} "${k.text.slice(0, 50)}"`);
     if (r.recipe === "replay") { const b = loadClone(brandDir, r.a); if (b) out.action = b.action; }
@@ -60,10 +92,11 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
     for (const p of out.scenes || []) plan[p.n] = p;
   } catch (e) { log(`  ! director failed (${e.message}) — composing with defaults`); }
   fs.writeFileSync(path.join(runDir, "plan.json"), JSON.stringify(plan, null, 2));
-  const { html, recipes } = compose({ brief, brand, script, assets, plan, brandDir, runDir });
+  const { html, recipes, layouts, fingerprint } = compose({ brief, brand, script, assets, plan, art, brandDir, runDir });
   fs.writeFileSync(path.join(runDir, "video.src.html"), html);
+  fs.writeFileSync(path.join(runDir, "fingerprint.json"), JSON.stringify(fingerprint, null, 2));
   const info = embedClones({ runDir, brandDir, layout: brief.layout });
-  log(`✓ build: ${recipes.length} scenes composed (${recipes.join(" · ")}) · ${info.count} live screens embedded${info.missing.length ? ` · missing: ${info.missing.join(", ")}` : ""}`);
+  log(`✓ build: ${recipes.length} scenes composed (${recipes.map((r, i) => `${layouts[i]}/${r}`).join(" · ")}) · ${art.background} · ${art.transition} · hook ${art.hook} · cta ${art.cta} · ${info.count} live screens embedded${info.missing.length ? ` · missing: ${info.missing.join(", ")}` : ""}`);
   return path.join(runDir, "video.html");
 }
 

@@ -73,8 +73,9 @@ port("capture", [
 # ── profile, script, build ───────────────────────────────────────────────────────────────────────────
 port("profile", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";'), lambda s: edit(s, 'from "./capture.mjs";', 'from "./capture";')])
 port("script", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";')])
-port("build", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";'), lambda s: edit(s, 'from "./script.mjs";', 'from "./script";'), lambda s: edit(s, 'from "./compose.mjs";', 'from "./compose";')])
+port("build", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";'), lambda s: edit(s, 'from "./script.mjs";', 'from "./script";'), lambda s: edit(s, 'from "./compose.mjs";', 'from "./compose";'), lambda s: edit(s, 'from "./artdirect.mjs";', 'from "./artdirect";')])
 port("compose", [lambda s: edit(s, 'from "./script.mjs";', 'from "./script";')])
+port("artdirect", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";'), lambda s: edit(s, 'from "./compose.mjs";', 'from "./compose";')])
 
 # ── qa ───────────────────────────────────────────────────────────────────────────────────────────────
 port("qa", [

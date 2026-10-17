@@ -44,7 +44,7 @@ const admin = () => createAdminClient();
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const now = () => new Date().toISOString();
 
-const AI_KIND: Record<string, string> = { "capture-agent": "live_capture", profile: "live_profile", script: "live_script", direct: "live_direct", build: "live_build", rebuild: "live_build", "qa-vision": "live_qa" };
+const AI_KIND: Record<string, string> = { "capture-agent": "live_capture", profile: "live_profile", script: "live_script", direct: "live_direct", art: "live_direct", build: "live_build", rebuild: "live_build", "qa-vision": "live_qa" };
 const aiKind = (step: string) => AI_KIND[step] ?? (step.startsWith("qa-repair") ? "live_repair" : "live_build");
 
 // ── videos.generation (same write rule as the legacy setGeneration: replace the whole object) ────────
@@ -240,7 +240,7 @@ export async function launch(jobId: string) {
     // edits start from the previous version's saved script (+ its music for "request a change")
     if (job.input.prevJobId) {
       const prevRun = `${job.workspace_id}/runs/${job.video_id}/${job.input.prevJobId}`;
-      const want = job.mode === "edit" ? ["script.json", "assets.json", "music.wav"] : ["script.json", "assets.json"];
+      const want = job.mode === "edit" ? ["script.json", "assets.json", "music.wav", "art.json"] : ["script.json", "assets.json", "art.json"];
       const have = await listFiles(prevRun);
       for (const f of want) if (have.includes(`${prevRun}/${f}`)) await add(`${prevRun}/${f}`, `run/${f}`);
     }
@@ -249,6 +249,13 @@ export async function launch(jobId: string) {
       const own = `${job.workspace_id}/runs/${job.video_id}/${job.id}`;
       for (const f of await listFiles(own)) await add(f, `run/${f.split("/").pop()}`);
     }
+  }
+
+  // the workspace's last 5 looks: the art director must make this one different
+  let history: Record<string, unknown>[] = [];
+  if (job.kind === "video") {
+    const { data: recent } = await db.from("video_versions").select("qa, created_at, videos!inner(workspace_id)").eq("videos.workspace_id", job.workspace_id).eq("engine", "live").order("created_at", { ascending: false }).limit(20);
+    history = (recent ?? []).map((r) => (r.qa as { fingerprint?: Record<string, unknown> } | null)?.fingerprint).filter((f): f is Record<string, unknown> => Boolean(f)).slice(0, 5);
   }
 
   const token = randomBytes(24).toString("base64url");
@@ -265,6 +272,7 @@ export async function launch(jobId: string) {
     doneSteps: job.done_steps,
     downloads,
     edit: job.input.edit,
+    history,
     settings: job.input.settings,
   };
   const attempt = job.attempts + 1;

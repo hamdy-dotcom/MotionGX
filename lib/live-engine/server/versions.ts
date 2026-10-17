@@ -38,7 +38,7 @@ export async function insertLiveVersion(job: JobRow, summary: Record<string, unk
       mp4_path: `${run}/video.mp4`,
       composition_path: `${run}/video.src.html`,
       audio: { mix: `${run}/music.wav`, sfx: null },
-      qa: { history: { origin: job.mode ?? "new", parent_version: job.mode === "new" ? null : parent }, validation: (qa?.history as unknown[]) ?? [], summary },
+      qa: { history: { origin: job.mode ?? "new", parent_version: job.mode === "new" ? null : parent }, validation: (qa?.history as unknown[]) ?? [], summary, fingerprint: (summary as { fingerprint?: unknown }).fingerprint ?? null },
     });
     if (error?.code === "23505") continue; // a concurrent version took the number
     if (error) throw new Error(`version insert: ${error.message}`);

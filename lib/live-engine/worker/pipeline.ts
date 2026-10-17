@@ -98,8 +98,10 @@ export async function runJob(job: JobFile, dirs: { root: string; brandDir: strin
   const request = job.mode === "edit" && job.edit?.request ? job.edit.request : undefined;
   const fixIssues = request && brief.composer === "freeform" ? [{ msg: `The client asks for this change: ${request}` }] : undefined;
   await step("build", async () => {
-    const f = await buildVideo({ brief, brand, script, runDir, brandDir, ledger, models, log, fixIssues, request });
-    await sync.uploadRun(["video.src.html"]);
+    // edits keep the video's look (art.json from the version they edit); a new video / another direction gets a new one
+    const f = await buildVideo({ brief, brand, script, runDir, brandDir, ledger, models, log, fixIssues, request, history: job.history ?? [], keepArt: job.mode === "lines" || job.mode === "edit" });
+    // the art direction may reorder the scenes: the re-timed script goes up with the look and its fingerprint
+    await sync.uploadRun(["video.src.html", "script.json", "art.json", "fingerprint.json", "plan.json"]);
     return f;
   });
   // a resumed job has video.src.html but not video.html: paste the live UI in again
@@ -143,7 +145,7 @@ export async function runJob(job: JobFile, dirs: { root: string; brandDir: strin
     const videoCost = Object.entries(by).filter(([k]) => !["capture-agent", "profile"].includes(k)).reduce((a, [, v]) => a + v, 0);
     const qaFile = path.join(runDir, "qa.json");
     const qaSum = fs.existsSync(qaFile) ? (({ shipped, errors, history }: any) => ({ shipped, errors, history }))(JSON.parse(fs.readFileSync(qaFile, "utf8"))) : null;
-    const summary = { jobId: job.jobId, kind: job.kind, qa: qaSum, brand: job.slug, seconds: Math.round((Date.now() - t0) / 1000), cost: { total: ledger.total(), brand_one_time: +brandCost.toFixed(4), per_video: +videoCost.toFixed(4), byStep: by } };
+    const summary = { jobId: job.jobId, kind: job.kind, qa: qaSum, brand: job.slug, seconds: Math.round((Date.now() - t0) / 1000), cost: { total: ledger.total(), brand_one_time: +brandCost.toFixed(4), per_video: +videoCost.toFixed(4), byStep: by } , fingerprint: fs.existsSync(path.join(runDir, "fingerprint.json")) ? JSON.parse(fs.readFileSync(path.join(runDir, "fingerprint.json"), "utf8")) : null };
     fs.writeFileSync(path.join(runDir, "summary.json"), JSON.stringify(summary, null, 2));
     log(`■ done in ${summary.seconds}s · brand (one-time) $${summary.cost.brand_one_time} · this video $${summary.cost.per_video} · total $${summary.cost.total}`);
     return summary;

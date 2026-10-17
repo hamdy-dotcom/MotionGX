@@ -29,6 +29,8 @@ export type JobFile = {
   downloads: { path: string; url: string }[];
   /** "Edit lines": the edited headline/sub per scene index; "Request a change": the client's text */
   edit?: { lines?: { scene: number; headline: string; sub?: string }[]; request?: string };
+  /** the workspace's last 5 video fingerprints (layout sequence, transition, background, hook, CTA): the art direction must differ */
+  history?: Record<string, unknown>[];
   /** remembered test phone/email (the sandbox's .sandbox-settings.json) */
   settings?: { phone?: string; email?: string };
 };

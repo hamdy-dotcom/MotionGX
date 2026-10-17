@@ -33,13 +33,14 @@ export async function inspect({ htmlFile, layout, script, runDir, tag }) {
     const label = `scene ${i + 1} (${s.purpose}, ${s.start}-${s.start + dur}s)`;
     if (!p.texts.length && !p.media) add("error", "blank", `${label}: nothing visible at ${t}s`, t);
     // composed scenes whose recipe shows no device by design (offer number, cta, hook, problem cards) are exempt
-    const noDevice = /\br-(stat|cta|hook|stack)\b/.test(await page.evaluate((n) => document.querySelector(`[data-scene="${n}"]`)?.className || "", i + 1).catch(() => ""));
+    const noDevice = /\br-(stat|cta|hook|stack|type|pains|count|logo|none)\b/.test(await page.evaluate((n) => document.querySelector(`[data-scene="${n}"]`)?.className || "", i + 1).catch(() => ""));
     if (!noDevice && (s.visual.assets || []).some((id) => liveIds.has(id)) && !p.clones) add("error", "no-live", `${label}: the script shows a live product screen here, but none is visible at ${t}s`, t);
     const seen = norm(p.texts.map((x) => x.text).join(""));
     const words = String(s.headline || "").split(/\s+/).filter((w) => norm(w).length > 1).slice(0, 3);
     if (words.length && words.filter((w) => seen.includes(norm(w))).length < Math.ceil(words.length / 2)) add("error", "headline", `${label}: headline "${s.headline}" is not readable at ${t}s`, t);
     const m = Math.round(W * 0.03);
     for (const x of p.texts) {
+      if (/(^|> )div\.(tick|track)( |$)/.test(x.sel)) continue; // ticker rows scroll past the frame edges by design
       if (x.o > 0.5 && (x.x < -4 || x.y < -4 || x.x + x.w > p.W + 4 || x.y + x.h > p.H + 4)) add("error", "offstage", `${label}: text "${x.text}" (${x.sel}) runs off the frame at ${t}s (box ${Math.round(x.x)},${Math.round(x.y)} ${Math.round(x.w)}×${Math.round(x.h)})`, t);
       else if (x.o > 0.5 && (x.x < m || x.x + x.w > p.W - m)) add("warn", "margin", `${label}: text "${x.text}" (${x.sel}) touches the edge at ${t}s`, t);
       if (x.fs < Math.round(W / 45) && x.text.length > 2) add("warn", "small", `${label}: text "${x.text}" (${x.sel}) is ${x.fs}px, too small to read on a phone`, t);
