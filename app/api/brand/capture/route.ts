@@ -17,7 +17,8 @@ import { brandCard } from "@/lib/live-engine/server/brand-card";
  *   GET  ?id=<captureId>&card=1       → the "هوية الشركة" card: the homepage hero clone (assets signed) + brand tokens
  *   GET  ?id=<captureId>&files=1      → "ملفات البراند": logo, screens, UI blocks, images, agent trace (signed URLs)
  */
-export const maxDuration = 60;
+// starting a capture may build the sandbox runner's snapshot on the very first job (minutes)
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   if (!liveEngineEnabled()) return Response.json({ error: "not_found" }, { status: 404 });

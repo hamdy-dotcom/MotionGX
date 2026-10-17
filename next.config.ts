@@ -28,6 +28,9 @@ const nextConfig: NextConfig = {
     // live engine: the sandbox runner bundles the worker and ships its in-page script + vendor files
     "/[locale]/videos/**": ["./lib/live-engine/worker/**/*", "./node_modules/ffmpeg-static/ffmpeg"],
     "/api/live-engine/**": ["./lib/live-engine/worker/**/*"],
+    // these routes start workers too (a brand capture, a relaunch): the sandbox runner bundles the worker from source
+    "/api/brand/capture": ["./lib/live-engine/worker/**/*"],
+    "/api/live-engine/watchdog": ["./lib/live-engine/worker/**/*"],
     "/[locale]/videos/*": ["./.remotion-bundle/**/*", "./packages/primitives/**/*", "./scripts/motion/**/*", "./scripts/music/*.py", "./data/motion-refs.json", "./tsconfig*.json", "./data/assets/**/*", "./node_modules/lucide-static/icons/**/*", "./node_modules/@phosphor-icons/core/assets/**/*", "./node_modules/flag-icons/flags/4x3/**/*", "./node_modules/harfbuzzjs/dist/**/*"],
   },
 };
