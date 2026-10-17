@@ -18,7 +18,14 @@ export type AiKind =
   | "ref_card"
   | "motion_spec"
   | "spec_patch"
-  | "illustration";
+  | "illustration"
+  // live engine (VIDEO_ENGINE=live) — one row per sandbox ledger line
+  | "live_capture"
+  | "live_profile"
+  | "live_script"
+  | "live_build"
+  | "live_qa"
+  | "live_repair";
 
 /** Price per million tokens (input, output) — Claude API list prices. */
 export const PRICES: Record<string, [number, number]> = {
@@ -94,13 +101,15 @@ export class CostCapError extends Error {
   }
 }
 
-/** Throws AiError("rate_limited") once the workspace has made 30 AI/scrape calls in the last hour. */
+/** Throws AiError("rate_limited") once the workspace has made 30 AI/scrape calls in the last hour.
+ *  The live engine's capture-agent steps (~40 calls per brand capture) are not counted (decision Q8). */
 export async function assertWithinRateLimit(workspaceId: string) {
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { count, error } = await createAdminClient()
     .from("ai_usage")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
+    .neq("kind", "live_capture")
     .gte("created_at", since);
   if (error) {
     console.error("[ai] rate-limit check failed", { workspaceId, code: error.code, message: error.message });
