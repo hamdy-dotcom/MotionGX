@@ -5,10 +5,9 @@
 // Step logic, models, effort and order are the sandbox's; only "Edit lines" / "Request a change" are new
 // (approved decision Q10) and reuse the sandbox steps.
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { createRequire } from "node:module";
+import os from "node:os";
 import type { JobFile, Step } from "../protocol";
 import { Ledger, MODELS } from "./claude";
 import { capture } from "./steps/capture";
@@ -130,11 +129,11 @@ export async function runJob(job: JobFile, dirs: { root: string; brandDir: strin
   if (qaReport?.issues?.some((x: any) => x.code === "contract")) throw new Error("the composition never called K.done(tl, duration) — nothing to render");
   await step("render", async () => {
     const out = path.join(runDir, "video.mp4");
-    await render({ htmlFile, layout: brief.layout, duration: script.length, musicFile, outFile: out, log });
-    // music toggle off (decision Q11): the same video without its audio track
-    const ffmpeg = process.env.FFMPEG_PATH || (createRequire(import.meta.url)("ffmpeg-static") as string) || "ffmpeg";
-    execFileSync(ffmpeg, ["-loglevel", "error", "-y", "-i", out, "-c:v", "copy", "-an", "-movflags", "+faststart", path.join(runDir, "video-silent.mp4")]);
-    await sync.uploadRun(["video.mp4", "video-silent.mp4", "cost.json"]);
+    // frames render in parallel browsers: use the machine (the sandbox's default is 3)
+    const workers = Math.max(3, Math.min(8, os.cpus().length - 2));
+    await render({ htmlFile, layout: brief.layout, duration: script.length, musicFile, outFile: out, log, workers });
+    // music toggle off (decision Q11): export strips the audio track from this file (no second upload)
+    await sync.uploadRun(["video.mp4", "cost.json"]);
     return out;
   }, () => ({ bytes: fs.statSync(path.join(runDir, "video.mp4")).size }));
   return finish();

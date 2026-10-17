@@ -355,7 +355,7 @@ ${promises || "(no public pages captured)"}`;
         else { sec.visited = true; sec.note = String(a.reason).slice(0, 80); out = `section "${sec.name}" marked visited (${sec.note})`; log(`  ⤼ section skipped: ${sec.name} — ${sec.note}`); }
       }
       else if (call.name === "finish" && a.status === "done" && (plan.length === 0 || missing().length) && step < MAX_AGENT_STEPS - 12) { out = plan.length ? `not yet — still missing: ${missing().join(" | ")}. Produce each missing essential and open it as the customer sees it; open each missing section and save a screen there (or skip_section if it is empty / locked).` : "not yet — call set_plan with the product's essential outputs and produce them first"; log(`  ↩ finish refused: ${plan.length ? `${missing().length} missing` : "no plan"}`); }
-      else if (call.name === "finish" && a.status === "done" && !fillPass && step < MAX_AGENT_STEPS - 12 && (() => { const c = emptyCount(); return c.total && c.empty > c.total / 2; })()) {
+      else if (call.name === "finish" && ["done", "blocked"].includes(a.status) && !fillPass && step < MAX_AGENT_STEPS - 12 && (() => { const c = emptyCount(); return c.total && c.empty > c.total / 2; })()) {
         fillPass = true; const c = emptyCount();
         out = `not yet — ${c.empty} of ${c.total} saved app screens are EMPTY (${c.ids.join(", ")}). FILL IT WITH LIFE: create 2-3 test items of the product's core activity through its own flows (invented data, no real payments / publishing / messages), then revisit those screens and save them again with data. Then finish.`;
         log(`  ↩ finish refused: ${c.empty}/${c.total} app screens empty — one fill pass`);

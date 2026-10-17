@@ -94,7 +94,9 @@ export async function callTool({ ledger, step, model, system, content, tool, max
 export async function rawCall({ ledger, step, model, system, messages, tools, maxTokens = 2000, effort }: { ledger: Ledger; step: string; model: string; system: string; messages: Anthropic.MessageParam[]; tools: Tool[]; maxTokens?: number; effort?: string }) {
   const t0 = Date.now();
   const haiku = model === MODELS.haiku;
-  const res = await anthropic().messages.create({ model, max_tokens: maxTokens, system, messages, tools: tools as Anthropic.Tool[], tool_choice: { type: haiku ? "any" : "auto" }, ...(!haiku && effort ? { output_config: { effort } } : {}) } as Anthropic.MessageCreateParamsNonStreaming);
+  // tools + system are identical on every agent step: cache them (reads cost 0.1× input)
+  const sys = [{ type: "text" as const, text: system, cache_control: { type: "ephemeral" as const } }];
+  const res = await anthropic().messages.create({ model, max_tokens: maxTokens, system: sys, messages, tools: tools as Anthropic.Tool[], tool_choice: { type: haiku ? "any" : "auto" }, ...(!haiku && effort ? { output_config: { effort } } : {}) } as Anthropic.MessageCreateParamsNonStreaming);
   ledger.add(step, model, res.usage, Date.now() - t0);
   return res;
 }

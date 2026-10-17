@@ -224,7 +224,9 @@ export async function launch(jobId: string) {
 
   const needBrand = job.kind === "video" || job.done_steps.includes("capture");
   if (needBrand) {
-    for (const f of await listFiles(`${brandPrefix}/_pack`)) await add(f, `brand/_pack/${f.split("/").pop()}`);
+    // a video job reads only the live UI clones, their assets and the library (logo, images) — not the agent / html / probes / screens packs
+    const keep = job.kind === "video" ? /^(clones|assets|library)\.tgz(\.part\d+)?$/ : /./;
+    for (const f of await listFiles(`${brandPrefix}/_pack`)) if (keep.test(f.split("/").pop()!)) await add(f, `brand/_pack/${f.split("/").pop()}`);
     for (const f of ["capture.json", "brand.json"]) if ((await listFiles(brandPrefix)).includes(`${brandPrefix}/${f}`)) await add(`${brandPrefix}/${f}`, `brand/${f}`);
   }
   if (job.kind === "video") {

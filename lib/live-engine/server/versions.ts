@@ -37,7 +37,7 @@ export async function insertLiveVersion(job: JobRow, summary: Record<string, unk
       plan: planFromScript(script),
       mp4_path: `${run}/video.mp4`,
       composition_path: `${run}/video.src.html`,
-      audio: { mix: `${run}/music.wav`, sfx: null, silent: `${run}/video-silent.mp4` },
+      audio: { mix: `${run}/music.wav`, sfx: null },
       qa: { history: { origin: job.mode ?? "new", parent_version: job.mode === "new" ? null : parent }, validation: (qa?.history as unknown[]) ?? [], summary },
     });
     if (error?.code === "23505") continue; // a concurrent version took the number
@@ -73,8 +73,7 @@ export async function undoLive(videoId: string, expect: { version: number; revis
 }
 
 /** signed URLs for the studio's preview of a live version */
-export async function liveMedia(row: { mp4_path: string | null; audio: unknown }) {
+export async function liveMedia(row: { mp4_path: string | null }) {
   const sign = async (p?: string | null) => (p ? ((await admin().storage.from(LIVE_BUCKET).createSignedUrl(p, 6 * 3600)).data?.signedUrl ?? null) : null);
-  const a = (row.audio ?? {}) as { silent?: string };
-  return { mp4Url: await sign(row.mp4_path), silentUrl: await sign(a.silent) };
+  return { mp4Url: await sign(row.mp4_path) };
 }
