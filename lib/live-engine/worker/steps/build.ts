@@ -42,6 +42,7 @@ TECH CONTRACT (must follow exactly)
 - html, body margin 0, background = brand background. One root <div id="stage"> exactly ${W}×${H}px, position:relative, overflow:hidden. Everything is inside #stage. Use px sizes for a ${W}px-wide canvas (headline ~${Math.round(W / 11)}px).
 - Script: build \`const tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } })\`, add all tweens with absolute positions in seconds, finish with \`K.done(tl, ${script.length})\`. No setTimeout, setInterval, requestAnimationFrame, CSS @keyframes, CSS transitions, video tags or Math.random (use a fixed list of values instead).
 - GSAP traps to avoid: an element hidden in CSS (opacity:0) must be revealed with tl.fromTo(sel,{opacity:0,...},{opacity:1,...}) or tl.set — never with .from({opacity:0}) (it would tween 0→0 and the scene stays invisible). Never animate the same property of the same element with two overlapping tweens. Scene containers: start hidden in CSS (visibility:hidden; opacity:0 — never display:none), tl.set(scene,{autoAlpha:1},start) and tl.to(scene,{autoAlpha:0,duration:.3},end-.3).
+- EVERY scene of the script gets its own container <div class="scene" data-scene="N"> (N = 1, 2, … in script order) — all ${script.scenes.length} of them, none skipped or merged.
 - Kit helpers: K.split(selector) wraps words in .w spans; K.flash(tl, t); K.pulse(tl, target, from, to, vars, every=0.5); K.count(tl, selector, from, to, at, dur, fmt); K.type(tl, selector, text, at, dur).
 
 LIVE PRODUCT SCREENS — the heart of the video
@@ -64,12 +65,38 @@ CRAFT
 - Keep your own text inside safe margins (${Math.round(W * 0.07)}px). Nothing may overflow the stage unintentionally.`;
   const content = `SCRIPT\n${JSON.stringify(script)}\n\nBRAND\n${JSON.stringify({ name: brand.name, name_ar: brand.name_ar, palette: brand.palette, fonts: { display: brand.fonts.display, body: brand.fonts.body, google_fonts: brand.fonts.google_fonts }, local_font_files: fontFaces, look: brand.look, language: brand.language, site: brand.site })}\n\nASSETS (src paths are relative to the HTML file; live-* go in data-clone placeholders)\n${JSON.stringify(src, null, 1)}`;
   const content2 = fixIssues ? content + `\n\nA previous build of this script failed these checks — avoid the same mistakes:\n${fixIssues.map((x) => "- " + x.msg).join("\n")}` : content;
-  const out = await callTool({ ledger, step: fixIssues ? "rebuild" : "build", content: content2, model: models.build, maxTokens: 32000, tool, system, cacheSystem: true, effort: brief.effort?.build || "low" });
+  // completeness: every scene built, live scenes with their data-clone placeholder, the answer not cut off
+  const liveIds = new Set(assets.filter((a) => /^live-/.test(a.kind)).map((a) => a.id));
+  const liveScenes = script.scenes.map((s) => (s.visual.assets || []).filter((id) => liveIds.has(id))).filter((ids) => ids.length);
+  const measure = (o) => ({ ...coverage(o.html, script, liveScenes), out: o.__meta?.out ?? 0, stop: o.__meta?.stop ?? "?" });
+  const line = (c) => `scenes ${c.scenes}/${c.total} · live screens ${c.live}/${c.liveTotal} · out tokens ${c.out} · stop_reason ${c.stop}`;
+  const incomplete = (c) => c.scenes < c.total || (c.liveTotal > 0 && c.live < 0.7 * c.liveTotal) || c.stop === "max_tokens";
+  let out = await callTool({ ledger, step: fixIssues ? "rebuild" : "build", content: content2, model: models.build, maxTokens: 32000, tool, system, cacheSystem: true, effort: brief.effort?.build || "low" });
+  let cov = measure(out);
+  log(`  build: ${line(cov)}`);
+  if (incomplete(cov)) {
+    const retry = await callTool({ ledger, step: "build-retry", content: content2 + `\n\nYour previous build covered only ${cov.scenes} of ${cov.total} scenes and ${cov.live} of ${cov.liveTotal} live screens. Build EVERY scene of the script, each live scene with its data-clone placeholder and K.focus/K.tap/K.typeInto moves.`, model: models.build, maxTokens: 32000, tool, system, cacheSystem: true, effort: "medium" });
+    const cov2 = measure(retry);
+    log(`  build retry (effort medium): ${line(cov2)}`);
+    // keep the better build: complete beats incomplete, then more scenes + live screens
+    const rank = (c) => (incomplete(c) ? 0 : 1000) + c.scenes + c.live;
+    if (rank(cov2) >= rank(cov)) { out = retry; cov = cov2; }
+  }
   fs.writeFileSync(path.join(runDir, "video.src.html"), out.html);
   const file = path.join(runDir, "video.html");
   const info = embedClones({ runDir, brandDir, layout: brief.layout });
-  log(`✓ build: video.html (${(out.html.length / 1024).toFixed(1)} KB written, ${info.count} live screens embedded${info.missing.length ? `, missing: ${info.missing.join(", ")}` : ""})`);
+  log(`✓ build: video.html (${(out.html.length / 1024).toFixed(1)} KB written, ${info.count} live screens embedded${info.missing.length ? `, missing: ${info.missing.join(", ")}` : ""}) · ${line(cov)}`);
   return file;
+}
+
+/** how much of the script a composition covers: scene containers, and live scenes that have a data-clone placeholder */
+export function coverage(html, script, liveScenes) {
+  const total = script.scenes.length;
+  const tagged = new Set([...html.matchAll(/data-scene\s*=\s*["']?(\d+)/g)].map((m) => +m[1]));
+  const byId = new Set([...html.matchAll(/\bid\s*=\s*["'](?:s|scene-?)(\d+)["']/g)].map((m) => +m[1]));
+  const base = (id) => String(id).replace(/-(flow|before|phone|mobile)$/, "");
+  const clones = new Set([...html.matchAll(/data-clone\s*=\s*["']([^"']+)["']/g)].map((m) => base(m[1])));
+  return { scenes: Math.min(total, (tagged.size ? tagged : byId).size), total, live: liveScenes.filter((ids) => ids.some((id) => clones.has(base(id)))).length, liveTotal: liveScenes.length };
 }
 
 /** video.src.html → video.html: paste the captured live UI into every data-clone placeholder. */

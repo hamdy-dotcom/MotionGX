@@ -22,6 +22,9 @@ export async function inspect({ htmlFile, layout, script, runDir, tag }) {
   if (!ok) { add("error", "contract", "K.done(tl, duration) was never called, so the video cannot be seeked"); await browser.close(); return { issues, frames: [] }; }
   await page.evaluate(() => window.__ready).catch(() => {});
   const frames = [];
+  // scenes whose script asks for a live product screen
+  const assetsFile = path.join(runDir, "assets.json");
+  const liveIds = new Set(fs.existsSync(assetsFile) ? JSON.parse(fs.readFileSync(assetsFile, "utf8")).filter((a) => /^live-/.test(a.kind)).map((a) => a.id) : []);
   for (const [i, s] of script.scenes.entries()) {
     const dur = s.bars * 2, last = i === script.scenes.length - 1;
     const t = +(last ? script.length - 0.4 : s.start + Math.min(dur * 0.65, dur - 0.45)).toFixed(2);
@@ -29,6 +32,7 @@ export async function inspect({ htmlFile, layout, script, runDir, tag }) {
     const p = await inPage(page, "QA_PROBE");
     const label = `scene ${i + 1} (${s.purpose}, ${s.start}-${s.start + dur}s)`;
     if (!p.texts.length && !p.media) add("error", "blank", `${label}: nothing visible at ${t}s`, t);
+    if ((s.visual.assets || []).some((id) => liveIds.has(id)) && !p.clones) add("error", "no-live", `${label}: the script shows a live product screen here, but none is visible at ${t}s`, t);
     const seen = norm(p.texts.map((x) => x.text).join(""));
     const words = String(s.headline || "").split(/\s+/).filter((w) => norm(w).length > 1).slice(0, 3);
     if (words.length && words.filter((w) => seen.includes(norm(w))).length < Math.ceil(words.length / 2)) add("error", "headline", `${label}: headline "${s.headline}" is not readable at ${t}s`, t);
@@ -41,6 +45,19 @@ export async function inspect({ htmlFile, layout, script, runDir, tag }) {
     for (const [ta, sa, tb, sb] of p.overlaps) add("error", "overlap", `${label}: "${ta}" (${sa}) overlaps "${tb}" (${sb}) at ${t}s`, t);
     const f = path.join(runDir, `qa-${tag}-${i + 1}.jpg`); await page.screenshot({ path: f, type: "jpeg", quality: 60 }); frames.push({ file: f, t, label });
   }
+  // a desktop live screen on screen for more than 1.5 s without the camera ever zooming in (its text is tiny at full width)
+  const runs = new Map();
+  for (let t = 0; t <= script.length; t = +(t + 0.25).toFixed(2)) {
+    await page.evaluate((x) => window.__seek(x), t);
+    const cams = await inPage(page, "QA_CAMS").catch(() => []);
+    for (const c of cams) {
+      const r = runs.get(c.id) || { from: null, flagged: false };
+      if (c.vis && c.z <= 1.01) { if (r.from == null) r.from = t; if (!r.flagged && t - r.from > 1.5) { add("error", "unzoomed", `the live screen ${c.id} shows un-zoomed from ${r.from}s to beyond ${t}s — K.focus never moved the camera into it`, r.from); r.flagged = true; } }
+      else { r.from = null; r.flagged = false; }
+      runs.set(c.id, r);
+    }
+  }
+
   // contact sheet (one image, all scenes) built in the browser — no image libraries needed
   const cols = Math.min(frames.length, 5), cw = 200, ch = Math.round((cw * H) / W);
   await page.setViewportSize({ width: cols * cw, height: Math.ceil(frames.length / cols) * (ch + 22) });
@@ -62,7 +79,7 @@ async function visionLook({ sheet, script, brand, ledger, model }) {
 async function repair({ html, issues, script, ledger, model, round }) {
   const tool = { name: "edits", description: "Exact find/replace edits to the HTML", input_schema: { type: "object", required: ["edits"], properties: { edits: { type: "array", items: { type: "object", required: ["find", "replace"], properties: { find: { type: "string", description: "exact substring of the current HTML, long enough to be unique" }, replace: { type: "string" } } } } } } };
   const out = await callTool({ ledger, step: `qa-repair-${round}`, model, maxTokens: 8000, tool, effort: "low",
-    system: "You fix a GSAP motion-graphics HTML file with small exact find/replace edits. Fix only the listed problems; keep everything else, keep timings on the same seconds, keep K.done. Most common cause of invisible scenes: an element hidden in CSS (opacity:0) animated with gsap .from({opacity:0}) — the tween goes 0→0. Fix by replacing that .from with .fromTo(sel,{opacity:0,...},{opacity:1,...}). Other typical fixes: give an element a lower top/left or max-width so it stays in frame; reduce font-size; move or delay one of two overlapping texts; make sure an element that should be visible is not left at opacity 0 (check .from/.to/.set on it and any exit tween that fires too early); fix JS errors.",
+    system: "You fix a GSAP motion-graphics HTML file with small exact find/replace edits. Fix only the listed problems; keep everything else, keep timings on the same seconds, keep K.done. If a scene is missing or shows no visual, do NOT add text — leave it (a full rebuild handles it); never patch a scene with a text-only stub. Most common cause of invisible scenes: an element hidden in CSS (opacity:0) animated with gsap .from({opacity:0}) — the tween goes 0→0. Fix by replacing that .from with .fromTo(sel,{opacity:0,...},{opacity:1,...}). Other typical fixes: give an element a lower top/left or max-width so it stays in frame; reduce font-size; move or delay one of two overlapping texts; make sure an element that should be visible is not left at opacity 0 (check .from/.to/.set on it and any exit tween that fires too early); fix JS errors.",
     content: `PROBLEMS (time in seconds is when they were seen):\n${issues.map((x) => `- [${x.code}] ${x.msg}`).join("\n")}\n\nSCENES: ${JSON.stringify(script.scenes.map((s) => ({ start: s.start, end: s.start + s.bars * 2, headline: s.headline })))}\n\nHTML:\n${html}` });
   let next = html, applied = 0;
   for (const e of out.edits || []) if (e.find && next.includes(e.find)) { next = next.replace(e.find, e.replace); applied++; }
@@ -96,7 +113,7 @@ export async function safetyNet({ htmlFile, brief, brand, script, runDir, brandD
     log(`  repair ${round}: ${fix.applied} edits → ${score(r)} errors`);
     if (score(r) < score(best.r)) best = { html: fix.html, r, tag: `v${round}` };
   }
-  const severe = (r) => new Set(r.issues.filter((x) => ["blank", "headline", "js", "contract"].includes(x.code)).map((x) => x.t)).size;
+  const severe = (r) => new Set(r.issues.filter((x) => ["blank", "headline", "js", "contract", "no-live"].includes(x.code)).map((x) => x.t)).size;
   if (severe(best.r) >= 2 && rebuild) {
     log(`  ${severe(best.r)} scenes still broken → one full rebuild`);
     await rebuild(best.r.issues.filter((x) => x.sev === "error"));

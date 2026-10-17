@@ -83,7 +83,8 @@ export async function callTool({ ledger, step, model, system, content, tool, max
       .finalMessage();
     ledger.add(step, model, res.usage, Date.now() - t0);
     const call = res.content.find((c) => c.type === "tool_use" && c.name === tool.name) as Anthropic.ToolUseBlock | undefined;
-    if (call) return call.input;
+    // how the answer ended (stop_reason, output tokens) rides along, non-enumerable so it never leaks into JSON
+    if (call) return Object.defineProperty(call.input, "__meta", { value: { stop: res.stop_reason, out: res.usage.output_tokens, ms: Date.now() - t0 }, enumerable: false });
     messages = [...messages, { role: "assistant", content: res.content }, { role: "user", content: [{ type: "text", text: ask }] }];
   }
   throw new Error(`${step}: model never called ${tool.name}`);

@@ -78,6 +78,7 @@ port("qa", [
   lambda s: edit(s, "  const browser = await chromium.launch(); const page = await browser.newPage({ viewport: { width: W, height: H } });",
                     "  const browser = await chromium.launch(); const qctx = await browser.newContext({ viewport: { width: W, height: H } }); await installInPage(qctx); const page = await qctx.newPage();"),
   lambda s: edit(s, "await page.evaluate(PROBE)", 'await inPage(page, "QA_PROBE")'),
+  lambda s: edit(s, "await page.evaluate(CAMS)", 'await inPage(page, "QA_CAMS")'),
 ])
 
 # ── music, render ────────────────────────────────────────────────────────────────────────────────────
