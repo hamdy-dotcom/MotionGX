@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { callTool } from "../claude";
-import { flowInfo, intentsOf } from "./compose";
+import { demoImages, flowInfo, intentsOf } from "./compose";
 
 export const OBJECTIVES = {
   acquire: "Acquire new customers / sign-ups",
@@ -107,7 +107,8 @@ export async function writeScript({ brief, brand, runDir, brandDir, ledger, mode
     ...live,
     ...(brand.parts || []).map((x) => ({ id: x.id, kind: x.clone ? `live-block-${x.kind}` : `object-${x.kind}`, from: x.app ? "app" : "website", shows: x.shows, feature: x.feature, contents: x.contents })),
     ...brand.screens.filter((s) => !s.clones?.screen).map((s) => ({ id: s.id, kind: s.app ? "app-screen-full" : "site-page-full", shows: s.shows })),
-    ...brand.images.filter((i) => ["product", "lifestyle", "people", "illustration"].includes(i.kind)).slice(0, 20).map((i, k) => ({ id: `img${k}`, kind: i.kind, file: i.file, note: i.note || i.alt, w: i.w, h: i.h })),
+    // brand photos only: the capture agent's test data (sample products, generated pages, test orders) is not the brand's
+    ...brand.images.filter((i) => ["product", "lifestyle", "people", "illustration"].includes(i.kind) && !i.demo && !demoImages(brandDir).has(path.basename(i.file || ""))).slice(0, 20).map((i, k) => ({ id: `img${k}`, kind: i.kind, file: i.file, note: i.note || i.alt, w: i.w, h: i.h })),
   ];
   const essentials = tagEssentials(assets, brand, brandDir), budget = sceneBudget(brief.length);
   if (essentials.length) log(`  ★ essentials: ${essentials.map((e) => `${e.id} (${e.essential})`).join(" · ")}`);

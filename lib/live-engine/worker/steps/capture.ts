@@ -31,6 +31,9 @@ const extOf = (ct, url) => {
 export async function capture({ brief, brandDir, ledger, models, log = console.log }) {
   for (const d of ["screens", "parts", "clones", "html", "assets/images", "assets/css", "assets/fonts", "assets/logo", "probes"]) fs.mkdirSync(path.join(brandDir, d), { recursive: true });
   const manifest = { version: 4, site: brief.url, capturedAt: new Date().toISOString(), pages: [], app: { status: "not_started", screens: [] }, assets: {} };
+  // which phase brought each asset in: the public crawl (the brand's own pages) or the agent's test drive (sample products,
+  // generated pages, test orders, seed data) — the latter is product-demo content, never a brand photo
+  let phase = "public"; const phaseAssets = { public: new Set(), app: new Set() };
   const seen = new Set();
   const browser = await chromium.launch({ headless: process.env.HEADFUL ? false : true });
   const authState = path.join(brandDir, "auth.json");
@@ -48,7 +51,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
       const kind = ext === ".css" ? "css" : /woff|ttf|otf/.test(ext) ? "fonts" : "images";
       const name = `${slugify(path.basename(url.split("?")[0], ext)).slice(0, 40)}-${sha(url)}${ext}`;
       fs.writeFileSync(path.join(brandDir, "assets", kind, name), buf);
-      manifest.assets[url] = `assets/${kind}/${name}`;
+      manifest.assets[url] = `assets/${kind}/${name}`; phaseAssets[phase].add(manifest.assets[url]);
     } catch {}
   });
 
@@ -119,11 +122,13 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
     const prev = JSON.parse(fs.readFileSync(prevFile, "utf8"));
     log(`▶ capture: resnap ${prev.pages.length} pages + ${prev.app.screens.length} app screens with the saved login (no agent)`);
     for (const old of [...prev.pages, ...prev.app.screens]) {
+      phase = old.app ? "app" : "public";
       try { await page.goto(old.url, { waitUntil: "domcontentloaded", timeout: 30000 }); await settle(); const s = await savePage(old.label, old.app ? { description: old.description, features: old.features, app: true } : {}); (old.app ? manifest.app.screens : manifest.pages).push(s); log(`  📸 ${old.label}`); } catch (e) { log(`  ! ${old.url}: ${e.message.split("\n")[0]}`); }
     }
     manifest.app.status = prev.app.status; manifest.app.notes = "resnap of " + prev.capturedAt; manifest.logoCandidates = prev.logoCandidates || [];
     if (manifest.app.screens.length && /login|signin|sign-in|تسجيل/i.test(manifest.app.screens[0].url)) log("  ! the saved login seems expired — run a full capture (Recapture) instead");
     fs.writeFileSync(path.join(brandDir, "clones", "fonts.css"), fontFaceCss(manifest, brandDir));
+    manifest.demoAssets = [...new Set([...phaseAssets.app, ...(prev.demoAssets || [])])].filter((f) => f.startsWith("assets/images/") && !phaseAssets.public.has(f));
     fs.writeFileSync(prevFile, JSON.stringify(manifest, null, 2));
     await browser.close();
     log(`✓ capture: resnap done (${manifest.pages.length} pages, ${manifest.app.screens.length} app screens)`);
@@ -171,7 +176,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   if (brief.skipApp || !appUrl) { manifest.app.status = appUrl ? "skipped" : "no_app_link"; }
   else {
     scope.open(appUrl, "linked from the site");
-    log(`▶ capture: agent enters the product (${appUrl})`);
+    log(`▶ capture: agent enters the product (${appUrl})`); phase = "app";
     if (!brief.sampleUrl) brief.sampleUrl = await marketplaceLink(browser, brief.country, log).catch(() => null);
     // what the public site promises (headings + feature copy) — the essentials plan must cover it
     const promises = manifest.pages.map((pg) => { try { const pr = JSON.parse(fs.readFileSync(path.join(brandDir, pg.probe), "utf8")); return `[${pg.label}] ${pr.headings.join(" · ")}\n${pr.text.replace(/\s*\n\s*/g, " · ").slice(0, 1800)}`; } catch { return ""; } }).filter(Boolean).join("\n\n").slice(0, 6000);
@@ -180,6 +185,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   }
   try { await ctx.storageState({ path: path.join(brandDir, "auth.json") }); } catch {}
   fs.writeFileSync(path.join(brandDir, "clones", "fonts.css"), fontFaceCss(manifest, brandDir));
+  manifest.demoAssets = [...phaseAssets.app].filter((f) => f.startsWith("assets/images/") && !phaseAssets.public.has(f));
   fs.writeFileSync(path.join(brandDir, "capture.json"), JSON.stringify(manifest, null, 2));
   await browser.close();
   log(`✓ capture: ${manifest.pages.length} public pages, ${manifest.app.screens.length} app screens (${manifest.app.status}), ${Object.keys(manifest.assets).length} files`);

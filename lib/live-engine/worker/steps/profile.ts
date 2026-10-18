@@ -33,7 +33,11 @@ export async function buildProfile({ brief, brandDir, capture, ledger, models, l
   };
   // image library: every <img> we saw on a page, mapped to the downloaded file
   const imgs = new Map();
-  for (const p of probes) for (const im of p.data.images || []) { const file = capture.assets[im.src]; if (file && !imgs.has(file)) imgs.set(file, { file, alt: im.alt, w: im.w, h: im.h, page: p.id }); }
+  // the agent's test data (sample products, generated pages, test orders) is never a brand photo: tagged at capture, else
+  // (older captures) any image never seen on a public page
+  const demoSet = Array.isArray(capture.demoAssets) ? new Set(capture.demoAssets) : null;
+  const publicFiles = new Set(probes.filter((p) => !p.app).flatMap((p) => (p.data.images || []).map((im) => capture.assets[im.src]).filter(Boolean)));
+  for (const p of probes) for (const im of p.data.images || []) { const file = capture.assets[im.src]; if (file && !imgs.has(file)) imgs.set(file, { file, alt: im.alt, w: im.w, h: im.h, page: p.id, ...((demoSet ? demoSet.has(file) : !publicFiles.has(file)) ? { demo: true } : {}) }); }
   const images = [...imgs.values()].slice(0, 60).map((x, i) => ({ i, ...x }));
   const screens = probes.map((p, i) => ({ i, id: p.id, label: p.label, app: !!p.app, customer_view: !!p.customer, essentials: p.covers || [], description: p.description || "", features: p.features || [], url: p.url, headings: (p.data.headings || []).slice(0, 10) }));
   // public pages carry the marketing copy (feature lists, pricing, FAQ) — give it generously
@@ -82,7 +86,7 @@ export async function buildProfile({ brief, brandDir, capture, ledger, models, l
   const shotList = all.map((p, i) => ({ p, s: rated.get(i) || { shows: p.description || p.label, use: p.app ? "feature" : "hero" } })).filter(({ p, s }) => p.app || s.use !== "skip").map(({ p, s }) => ({ id: p.id, file: cp(p.screen, "screens", `${p.id}.full${path.extname(p.screen)}`), view: cp(p.view, "screens", `${p.id}.jpg`), label: p.label, app: !!p.app, shows: s.shows, use: s.use === "skip" ? "feature" : s.use, features: p.features || [], url: p.url, clones: p.clones || {}, customer: !!p.customer, covers: p.covers || [], empty: !!p.empty }));
   const partInfo = new Map(parts.map((x) => [x.id, x]));
   const partList = out.parts.filter((x) => partInfo.has(x.id) && !partInfo.get(x.id).emptyish).map((x) => { const pi = partInfo.get(x.id); return { id: x.id, file: pi.file ? cp(pi.file, "parts", path.basename(pi.file)) : null, clone: pi.clone, screen: pi.screen, app: pi.app, kind: pi.kind, w: pi.w, h: pi.h, shows: x.shows, feature: x.feature || "", contents: pi.contents, object: { ...pi.object, images: (pi.object?.images || []).filter((im) => im.file).map((im) => ({ ...im, file: cp(im.file, "object-images", path.basename(im.file)) })) } }; });
-  const imageList = out.images.map((m) => ({ ...m, kind: KINDS.includes(m.kind) ? m.kind : "background" })).filter((m) => m.kind !== "junk" && images[m.index]).map((m) => { const im = images[m.index]; return { file: cp(im.file, m.kind, path.basename(im.file)), kind: m.kind, w: im.w, h: im.h, alt: im.alt, note: m.note || "" }; });
+  const imageList = out.images.map((m) => ({ ...m, kind: KINDS.includes(m.kind) ? m.kind : "background" })).filter((m) => m.kind !== "junk" && images[m.index]).map((m) => { const im = images[m.index]; return { file: cp(im.file, m.kind, path.basename(im.file)), kind: m.kind, w: im.w, h: im.h, alt: im.alt, note: m.note || "", ...(im.demo ? { demo: true } : {}) }; });
 
   const brand = {
     name: out.name, name_ar: out.name_ar, site: brief.url, tagline: out.tagline, summary: out.summary, audience: out.audience, language: out.language, voice: out.voice,

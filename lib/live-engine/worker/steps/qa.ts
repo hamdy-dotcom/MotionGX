@@ -62,6 +62,13 @@ export async function inspect({ htmlFile, layout, script, runDir, tag }) {
         if (p.boxes.some((b) => /(^|\s)(dev|tile|pains|stackcard)(\s|$)/.test(b.cls)) && band > p.H * 0.12) add("warn", "balance", `${label}: an empty band ${Math.round((band / p.H) * 100)}% of the frame tall at the ${gt > p.H - gb ? "top" : "bottom"} at ${t}s`, t);
       }
     }
+    // chips / stack cards on the visual: an error (they sit strictly under it)
+    const hit = (A, B, tol = 4) => Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x) > tol && Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y) > tol;
+    const chipsOn = p.boxes.filter((b) => /(^|\s)(co|stackcard)(\s|$)/.test(b.cls)), visuals = p.boxes.filter((b) => /(^|\s)(dev|pop|tile)(\s|$)/.test(b.cls));
+    for (const c of chipsOn) { const v = visuals.find((x) => hit(c, x)); if (v) { add("error", "chip-overlap", `${label}: a chip (${c.sel}) sits on the visual (${v.sel}) at ${t}s`, t); break; } }
+    // the corner logo never touches the headline
+    const mk = await page.evaluate(() => { const m = document.getElementById("mark"), S = document.getElementById("stage")?.getBoundingClientRect(); if (!m || !S) return null; const cs = getComputedStyle(m), r = m.getBoundingClientRect(); return cs.visibility === "hidden" || +cs.opacity < 0.2 ? null : { x: r.left - S.left, y: r.top - S.top, w: r.width, h: r.height }; }).catch(() => null);
+    if (mk) { const hb = p.boxes.find((b) => /(^|\s)(head|card)(\s|$)/.test(b.cls) && hit(mk, b, 0)); if (hb) add("warn", "logo", `${label}: the corner logo overlaps the headline (${hb.sel}) at ${t}s`, t); }
     if (!noDevice && (s.visual.assets || []).some((id) => liveIds.has(id)) && !p.clones) add("error", "no-live", `${label}: the script shows a live product screen here, but none is visible at ${t}s`, t);
     const seen = norm(p.texts.map((x) => x.text).join(""));
     const words = String(s.headline || "").split(/\s+/).filter((w) => norm(w).length > 1).slice(0, 3);
@@ -133,7 +140,7 @@ export async function safetyNet({ htmlFile, brief, brand, script, runDir, brandD
   const history = [];
   let cur = await check("v0"), best = { html: readSrc(), r: cur, tag: "v0" };
   history.push({ tag: "v0", errors: score(cur), warnings: cur.issues.length - score(cur) });
-  log(`  v0: ${score(cur)} errors, ${cur.issues.length - score(cur)} warnings`); cur.issues.filter((x) => x.code === "balance").slice(0, 4).forEach((x) => log(`   ⚖ ${x.msg}`)); cur.issues.filter((x) => x.sev === "error").slice(0, 6).forEach((x) => log(`   ✗ ${x.msg}`));
+  log(`  v0: ${score(cur)} errors, ${cur.issues.length - score(cur)} warnings`); cur.issues.filter((x) => ["balance", "logo"].includes(x.code)).slice(0, 4).forEach((x) => log(`   ⚖ ${x.msg}`)); cur.issues.filter((x) => x.sev === "error").slice(0, 6).forEach((x) => log(`   ✗ ${x.msg}`));
   // composed videos (code from recipes) are not patched by the model — the edits could never apply to generated HTML;
   // QA problems go back to the director instead, and compose runs again (one retry)
   const composed = brief.composer !== "freeform";

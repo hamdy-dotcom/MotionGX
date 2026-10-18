@@ -231,8 +231,33 @@ const pick = (v, list, d) => (list.includes(v) ? v : d);
 const numberIn = (sc) => /[0-9٠-٩]/.test(`${sc.headline} ${sc.sub || ""}`);
 
 /** the brand's own photos (captured images), biggest first — the full-bleed photo layouts use them */
-export const photosOf = (brand) =>
-  (brand.images || []).filter((im) => im.file && ["product", "lifestyle", "people", "background", "illustration"].includes(im.kind) && (im.w || 0) >= 400)
+/**
+ * Images the capture agent's own test actions brought in (a sample marketplace product, a generated page, test orders,
+ * seed data) are product-demo content, never brand photos. Tagged at capture (capture.json demoAssets → brand.images[].demo);
+ * for brands profiled before that, an image used only on the app's screens and never on a public page counts as test data.
+ */
+const demoCache = new Map();
+export function demoImages(brandDir) {
+  if (!brandDir) return new Set(); if (demoCache.has(brandDir)) return demoCache.get(brandDir);
+  const out = new Set(), base = (f) => path.basename(String(f));
+  try {
+    const cap = JSON.parse(fs.readFileSync(path.join(brandDir, "capture.json"), "utf8"));
+    if (Array.isArray(cap.demoAssets)) cap.demoAssets.forEach((f) => out.add(base(f)));
+    else {
+      const pub = (cap.pages || []).map((p) => p.id), app = (cap.app?.screens || []).map((s) => s.id), owner = (f) => (x) => f === x || f.startsWith(x + "-");
+      const seen = { pub: new Set(), app: new Set() };
+      for (const f of fs.readdirSync(path.join(brandDir, "clones")).filter((x) => x.endsWith(".json"))) {
+        const id = f.replace(/\.json$/, ""), side = pub.some(owner(id)) ? "pub" : app.some(owner(id)) ? "app" : null; if (!side) continue;
+        for (const m of fs.readFileSync(path.join(brandDir, "clones", f), "utf8").matchAll(/assets\/images\/([^"'\\)\s?#]+)/g)) seen[side].add(m[1]);
+      }
+      for (const p of cap.pages || []) { const h = p.html && path.join(brandDir, p.html); if (h && fs.existsSync(h)) for (const m of fs.readFileSync(h, "utf8").matchAll(/assets\/images\/([^"'\\)\s?#]+)/g)) seen.pub.add(m[1]); }
+      for (const n of seen.app) if (!seen.pub.has(n)) out.add(n);
+    }
+  } catch {}
+  demoCache.set(brandDir, out); return out;
+}
+export const photosOf = (brand, brandDir) =>
+  (brand.images || []).filter((im) => im.file && !im.demo && !demoImages(brandDir).has(path.basename(im.file)) && ["product", "lifestyle", "people", "background", "illustration"].includes(im.kind) && (im.w || 0) >= 400)
     .sort((a, b) => (b.w || 0) * (b.h || 0) - (a.w || 0) * (a.h || 0)).slice(0, 12)
     .map((im, i) => ({ id: `img${i + 1}`, file: im.file, kind: im.kind, w: im.w, h: im.h, note: im.note || im.alt || "" }));
 
@@ -259,7 +284,7 @@ export function readHistory(runDir, n = 5) {
  * first / last scene in play order. Scenes stay in script numbering here; `order` is the play order.
  */
 export function resolveArt(raw = {}, { script, assets, brandDir, brand }) {
-  const byId = Object.fromEntries(assets.map((a) => [a.id, a])), photos = photosOf(brand), N = script.scenes.length;
+  const byId = Object.fromEntries(assets.map((a) => [a.id, a])), photos = photosOf(brand, brandDir), N = script.scenes.length;
   const t = raw.typography || {}, sh = raw.shapes || {};
   const art = {
     notes: raw.style_notes || "",
@@ -313,7 +338,7 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
   const rel = (p) => path.relative(runDir, path.join(brandDir, p)).split(path.sep).join("/");
   const byId = Object.fromEntries(assets.map((a) => [a.id, a]));
   art = art || resolveArt({}, { script, assets, brandDir, brand });
-  const photos = Object.fromEntries(photosOf(brand).map((p) => [p.id, rel(p.file)]));
+  const photos = Object.fromEntries(photosOf(brand, brandDir).map((p) => [p.id, rel(p.file)]));
   const P = brand.palette || {}, F = brand.fonts || {};
   const rtl = /arab|rtl/i.test(brand.language || "") || /[؀-ۿ]/.test(script.scenes.map((s) => s.headline).join(""));
   const logo = brand.logo?.file ? rel(brand.logo.file) : null;
@@ -367,7 +392,7 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
       // and centred as one group at runtime (R.balance), so these tops are only a first placement
       const cardPad = layout === "card" ? 2 * Math.round(W * 0.045) : 0, inner = W - 2 * m - cardPad;
       const headEst = (() => { const per = inner / (hlPx * 0.34), lines = Math.min(2, Math.max(1, Math.ceil(String(sc.headline || "").length / per))); const sfs = Math.round(W / 26), sl = sc.sub ? Math.min(2, Math.ceil(String(sc.sub).length / (inner / (sfs * 0.34)))) : 0; return Math.round(lines * hlPx * 1.3 + (sl ? 22 + sl * sfs * 1.45 : 0) + cardPad); })();
-      const GAP = Math.round(H * 0.03), chipsH = chips.length && layout !== "stack" ? GAP + 124 : 0, safeH = H - 2 * SY; // stack: its cards sit on the device
+      const GAP = Math.round(H * 0.03), chipsH = !chips.length ? 0 : layout === "stack" ? GAP + chips.length * 150 : GAP + 124, safeH = H - 2 * SY; // stack: its cards sit on the device
       // planned on the generous side: R.balance shrinks the device (≥ 78%) when the headline runs longer, grows phones when shorter
       const avail = safeH - headEst - GAP - chipsH - Math.round(H * 0.032); // 3.2%: room for the visual layer's 3% push-in
       const geo = (() => {
@@ -402,7 +427,7 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
         devHtml = `${win ? frameOpen : `<div class="dev laptop" style="${devStyle}">`}${deskUi(`u${n}a`, r.a)}${deskUi(`u${n}b`, r.b, true)}${then.map((x, k) => deskUi(`u${n}c${k}`, x, true)).join("")}<div class="spin"></div><div class="ok">✓</div>${win ? frameClose : "</div>"}`; const tk = p.typeKey || (r.asset && flowInfo(r.asset, brandDir).typeKey); call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${tk ? `,typeKey:"${tk}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${then.length ? `,then:${JSON.stringify(then.map((_, k) => `#u${n}c${k}`))}` : popArg}${fake ? `,fake:${JSON.stringify(fake)}` : ""}});`; }
       else if (recipe === "phone") { devHtml = `<div class="dev phone" style="${devStyle}"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${geo.w - 40}" data-h="${geo.h - 60}" data-frame="none"></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${typeArg}});`; }
       else { const bh = win ? geo.h : Math.round(Math.min((loadClone(brandDir, r.ui)?.h || 400) * (lapW / (loadClone(brandDir, r.ui)?.w || 1)), H * 0.5)); devHtml = `<div class="glow"></div>${win ? `${frameOpen}<div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${geo.w}" data-h="${geo.h}" data-frame="none"></div>${frameClose}` : `<div class="dev block" style="${devStyle}"><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${lapW}" data-h="${bh}" data-frame="none"></div></div>`}`; call = `K.R.hero(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${typeArg}});`; }
-      if (layout === "stack") { extra = chips.map((c, k) => `<div class="stackcard surface" style="top:${Math.round(geo.top + geo.h * 0.5 + k * 150)}px;inset-inline-${k % 2 ? "end" : "start"}:${SX + 40}px"><b>✓</b>${esc(c)}</div>`).join(""); co = ""; }
+      if (layout === "stack") { extra = chips.map((c, k) => `<div class="stackcard surface" style="top:${Math.round(geo.top + geo.h + GAP + k * 150)}px;inset-inline-${k % 2 ? "end" : "start"}:${SX + 40}px"><b>✓</b>${esc(c)}</div>`).join(""); co = ""; }
       // callouts sit in a row under the device, inside the safe area — never on its edge
       else if (chips.length && layout !== "split") co = `<div class="cos" style="top:${Math.min(H - SY - 130, geo.top + geo.h + 34)}px">${chips.map((c) => chip(c)).join("")}</div>`;
       if (layout === "card") headWrap = "card";

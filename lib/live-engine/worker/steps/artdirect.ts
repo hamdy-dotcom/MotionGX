@@ -30,7 +30,7 @@ function siteShots(brand, brandDir) {
 export async function artDirect({ brief, brand, script, assets, brandDir, ledger, models, history = [], avoid = [], log = console.log }) {
   const byId = Object.fromEntries(assets.map((a) => [a.id, a]));
   const shots = siteShots(brand, brandDir);
-  const photos = photosOf(brand).map(({ file, ...p }) => p);
+  const photos = photosOf(brand, brandDir).map(({ file, ...p }) => p);
   const scenes = script.scenes.map((sc, i) => {
     const r = recipeFor(sc, byId, brandDir, brand);
     const live = ["tour", "replay", "phone", "hero"].includes(r.recipe);
