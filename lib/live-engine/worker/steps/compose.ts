@@ -363,15 +363,26 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
     if (DEVICE_RECIPES.includes(recipe)) {
       const win = portrait && recipe !== "phone"; // 9:16: desktop screens and blocks in a full-width window
       // where the device sits and how tall it is (inside the safe area, room for the headline above / the chips below)
+      // 9:16: the visual takes the safe height the headline (≤ 2 lines + sub) and the chip row leave — the scene is then packed
+      // and centred as one group at runtime (R.balance), so these tops are only a first placement
+      const cardPad = layout === "card" ? 2 * Math.round(W * 0.045) : 0, inner = W - 2 * m - cardPad;
+      const headEst = (() => { const per = inner / (hlPx * 0.34), lines = Math.min(2, Math.max(1, Math.ceil(String(sc.headline || "").length / per))); const sfs = Math.round(W / 26), sl = sc.sub ? Math.min(2, Math.ceil(String(sc.sub).length / (inner / (sfs * 0.34)))) : 0; return Math.round(lines * hlPx * 1.3 + (sl ? 22 + sl * sfs * 1.45 : 0) + cardPad); })();
+      const GAP = Math.round(H * 0.03), chipsH = chips.length && layout !== "stack" ? GAP + 124 : 0, safeH = H - 2 * SY; // stack: its cards sit on the device
+      // planned on the generous side: R.balance shrinks the device (≥ 78%) when the headline runs longer, grows phones when shorter
+      const avail = safeH - headEst - GAP - chipsH - Math.round(H * 0.032); // 3.2%: room for the visual layer's 3% push-in
       const geo = (() => {
-        if (recipe === "phone") { const top = layout === "split" ? SY + 40 : phTop; return { top, h: phH, w: phW }; }
-        const room = H - SY - (chips.length ? 170 : 30) - devTop; // down to the chips row (or the safe bottom)
+        if (recipe === "phone") {
+          if (!portrait) return { top: phTop, h: phH, w: phW };
+          const h = Math.round(Math.max(safeH * 0.6, Math.min(safeH * 0.8, avail))); // a phone is at least 60% of the safe height
+          return { top: layout === "split" ? SY + 40 : SY + headEst + GAP, h, w: Math.round(h / 2) };
+        }
         if (!portrait) return { top: layout === "split" ? Math.round((H - lapH) / 2) : devTop, h: recipe === "hero" ? Math.round(H * 0.5) : lapH + 30, w: lapW };
-        if (layout === "split") return { top: SY + 40, h: 900, w: winW }; // +40: the 3% push-in moves the top edge up
-        return { top: devTop, h: room, w: winW };
+        // a full-width window cannot grow at runtime, so it plans for a headline ~18% shorter (R.fit often shrinks long ones); if it
+        // still runs longer, R.balance shrinks the window a little instead
+        return { top: layout === "split" ? SY + 40 : SY + headEst + GAP, h: Math.max(640, Math.min(safeH - GAP - Math.round(H * 0.032) - Math.round(hlPx * 1.3), avail + Math.round(headEst * 0.18))), w: winW }; // split: the visual on top, the text under it
       })();
       const left = Math.round((W - geo.w) / 2);
-      devStyle = `top:${geo.top}px;` + (win || recipe === "hero" ? `left:${left}px;width:${geo.w}px;height:${geo.h}px;` : "");
+      devStyle = `top:${geo.top}px;` + (win || recipe === "hero" || recipe === "phone" ? `left:${left}px;width:${geo.w}px;height:${geo.h}px;` : "");
       if (layout === "split") {
         if (portrait) headStyle = `top:${geo.top + geo.h + 70}px;`;
         else { devStyle = `left:${SX}px;top:${geo.top}px;`; headStyle = `left:${Math.round(W / 2 + SX / 2)}px;top:${Math.round(H * 0.32)}px;`; }
@@ -389,7 +400,7 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
       if (recipe === "tour") { devHtml = win ? `${frameOpen}${deskUi(`u${n}`, r.ui)}${frameClose}` : `<div class="dev laptop" style="${devStyle}">${deskUi(`u${n}`, r.ui)}</div>`; call = `K.R.tour(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d},focus:${JSON.stringify(p.focus || sc._focus || [])}${popArg}${typeArg}});`; }
       else if (recipe === "replay") { const then = (sc.visual?.assets || []).map((x) => (byId[x]?.kind === "live-phone" ? x.replace(/-phone$/, "") : x)).filter((x) => x !== r.b && /^live-(screen|phone)/.test(byId[x]?.kind || byId[`${x}-phone`]?.kind || "") && has(brandDir, x)).filter((x, k, l) => l.indexOf(x) === k).slice(0, 2);
         devHtml = `${win ? frameOpen : `<div class="dev laptop" style="${devStyle}">`}${deskUi(`u${n}a`, r.a)}${deskUi(`u${n}b`, r.b, true)}${then.map((x, k) => deskUi(`u${n}c${k}`, x, true)).join("")}<div class="spin"></div><div class="ok">✓</div>${win ? frameClose : "</div>"}`; const tk = p.typeKey || (r.asset && flowInfo(r.asset, brandDir).typeKey); call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${tk ? `,typeKey:"${tk}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${then.length ? `,then:${JSON.stringify(then.map((_, k) => `#u${n}c${k}`))}` : popArg}${fake ? `,fake:${JSON.stringify(fake)}` : ""}});`; }
-      else if (recipe === "phone") { devHtml = `<div class="dev phone" style="${devStyle}"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${phW - 40}" data-h="${phH - 60}" data-frame="none"></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${typeArg}});`; }
+      else if (recipe === "phone") { devHtml = `<div class="dev phone" style="${devStyle}"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${geo.w - 40}" data-h="${geo.h - 60}" data-frame="none"></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${typeArg}});`; }
       else { const bh = win ? geo.h : Math.round(Math.min((loadClone(brandDir, r.ui)?.h || 400) * (lapW / (loadClone(brandDir, r.ui)?.w || 1)), H * 0.5)); devHtml = `<div class="glow"></div>${win ? `${frameOpen}<div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${geo.w}" data-h="${geo.h}" data-frame="none"></div>${frameClose}` : `<div class="dev block" style="${devStyle}"><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${lapW}" data-h="${bh}" data-frame="none"></div></div>`}`; call = `K.R.hero(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${typeArg}});`; }
       if (layout === "stack") { extra = chips.map((c, k) => `<div class="stackcard surface" style="top:${Math.round(geo.top + geo.h * 0.5 + k * 150)}px;inset-inline-${k % 2 ? "end" : "start"}:${SX + 40}px"><b>✓</b>${esc(c)}</div>`).join(""); co = ""; }
       // callouts sit in a row under the device, inside the safe area — never on its edge
@@ -516,7 +527,7 @@ ${hiCss}
 .stackcard{position:absolute;z-index:7;padding:26px 38px;font-size:40px;font-weight:800;opacity:0}
 .card{position:absolute;left:${m}px;right:${m}px;top:${portrait ? 230 : 70}px;padding:${Math.round(W * 0.045)}px;text-align:${T.align}}
 .l-card .laptop,.l-card .block{top:${portrait ? 880 : 300}px}.l-card .phone{top:${portrait ? 760 : 160}px}
-.cta-card{top:${portrait ? 420 : 120}px;text-align:center}.cta-card .biglogo{position:static!important;transform:none!important;height:150px;margin:0 auto 28px;display:block}
+.card.cta-card{top:${portrait ? 420 : 120}px;text-align:center}.cta-card .biglogo{position:static!important;transform:none!important;height:150px;margin:0 auto 28px;display:block}
 .cta-card .cta-btn{position:static!important;transform:none!important;display:inline-block;margin-top:44px}.cta-card .url{position:static!important;margin-top:28px}
 .ph{position:absolute;inset:0;overflow:hidden;z-index:0}.ph img{width:100%;height:100%;object-fit:cover}
 .head,.card{z-index:4}.cos,.co{z-index:5}.scrim{z-index:1}.vis{z-index:2}
@@ -569,7 +580,8 @@ ${calls.join("\n")}
 K.R.pace(tl, ${JSON.stringify(paceWins)}); // no scene goes more than 3 s without visible movement
 K.done(tl, ${script.length});
 // once the fonts are in: shrink any text that would run off the frame, move badges off the headline
-window.__ready = Promise.resolve(window.__ready).then(() => K.R.fit()).then(() => true);
+// then pack each scene's headline + visual + chips into one group, centred on the safe area's optical centre
+window.__ready = Promise.resolve(window.__ready).then(() => K.R.fit()).then(() => K.R.balance(${SX}, ${SY})).then(() => true);
 </script></body></html>`;
   const final = { ...art, scenes: art.scenes.map((x, i) => ({ ...x, layout: used[i] ?? x.layout })) };
   return { html, recipes: script.scenes.map((sc, i) => (art.scenes[i] || {}).recipe || "type"), layouts: used, fingerprint: fingerprintOf(final) };

@@ -51,6 +51,17 @@ export async function inspect({ htmlFile, layout, script, runDir, tag }) {
         if (area < 0.6 && !(tall && hShare >= 0.75)) add("error", "sparse", `${label}: the main visual fills only ${Math.round(area * 100)}% of the free safe area at ${t}s`, t);
       } else if (!noDevice) add("error", "sparse", `${label}: no main visual on screen at ${t}s`, t);
     }
+    // vertical balance: headline + visual + chips form one group centred on the safe area's optical centre (47% down), and a
+    // scene with a main visual leaves no empty band over 12% of the frame at the top or bottom (photo layouts are art-directed)
+    if (!/\b(l-photo|cta-split-photo)\b/.test(cls) && !p.boxes.some((b) => /(^|\s)ph(\s|$)/.test(b.cls))) {
+      const g = p.boxes.filter((b) => !/(^|\s)pop(\s|$)/.test(b.cls) && b.h < p.H * 0.98);
+      if (g.length) {
+        const gt = Math.min(...g.map((b) => b.y)), gb = Math.max(...g.map((b) => b.y + b.h)), optical = SY + (p.H - 2 * SY) * 0.47, off = ((gt + gb) / 2 - optical) / p.H;
+        if (Math.abs(off) > 0.08) add("warn", "balance", `${label}: the visual group's centre is ${Math.round(Math.abs(off) * 100)}% ${off > 0 ? "below" : "above"} the optical centre at ${t}s`, t);
+        const band = Math.max(gt, p.H - gb);
+        if (p.boxes.some((b) => /(^|\s)(dev|tile|pains|stackcard)(\s|$)/.test(b.cls)) && band > p.H * 0.12) add("warn", "balance", `${label}: an empty band ${Math.round((band / p.H) * 100)}% of the frame tall at the ${gt > p.H - gb ? "top" : "bottom"} at ${t}s`, t);
+      }
+    }
     if (!noDevice && (s.visual.assets || []).some((id) => liveIds.has(id)) && !p.clones) add("error", "no-live", `${label}: the script shows a live product screen here, but none is visible at ${t}s`, t);
     const seen = norm(p.texts.map((x) => x.text).join(""));
     const words = String(s.headline || "").split(/\s+/).filter((w) => norm(w).length > 1).slice(0, 3);
@@ -122,7 +133,7 @@ export async function safetyNet({ htmlFile, brief, brand, script, runDir, brandD
   const history = [];
   let cur = await check("v0"), best = { html: readSrc(), r: cur, tag: "v0" };
   history.push({ tag: "v0", errors: score(cur), warnings: cur.issues.length - score(cur) });
-  log(`  v0: ${score(cur)} errors, ${cur.issues.length - score(cur)} warnings`); cur.issues.filter((x) => x.sev === "error").slice(0, 6).forEach((x) => log(`   ✗ ${x.msg}`));
+  log(`  v0: ${score(cur)} errors, ${cur.issues.length - score(cur)} warnings`); cur.issues.filter((x) => x.code === "balance").slice(0, 4).forEach((x) => log(`   ⚖ ${x.msg}`)); cur.issues.filter((x) => x.sev === "error").slice(0, 6).forEach((x) => log(`   ✗ ${x.msg}`));
   // composed videos (code from recipes) are not patched by the model — the edits could never apply to generated HTML;
   // QA problems go back to the director instead, and compose runs again (one retry)
   const composed = brief.composer !== "freeform";
