@@ -99,9 +99,11 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
   const live = assets.filter((a) => /^live-/.test(a.kind)).map((a) => ({ id: a.id, kind: a.kind, shows: a.shows }));
   const steer = [
     request ? `CLIENT CHANGE REQUEST (apply it through highlight, callouts, pains, focus, number, button, or another asset for a scene): ${request}` : "",
-    fixIssues?.length ? `QA FOUND THESE PROBLEMS IN THE PREVIOUS COMPOSITION — change the plan so they do not happen again (other focus regions, shorter callouts/button text, another asset for a scene whose screen did not work):\n${fixIssues.map((x) => "- " + x.msg).join("\n")}` : "",
+    fixIssues?.length ? `QA FOUND THESE PROBLEMS IN THE PREVIOUS COMPOSITION — fix them through the text only: shorter callouts / button text, other highlight words, other focus regions. Every scene keeps its asset (do not set asset):\n${fixIssues.map((x) => "- " + x.msg).join("\n")}` : "",
   ].filter(Boolean).join("\n\n");
   let plan = {};
+  // a QA rebuild never changes what a scene plays: each scene keeps the asset its previous plan gave it
+  const prevPlan = fixIssues && fs.existsSync(path.join(runDir, "plan.json")) ? JSON.parse(fs.readFileSync(path.join(runDir, "plan.json"), "utf8")) : null;
   try {
     const out = await callTool({ ledger, step: "direct", model: models.qa || models.script, maxTokens: 3000, tool, content: `BRAND: ${JSON.stringify({ name: brand.name, name_ar: brand.name_ar, selling_points: brand.selling_points, voice: brand.voice })}\n\nSCENES:\n${JSON.stringify(scenes, null, 1)}${steer ? `\n\nLIVE ASSETS:\n${JSON.stringify(live)}\n\n${steer}` : ""}`,
       system: "You direct a motion-graphics ad. Write the benefit chips (callouts), pain cards and button text in the SAME language and dialect as the headlines (Arabic headlines → Arabic chips; a product name may stay as written). For each scene pick the highlight word, short benefit chips, pain cards, camera focus regions, the offer number and the button text. Copy words exactly; never invent numbers or features. Arabic stays in the same dialect as the headlines." });
@@ -111,6 +113,7 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
     script.scenes.forEach((sc, i) => { const p = plan[i + 1]; if (sc._rewrite && p?.headline) { sc.headline = p.headline; if (typeof p.sub === "string") sc.sub = p.sub; rewrote++; } delete sc._rewrite; });
     if (rewrote) { fs.writeFileSync(path.join(runDir, "script.json"), JSON.stringify(script, null, 2)); log(`  ✎ ${rewrote} scene(s) rewritten: no input to show for them`); }
   } catch (e) { log(`  ! director failed (${e.message}) — composing with defaults`); }
+  if (fixIssues) for (const n of Object.keys(plan)) { const was = prevPlan?.[n]?.asset; if (was) plan[n].asset = was; else delete plan[n].asset; }
   fs.writeFileSync(path.join(runDir, "plan.json"), JSON.stringify(plan, null, 2));
   const { html, recipes, layouts, fingerprint, clipNotes } = compose({ brief, brand, script, assets, plan, art, brandDir, runDir });
   if (brief.flowClips) { const rec = (brand.screens || []).filter((x) => x.clones?.clip).length, dir = path.join(brandDir, "clips"), files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(".mp4")).length : 0; log(`  🎬 flow clips: ${rec} recorded in this brand, ${files} clip file(s) on disk`); }

@@ -94,6 +94,33 @@ function sampleFor(intent, sc, brandDir) {
  * frame becomes its parent screen, zoomed to that block; a clone that still has dead images makes its scene use another
  * live asset of the same kind. Patches the clones in place, changes scene assets in the script. Returns what changed.
  */
+/**
+ * Dead screens: a live screen with almost nothing of its own on it — page-specific text (what is left once the app's
+ * chrome, repeated across its screens, and the navigation are set aside) under 60 characters, and content keys covering
+ * under 10% of the first screen. Such a screen is a black / empty window in a video. Cached per brand.
+ */
+const deadCache = new Map();
+export function deadScreens(brandDir, brand) {
+  if (deadCache.has(brandDir)) return deadCache.get(brandDir);
+  const textsOf = (c) => [...String(c.html || "").replace(/<style[\s\S]*?<\/style>/g, "").matchAll(/>([^<>]+)</g)].map((m) => m[1].replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim()).filter((t) => t.length > 1);
+  const appIds = (brand.screens || []).filter((x) => x.app).map((x) => x.clones?.screen?.id || x.id);
+  const appTexts = appIds.map((id) => loadClone(brandDir, id)).filter(Boolean).map((c) => new Set(textsOf(c)));
+  const freq = new Map(); for (const set of appTexts) for (const t of set) freq.set(t, (freq.get(t) || 0) + 1);
+  const chrome = new Set(appTexts.length >= 3 ? [...freq].filter(([, n]) => n >= appTexts.length * 0.4).map(([t]) => t) : []);
+  const dead = new Map();
+  for (const f of fs.existsSync(path.join(brandDir, "clones")) ? fs.readdirSync(path.join(brandDir, "clones")) : []) {
+    if (!f.endsWith(".json") || f === "fonts.json") continue;
+    const c = loadClone(brandDir, f.replace(/\.json$/, "")); if (!c?.html) continue;
+    const nav = new Set((c.keys || []).filter((k) => k.role === "nav").map((k) => String(k.text || "").trim()));
+    const own = textsOf(c).filter((t) => !chrome.has(t) && !nav.has(t)), chars = own.join("").length;
+    const H = Math.min(c.h, Math.round(c.w * 1.25)), N = 16, cells = new Uint8Array(N * N);
+    for (const k of (c.keys || []).filter((k) => !["nav", "part"].includes(k.role) && !(k.box[2] < c.w * 0.3 && k.box[3] > H * 0.5))) { const [x, y, w, h] = k.box; if (y > H) continue; for (let j = Math.max(0, Math.floor((y / H) * N)); j <= Math.min(N - 1, Math.floor(((y + h) / H) * N)); j++) for (let i = Math.max(0, Math.floor((x / c.w) * N)); i <= Math.min(N - 1, Math.floor(((x + w) / c.w) * N)); i++) cells[j * N + i] = 1; }
+    const cover = cells.reduce((a, b) => a + b, 0) / (N * N);
+    if (chars < 60 && cover < 0.1) dead.set(c.id || f.replace(/\.json$/, ""), `${chars} characters of its own, ${Math.round(cover * 100)}% content`);
+  }
+  deadCache.set(brandDir, dead); return dead;
+}
+
 export function repairAssets({ script, assets, brandDir, brand, log = () => {} }) {
   const byId = Object.fromEntries(assets.map((a) => [a.id, a])), changes = [];
   const ok = (rel) => { const f = path.join(brandDir, rel); if (!fs.existsSync(f)) return false; const n = fs.statSync(f).size; return n >= 400 && (!/\.svg$/i.test(f) || /<svg/i.test(fs.readFileSync(f, "utf8").slice(0, 3000))); };
@@ -134,6 +161,15 @@ export function repairAssets({ script, assets, brandDir, brand, log = () => {} }
       || assets.find((a) => { const f = flowInfo(a, brandDir); return f.input && !f.nav && !a.empty && !used.has(a.id) && sameScreen(f.result, byId[id].shows); })
       || assets.find((a) => a.kind === byId[id].kind && !a.empty && !used.has(a.id));
     if (alt) { sc.visual = { ...sc.visual, assets: [alt.id] }; used.add(alt.id); changes.push(`scene ${i + 1}: ${id} is empty → ${alt.id}`); }
+  });
+  // a dead screen (no content of its own: an empty black window) is never shown: another live asset of its kind, else the
+  // scene goes without a screen (its text carries it)
+  const dead = deadScreens(brandDir, brand);
+  script.scenes.forEach((sc, i) => {
+    const r = recipeFor(sc, byId, brandDir, brand), shown = r.ui || r.b; if (!shown || !dead.has(shown)) return;
+    const kind = r.asset?.kind, alt = assets.find((a) => a.kind === kind && !used.has(a.id) && !a.empty && (() => { const r2 = recipeFor({ ...sc, visual: { ...sc.visual, assets: [a.id] } }, byId, brandDir, brand); const s2 = r2.ui || r2.b; return s2 && !dead.has(s2); })());
+    if (alt) { sc.visual = { ...sc.visual, assets: [alt.id] }; used.add(alt.id); changes.push(`scene ${i + 1}: ${shown} is a dead screen (${dead.get(shown)}) → ${alt.id}`); }
+    else { sc.visual = { ...sc.visual, assets: (sc.visual.assets || []).filter((x) => !LIVE.test(byId[x]?.kind || "")) }; changes.push(`scene ${i + 1}: ${shown} is a dead screen (${dead.get(shown)}) → no screen`); }
   });
   if (changes.length) log(`  🩹 assets: ${changes.join(" · ")}`);
   return changes;
@@ -214,7 +250,14 @@ function matchScore(sc, f) {
 }
 const sameScreen = (result, shows) => { const w = (t) => new Set(String(t || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((x) => x.length > 3)); const a = w(result), b = w(String(shows || "").split(" — ")[0]); return [...a].some((x) => b.has(x)); };
 
-const withAsset = (sc, p, byId) => (p.asset && byId[p.asset] && LIVE.test(byId[p.asset].kind) ? { ...sc, visual: { ...sc.visual, assets: [p.asset] } } : sc);
+const withAsset = (sc, p, byId, brandDir, brand) => {
+  if (!p.asset || !byId[p.asset] || !LIVE.test(byId[p.asset].kind)) return sc;
+  // a scene that promises an input → result keeps its flow; a dead screen is never swapped in
+  const flow = (sc.visual?.assets || []).some((x) => byId[x]?.kind === "live-flow" && byId[x].input_result);
+  if (flow && promised(sc) && byId[p.asset].kind !== "live-flow") return sc;
+  if (brandDir && deadScreens(brandDir, brand).has(p.asset.replace(/-phone$/, "-mobile"))) return sc;
+  return { ...sc, visual: { ...sc.visual, assets: [p.asset] } };
+};
 
 // ─────────────────────────── the art-direction vocabulary ───────────────────────────
 export const LAYOUT_LIB = ["photo", "split", "card", "stack", "device", "bigtype", "tiles", "ticker"];
@@ -349,7 +392,7 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
   const logo = brand.logo?.file ? rel(brand.logo.file) : null;
   const gfonts = (F.google_fonts || []).slice(0, 3).map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@400;600;800;900`).join("&");
   const disp = `'${F.display || F.google_fonts?.[0] || "Cairo"}', 'Noto Kufi Arabic', sans-serif`, body = `'${F.body || F.google_fonts?.[1] || F.display || "Cairo"}', 'Noto Sans Arabic', sans-serif`;
-  const bg = P.background || "#0b0d12", ink = P.ink || "#fff", muted = P.muted || "#9aa0b4", primary = P.primary || "#3b82f6", accent = P.accent || primary, surface = P.surface || "#13161d";
+  const bg = P.background || brand.measured?.backgrounds?.[0]?.value || "#0b0d12", ink = P.ink || "#fff", muted = P.muted || "#9aa0b4", primary = P.primary || "#3b82f6", accent = P.accent || primary, surface = P.surface || "#13161d";
   const grad = P.gradient || `linear-gradient(90deg, ${primary}, ${accent})`;
   const dark = (P.theme || "dark") === "dark";
   const portrait = H > W;
@@ -372,7 +415,7 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
     const p = { ...(plan[n] || {}) }; if (Array.isArray(p.focus)) p.focus = p.focus.map((f) => String(f).match(/part:\d+|\bk\d+\b/)?.[0]).filter(Boolean);
     const a = art.scenes[i] || { recipe: "type", layout: "bigtype" };
     // the director may have swapped the asset (a change request / QA retry): the mechanics follow the asset, the layout must hold it
-    const r = recipeFor(withAsset(sc, p, byId), byId, brandDir, brand);
+    const r = recipeFor(withAsset(sc, p, byId, brandDir, brand), byId, brandDir, brand);
     let recipe = a.recipe, layout = a.layout;
     if (DEVICE_RECIPES.includes(r.recipe)) { recipe = r.recipe; if (!DEVICE_LAYOUTS.includes(layout)) layout = "device"; }
     else if (DEVICE_RECIPES.includes(recipe)) { recipe = OLD[r.recipe] || "type"; layout = "bigtype"; }
@@ -531,13 +574,13 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
 html,body{margin:0;background:${bg}}
 #stage{width:${W}px;height:${H}px;position:relative;overflow:hidden;background:${bg};color:${ink};font-family:${body};--r:${S.radius}px}
 #bg{position:absolute;inset:0;overflow:hidden}
-#bg .blob{position:absolute;width:1300px;height:1300px;border-radius:50%;opacity:${dark ? 0.55 : 0.35};will-change:transform}
-#bg .blob.faint{opacity:${dark ? 0.25 : 0.15}}
+#bg .blob{position:absolute;width:1300px;height:1300px;border-radius:50%;opacity:${dark ? 0.24 : 0.16};will-change:transform}
+#bg .blob.faint{opacity:${dark ? 0.12 : 0.08}}
 #bg .b1{left:-460px;top:-400px;background:radial-gradient(closest-side,${primary},transparent)}
 #bg .b2{right:-500px;top:${Math.round(H * 0.3)}px;background:radial-gradient(closest-side,${accent},transparent)}
-#bg .b3{left:${Math.round(W * 0.1)}px;bottom:-620px;background:radial-gradient(closest-side,${primary},transparent);opacity:${dark ? 0.3 : 0.2}}
+#bg .b3{left:${Math.round(W * 0.1)}px;bottom:-620px;background:radial-gradient(closest-side,${primary},transparent);opacity:${dark ? 0.14 : 0.1}}
 #bg .grid{position:absolute;inset:-50%;background-image:linear-gradient(${dark ? "rgba(255,255,255,.06)" : "rgba(0,0,0,.06)"} 1px,transparent 1px),linear-gradient(90deg,${dark ? "rgba(255,255,255,.06)" : "rgba(0,0,0,.06)"} 1px,transparent 1px);background-size:72px 72px;transform:perspective(900px) rotateX(58deg);transform-origin:50% 0;top:45%}
-#bg .mesh{position:absolute;inset:-25%;background:radial-gradient(at 20% 20%,${primary}88,transparent 45%),radial-gradient(at 80% 15%,${accent}77,transparent 45%),radial-gradient(at 50% 90%,${surface},transparent 60%);background-size:160% 160%}
+#bg .mesh{position:absolute;inset:-25%;background:radial-gradient(at 20% 20%,${primary}2e,transparent 45%),radial-gradient(at 80% 15%,${accent}24,transparent 45%),radial-gradient(at 50% 90%,${surface},transparent 60%);background-size:160% 160%}
 #bg .tex{position:absolute;inset:-10%;background-image:${noise};opacity:${dark ? 0.12 : 0.08}}
 #bg .vign{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,transparent 40%,${dark ? "rgba(0,0,0,.45)" : "rgba(0,0,0,.08)"})}
 #bg .bgph{position:absolute;inset:0;overflow:hidden}#bg .bgph img{width:100%;height:100%;object-fit:cover}
@@ -595,7 +638,7 @@ ${hiCss}
 .tiles{position:absolute;left:${m}px;right:${m}px;top:${portrait ? 760 : Math.round(H * 0.42)}px;display:grid;grid-template-columns:1fr 1fr;gap:26px}
 .tile{height:${portrait ? 400 : 240}px;overflow:hidden;opacity:0}.tile img{width:100%;height:100%;object-fit:cover;object-position:top}
 .tile.txt{display:flex;align-items:center;justify-content:center;padding:30px;font-size:44px;font-weight:800;text-align:center;line-height:1.3}
-.tick{position:absolute;left:${SX}px;right:${SX}px;overflow:hidden;direction:ltr}.track{display:flex;width:max-content}.track .half{display:flex;gap:26px;padding-inline-end:26px}
+.tick{position:absolute;left:${SX}px;right:${SX}px;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent);mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent);direction:ltr}.track{display:flex;width:max-content}.track .half{display:flex;gap:26px;padding-inline-end:26px}
 .ti{flex:none;padding:26px 44px;font-size:46px;font-weight:800;white-space:nowrap;direction:${rtl ? "rtl" : "ltr"}}.ti.logo{padding:18px 36px;display:flex;align-items:center}.ti.logo img{height:64px}
 .l-ticker .head{top:${portrait ? 520 : 120}px}
 .r-type.l-bigtype .biglogo{position:absolute;left:50%;top:${portrait ? 330 : 60}px;height:150px;transform:translateX(-50%)}

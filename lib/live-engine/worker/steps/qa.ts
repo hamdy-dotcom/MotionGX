@@ -182,9 +182,14 @@ export async function safetyNet({ htmlFile, brief, brand, script, runDir, brandD
     log(composed ? `  ${score(best.r)} errors → the director gets them, compose runs again (one retry)` : `  ${severe(best.r)} scenes still broken → one full rebuild`);
     await rebuild(best.r.issues.filter((x) => x.sev === "error"));
     const r = await check("v3");
-    history.push({ tag: "v3-rebuild", errors: score(r), warnings: r.issues.length - score(r) });
-    log(`  rebuild → ${score(r)} errors`);
-    if (score(r) < score(best.r)) best = { html: readSrc(), r, tag: "v3" };
+    // what each scene plays (recipe per scene): a rebuild may fix text, position and size — never downgrade a scene
+    const plays = (html) => Object.fromEntries([...String(html).matchAll(/K\.R\.(\w+)\(tl,\{sc:"#sc(\d+)"/g)].map((m) => [m[2], m[1]]));
+    const before = plays(best.html), after = plays(readSrc()), changed = Object.keys(before).filter((n) => after[n] !== before[n]);
+    history.push({ tag: "v3-rebuild", errors: score(r), warnings: r.issues.length - score(r), changed });
+    log(`  rebuild → ${score(r)} errors${changed.length ? ` · scenes changed what they play: ${changed.map((n) => `${n} ${before[n]}→${after[n] || "none"}`).join(", ")}` : ""}`);
+    if (changed.length) log(`  ↺ rebuild rejected: it changed what ${changed.length} scene(s) play — shipping ${best.tag}`);
+    else if (score(r) < score(best.r)) best = { html: readSrc(), r, tag: "v3" };
+    else log(`  ↺ rebuild not clearly better (${score(r)} vs ${score(best.r)} errors) — shipping ${best.tag}`);
   }
   writeSrc(best.html);
   const report = { shipped: best.tag, errors: score(best.r), history, issues: best.r.issues, sheet: best.r.sheet && path.basename(best.r.sheet) };
