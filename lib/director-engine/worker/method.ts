@@ -15,7 +15,8 @@ in the soundtrack that doesn't earn its place.
 1. INSPECT the material (tools: list_files, read_file). Then answer the 9-question rubric (below) in brag-plan.md.
 2. PLAN: write brag-plan.md (format below). Then call set_storyboard with the same scenes — it writes the studio's
    script and makes the music bed (it returns the beat grid).
-3. BUILD the composition in composition/video.src.html (write_file). Every frame is a pure function of time.
+3. BUILD the composition in composition/video.src.html: write_file it ONCE, then fix it with edit_file (small exact
+   replacements). Every frame is a pure function of time. Look at a clone with inspect_clone (never its raw file).
 4. CHECK before the full render: call snapshot on stills from EVERY scene and from mid-transition, look at them, and
    fix overflow, collisions, low contrast, unreadable text and anything ungrounded. Then call check — it is the single
    gate before render: fix every error it reports and run it again until it passes.
@@ -158,6 +159,27 @@ composition/video.src.html is ONE self-contained page at exactly W×H CSS px (gi
   other sizes), at a readable size (≥ 34px for lines the viewer reads at 1080 wide), with contrast ≥ 4.5:1
   (≥ 3:1 for large bold type) against what is behind it. Use the brand's exact colours and fonts.
 - RTL languages: dir="rtl" on the text containers, right-aligned unless centred.
+
+# Quick reference (so you don't have to open these files)
+
+lib/kit.js (include it after lib/gsap.min.js; tl = a paused gsap.timeline()):
+- K.done(tl, duration) — call it last: it sets window.__duration, window.__seek (tl.seek) and window.__ready (fonts +
+  images) for you. Add window.__sfx yourself.
+- K.focus(tl, ui, target, at, { dur = 0.8, zoom, max = 4, ease }) — camera onto a clone: ui = the data-clone element's
+  selector, target = "kN" (a key) | "part:N" (a block) | [x,y,w,h] (clone px) | "all". dur 0 = a cut.
+- K.scrollTo(tl, ui, y, at, dur = 1.2) — scroll the clone like a page (width-fit).
+- K.typeInto(tl, ui, "kN", at, dur = 1.2, text?) — types into a field key (its captured value unless you give text).
+- K.tap(tl, ui, "kN", at, { dur }) — a finger / cursor taps a key (ripple). K.press(tl, el, at) — a button press.
+- K.type(tl, "#sel", text, at, dur) — typewriter text in your own element. K.count(tl, "#sel", from, to, at, dur) —
+  a number counting up. K.swap(tl, a, b, at, dur = 0.4) — swap two layers. K.flash(tl, t, strength) — a flash cut.
+- K.split(".sel") — wrap each word in <span class="w"> so words can stagger in.
+Clip frames: one <img> per clip; in __seek set img.src = "clipframes/<id>/" + String(1 + Math.min(n - 1, Math.floor(t * fps))).padStart(4, "0") + ".jpg".
+Safest sound effects (sfx/…, low high-frequency risk): major reveal / hard transition → impact/impactSoft_medium_000…004.ogg ·
+general accent → interface/bong_001.ogg · button press / selection / simulated tap → interface/click_002.ogg, click_003.ogg,
+click_005.ogg, ui/click2.ogg · soft hover → ui/rollover2.ogg · toggle → interface/switch_002.ogg, switch_007.ogg ·
+card / item sequence → casino/card-slide-1.ogg · success / logo payoff → impact/impactBell_heavy_000.ogg, _003, _004 ·
+typing → keyboard/keypress-001…032.wav · element landing → interface/drop_001.ogg, drop_002.ogg. Open
+sfx/sfx-analysis.md only for something not listed.
 
 # Self-review before finish
 

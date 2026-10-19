@@ -61,7 +61,7 @@ export async function runDirector(job: JobFile, dirs: { root: string; brandDir: 
     log(`↺ director: resuming the agent of the previous version (${agent.messages.length} messages) for ${job.mode === "lines" ? "edited lines" : "a change request"}`);
   } else {
     if (job.mode === "lines" || job.mode === "edit") log("! director: the previous version has no saved agent run — starting a new one with the edit as direction");
-    agent.addUser([{ type: "text", text: firstMessage({ brand, cap, brief, language, layout, W, H, length, edit: job.mode === "edit" ? job.edit?.request : undefined }) }]);
+    agent.addUser([{ type: "text", text: firstMessage({ brand, cap, brandDir, brief, language, layout, W, H, length, edit: job.mode === "edit" ? job.edit?.request : undefined }) }]);
   }
 
   try {
@@ -94,9 +94,22 @@ export async function runDirector(job: JobFile, dirs: { root: string; brandDir: 
 }
 
 /** the brief + what the capture holds, so the agent starts from the inventory instead of crawling */
-function firstMessage(o: { brand: any; cap: any; brief: JobFile["brief"]; language: string; layout: string; W: number; H: number; length: number; edit?: string }) {
+/** one line per clone: size, blocks, keys by role — enough to choose a screen without opening it */
+function cloneSummary(brandDir: string, id?: string) {
+  if (!id) return null;
+  const f = path.join(brandDir, "clones", `${id}.json`);
+  if (!fs.existsSync(f)) return null;
+  try {
+    const c = JSON.parse(fs.readFileSync(f, "utf8")), keys = (c.keys || []) as any[], roles: Record<string, number> = {};
+    for (const k of keys) if (k.part == null) roles[k.role] = (roles[k.role] || 0) + 1;
+    return `${c.w}×${c.h} · ${keys.filter((k) => k.part != null).length} blocks · ${Object.entries(roles).map(([r, n]) => `${n} ${r}`).join(", ")}`;
+  } catch { return null; }
+}
+
+function firstMessage(o: { brand: any; cap: any; brandDir: string; brief: JobFile["brief"]; language: string; layout: string; W: number; H: number; length: number; edit?: string }) {
   const { brand } = o;
-  const screens = (brand.screens || []).map((s: any) => ({ id: s.id, label: s.label, shows: s.shows, app: !!s.app, customer: !!s.customer, empty: !!s.empty, features: s.features, screenshot: s.view || s.file, clones: Object.fromEntries(Object.entries(s.clones || {}).filter(([k]) => k !== "clip").map(([k, v]: any) => [k, v?.id])), flow: s.clones?.before ? { before: s.clones.before.id, action: s.clones.before.action, typed: s.clones.before.typed ?? null } : null, clip: s.clones?.clip ? { file: s.clones.clip.file, seconds: s.clones.clip.dur } : null }));
+  const sum = (cid?: string) => cloneSummary(o.brandDir, cid);
+  const screens = (brand.screens || []).map((s: any) => ({ id: s.id, label: s.label, shows: s.shows, app: !!s.app, customer: !!s.customer, empty: !!s.empty, features: s.features, screenshot: s.view || s.file, clones: Object.fromEntries(Object.entries(s.clones || {}).filter(([k]) => k !== "clip").map(([k, v]: any) => [k, v?.id])), flow: s.clones?.before ? { before: s.clones.before.id, action: s.clones.before.action, typed: s.clones.before.typed ?? null } : null, clip: s.clones?.clip ? { file: s.clones.clip.file, seconds: s.clones.clip.dur } : null, clone_summary: Object.fromEntries(Object.entries(s.clones || {}).filter(([k]) => k !== "clip").map(([k, v]: any) => [k, sum(v?.id)])) }));
   const inventory = {
     brand: { name: brand.name, name_ar: brand.name_ar, tagline: brand.tagline, summary: brand.summary, audience: brand.audience, voice: brand.voice, selling_points: brand.selling_points, look: brand.look, palette: brand.palette, fonts: brand.fonts, logo: brand.logo, site: brand.site },
     features: (brand.features || []).map((f: any) => ({ name: f.name, detail: f.detail, benefit: f.benefit, evidence: f.evidence })),
@@ -119,7 +132,7 @@ function firstMessage(o: { brand: any; cap: any; brief: JobFile["brief"]; langua
     `CAPTURE INVENTORY (root "capture"; in the composition the same files are under capture/…; clones are used with data-clone ids; test_data_images are the capture agent's test data — product-demo content, never brand photos)`,
     JSON.stringify(inventory),
     ``,
-    `WORK DIR (root "work"): write brag-plan.md and composition/video.src.html there. composition/lib/gsap.min.js and lib/kit.js, composition/sfx/ (CC0 effects + sfx/sfx-analysis.md) and composition/capture/ are ready.`,
+    `Use inspect_clone to look inside a clone (not read_file on its JSON). WORK DIR (root "work"): write brag-plan.md and composition/video.src.html there (then fix it with edit_file). composition/lib/gsap.min.js and lib/kit.js, composition/sfx/ (CC0 effects + sfx/sfx-analysis.md) and composition/capture/ are ready.`,
     `Start with Inspect.`,
   ].filter((l) => l !== "").join("\n");
 }

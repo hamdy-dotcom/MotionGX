@@ -37,6 +37,8 @@ function inside(root: string, rel: string, write = false) {
 const TOOLS: Anthropic.Tool[] = [
   { name: "list_files", description: "List a folder. root 'capture' = the product capture (read-only), 'work' = your work dir (composition/, brag-plan.md …).", input_schema: { type: "object", required: ["root"], properties: { root: { type: "string", enum: ["capture", "work"] }, path: { type: "string", description: "folder inside the root (default: the root)" }, depth: { type: "integer", description: "1 (default) or 2" } } } },
   { name: "read_file", description: "Read a file. Text comes back as text (long files are cut; use offset to page). Images (.jpg/.png/.webp) come back as an image you can look at.", input_schema: { type: "object", required: ["root", "path"], properties: { root: { type: "string", enum: ["capture", "work"] }, path: { type: "string" }, offset: { type: "integer", description: "character offset for long text files" } } } },
+  { name: "inspect_clone", description: "What a live clone (real captured UI) holds, compactly: its size, its blocks (part:N with box and text), its keys (kN: role, box, text — fields, buttons, stats, titles, images, rows; acted = what the capture did), whether it is a flow's before/after, and its screenshot. Use this, not the raw clone file: the renderer pastes the real UI in by id. Box = [x, y, w, h] in the clone's own px.", input_schema: { type: "object", required: ["id"], properties: { id: { type: "string", description: "clone id, e.g. 03-ai-generated-landing-page, …-before, …-mobile, …-p05" } } } },
+  { name: "edit_file", description: "Edit a text file in your work dir by exact replacement — the way to fix the composition after its first version (a few hundred characters instead of resending the whole file). Each find must match exactly once (whitespace included); edits apply in order. Fails without changing the file if any find doesn't match.", input_schema: { type: "object", required: ["path", "edits"], properties: { path: { type: "string" }, edits: { type: "array", items: { type: "object", required: ["find", "replace"], properties: { find: { type: "string" }, replace: { type: "string" } } } } } } },
   { name: "write_file", description: "Write a text file in your work dir (brag-plan.md, composition/video.src.html, composition/*.js|css …). Overwrites.", input_schema: { type: "object", required: ["path", "content"], properties: { path: { type: "string" }, content: { type: "string" } } } },
   { name: "clip_frames", description: "Turn a captured flow clip (capture/clips/<id>.mp4, listed in the inventory) into an image sequence: composition/clipframes/<id>/0001.jpg … at the given fps. Returns the frame count, fps, size and duration.", input_schema: { type: "object", required: ["id"], properties: { id: { type: "string", description: "the screen id whose clip to use" }, fps: { type: "integer", description: "default 15" } } } },
   { name: "set_storyboard", description: "Commit the storyboard from brag-plan.md: writes the studio's script (one entry per scene, with its on-screen headline / sub) and makes the music bed. Durations must sum to the brief's duration. Returns the beat grid and the music's drops. Call again if the storyboard changes.", input_schema: { type: "object", required: ["idea", "mood", "scenes"], properties: {
@@ -75,7 +77,7 @@ export class Director {
   }
   private save() {
     const strip = (m: any) => (Array.isArray(m.content) ? { ...m, content: m.content.map((b: any) => (b.type === "image" ? { type: "text", text: "[image]" } : b.type === "tool_result" && Array.isArray(b.content) ? { ...b, content: b.content.map((x: any) => (x.type === "image" ? { type: "text", text: "[image]" } : x)) } : b)) } : m);
-    fs.writeFileSync(this.transcriptFile, JSON.stringify({ model: this.c.model, messages: this.messages.map(strip) }, null, 0));
+    fs.writeFileSync(this.transcriptFile, JSON.stringify({ model: this.c.model, messages: collapse(this.messages.map(strip)) }, null, 0));
   }
   /** a user turn (merged into the previous one when it is also the user's: the API needs alternating roles) */
   addUser(content: Block[]) {
@@ -131,7 +133,7 @@ export class Director {
       if (rest.type === "tool_result" && Array.isArray(rest.content)) return { ...rest, content: rest.content.map((x: any) => clean(x, keepImages)) };
       return rest;
     };
-    const msgs: any[] = this.messages.map((m, i) => ({ role: m.role, content: Array.isArray(m.content) ? (m.content as any[]).map((b) => clean(b, i === n - 1)) : m.content }));
+    const msgs: any[] = collapse(this.messages.map((m, i) => ({ role: m.role, content: Array.isArray(m.content) ? (m.content as any[]).map((b) => clean(b, i === n - 1)) : m.content })));
     const mark = (m: any, ok: (b: any) => boolean) => {
       if (!m || !Array.isArray(m.content) || !m.content.length) return false;
       const k = m.content.length - 1, b = m.content[k];
@@ -175,9 +177,28 @@ export class Director {
       case "read_file": {
         const p = inside(root(a.root), a.path);
         if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) throw new Error(`no such file: ${a.path}`);
-        if (IMG.test(p)) { const buf = fs.readFileSync(p); return [imageBlock(buf.length > 400_000 || /\.(png|webp)$/i.test(p) ? await smallJpeg(buf, 900) : buf), { type: "text", text: a.path }]; }
+        if (IMG.test(p)) return [imageBlock(await smallJpeg(fs.readFileSync(p), 640)), { type: "text", text: a.path }]; // browsing: 640 px (your own stills come from snapshot)
+        const cloneId = a.root === "capture" && /^clones\/[^/]+\.json$/.test(String(a.path).replace(/^\.?\//, "")) ? path.basename(p, ".json") : null;
+        if (cloneId && cloneId !== "fonts") return cloneView(brandDir, cloneId);
         const text = fs.readFileSync(p, "utf8"), off = Math.max(0, a.offset || 0);
         return text.length - off > TEXT_MAX ? `${text.slice(off, off + TEXT_MAX)}\n…[cut: ${text.length} characters; read on with offset ${off + TEXT_MAX}]` : text.slice(off);
+      }
+      case "inspect_clone": return cloneView(brandDir, String(a.id || ""));
+      case "edit_file": {
+        const p = inside(workDir, a.path, true);
+        if (!fs.existsSync(p)) throw new Error(`no such file: ${a.path} (write it first)`);
+        let text = fs.readFileSync(p, "utf8");
+        const edits = (a.edits || []) as { find: string; replace: string }[];
+        if (!edits.length) throw new Error("no edits");
+        edits.forEach((e, i) => {
+          const n = text.split(String(e.find)).length - 1;
+          if (!e.find || n !== 1) throw new Error(`edit ${i + 1}: find matches ${n} times (it must match exactly once) — nothing was changed`);
+          text = text.replace(String(e.find), () => String(e.replace ?? ""));
+        });
+        if (text.length > WRITE_MAX) throw new Error("file too large (2 MB max)");
+        fs.writeFileSync(p, text);
+        if (/composition\/video\.src\.html$/.test(p)) await this.c.stage("build");
+        return `edited ${path.relative(workDir, p)}: ${edits.length} change(s), now ${text.length} characters`;
       }
       case "write_file": {
         const p = inside(workDir, a.path, true), content = String(a.content ?? "");
@@ -286,8 +307,51 @@ export class Director {
   }
 }
 
+/**
+ * One copy of each file in the history: a read_file result is collapsed once the same file is read or written again
+ * later; a write_file's content once the same file is written or read again later (edits after a write keep it — the
+ * agent's edits need the text it wrote). Collapsed copies become one line; the latest version is always there.
+ */
+export function collapse(messages: any[]) {
+  const key = (u: any) => (u.name === "read_file" ? `${u.input?.root}:${String(u.input?.path || "").replace(/^\.?\//, "")}` : ["write_file", "edit_file"].includes(u.name) ? `work:${String(u.input?.path || "").replace(/^\.?\//, "")}` : null);
+  const uses = new Map<string, any>(), events: { pos: number; key: string; kind: string; id: string }[] = [];
+  let pos = 0;
+  for (const m of messages) if (Array.isArray(m.content)) for (const b of m.content) { pos++; if (b.type === "tool_use") { uses.set(b.id, b); const k = key(b); if (k) events.push({ pos, key: k, kind: b.name, id: b.id }); } }
+  const laterFor = (e: { pos: number; key: string }, kinds: string[]) => events.some((x) => x.key === e.key && x.pos > e.pos && kinds.includes(x.kind));
+  const staleRead = new Set(events.filter((e) => e.kind === "read_file" && laterFor(e, ["read_file", "write_file"])).map((e) => e.id));
+  const staleWrite = new Set(events.filter((e) => e.kind === "write_file" && laterFor(e, ["read_file", "write_file"])).map((e) => e.id));
+  if (!staleRead.size && !staleWrite.size) return messages;
+  return messages.map((m) => (!Array.isArray(m.content) ? m : { ...m, content: m.content.map((b: any) => {
+    if (b.type === "tool_use" && staleWrite.has(b.id)) return { ...b, input: { ...b.input, content: `[old version of ${b.input?.path} — ${String(b.input?.content || "").length} characters; a later version was written or read]` } };
+    if (b.type === "tool_result" && staleRead.has(b.tool_use_id) && typeof b.content === "string" && b.content.length > 400) { const u = uses.get(b.tool_use_id); return { ...b, content: `[old copy of ${u?.input?.root}:${u?.input?.path} — the current version was read or written later]` }; }
+    return b;
+  }) }));
+}
+
+/** a clone, compactly: size, blocks, keys (what K.focus / K.typeInto / K.tap can target), flow role, screenshot */
+export function cloneView(brandDir: string, id: string) {
+  const f = path.join(brandDir, "clones", `${id}.json`);
+  if (!/^[\w.-]+$/.test(id) || !fs.existsSync(f)) throw new Error(`no clone ${id} (see the inventory's clone ids)`);
+  const c = JSON.parse(fs.readFileSync(f, "utf8"));
+  const brand = fs.existsSync(path.join(brandDir, "brand.json")) ? JSON.parse(fs.readFileSync(path.join(brandDir, "brand.json"), "utf8")) : {};
+  const screen = (brand.screens || []).find((s: any) => [s.id, `${s.id}-before`, `${s.id}-mobile`].includes(id) || id.startsWith(`${s.id}-p`));
+  const part = (brand.parts || []).find((p: any) => p.id === id);
+  const box = (b: number[]) => `[${(b || []).map((v) => Math.round(v)).join(",")}]`, t = (s: any, n = 60) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+  const keys = (c.keys || []) as any[], parts = keys.filter((k) => k.part != null);
+  const lines = [
+    `clone ${id}: ${c.w}×${c.h} px · ${c.label || ""}${c.action ? ` · flow before-screen (the capture did: ${t(c.action, 80)})` : ""}${c.leads_to ? ` → ${c.leads_to}` : ""}${c.dir ? ` · dir ${c.dir}` : ""}`,
+    screen ? `screenshot: capture/${screen.view || screen.file} · shows: ${t(screen.shows, 120)}` : part ? `block image: capture/${part.file} · shows: ${t(part.shows, 120)}` : "",
+    `blocks (${parts.length}): ${parts.slice(0, 40).map((p) => `part:${p.part} ${box(p.box)} «${t(p.text, 50)}»`).join(" · ") || "none"}`,
+    `keys (${keys.length - parts.length}):`,
+    ...keys.filter((k) => k.part == null).slice(0, 120).map((k) => `  ${k.k} ${k.role}${k.acted ? ` (acted: ${k.acted})` : ""} ${box(k.box)}${k.text ? ` «${t(k.text)}»` : ""}`),
+  ];
+  return lines.filter(Boolean).join("\n");
+}
+
 function summarize(name: string, a: any) {
   if (name === "write_file") return `${a.path} (${String(a.content || "").length} ch)`;
+  if (name === "edit_file") return `${a.path} (${(a.edits || []).length} edits)`;
+  if (name === "inspect_clone") return a.id;
   if (name === "read_file" || name === "list_files") return `${a.root}:${a.path || "."}`;
   if (name === "snapshot") return JSON.stringify(a.times);
   if (name === "set_storyboard") return `${(a.scenes || []).length} scenes · ${a.mood}`;
