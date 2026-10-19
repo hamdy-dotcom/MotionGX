@@ -35,6 +35,10 @@ export type JobFile = {
   settings?: { phone?: string; email?: string };
   /** local runner only: a previous attempt's finished brand folder — the capture resumes at its upload (no agent, no model calls) */
   resumeFrom?: string;
+  /** which engine runs a video job: the live engine (default) or the director (lib/director-engine, VIDEO_ENGINE=director) */
+  engine?: "live" | "director";
+  /** the director's model and cost cap (DIRECTOR_MODEL, DIRECTOR_MAX_USD) */
+  director?: { model: string; maxUsd: number };
 };
 
 export type LedgerRow = { step: string; model: string; in: number; out: number; cacheRead: number; cacheWrite: number; usd: number; ms: number };

@@ -18,6 +18,7 @@ import { makeMusic } from "./steps/music";
 import { render } from "./steps/render";
 import { safetyNet } from "./steps/qa";
 import type { Sync } from "./sync";
+import { runDirector } from "../../director-engine/worker/run";
 
 export const DEFAULT_MODELS = { agent: "sonnet", profile: "sonnet", script: "sonnet", build: "sonnet", qa: "haiku", repair: "haiku", repair2: "sonnet" };
 
@@ -69,6 +70,8 @@ export async function runJob(job: JobFile, dirs: { root: string; brandDir: strin
   }
 
   // ── video job ──
+  // VIDEO_ENGINE=director: the /brag-method agent makes the whole video (lib/director-engine)
+  if (job.engine === "director") return runDirector(job, dirs, sync);
   const brand = JSON.parse(fs.readFileSync(path.join(brandDir, "brand.json"), "utf8"));
   const scriptFile = path.join(runDir, "script.json");
   // 5 — script (new / direction: one model call; edit lines: the saved script with the edited lines; request a change: the saved script)

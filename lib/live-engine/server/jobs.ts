@@ -10,7 +10,7 @@ import { projectPath } from "@/lib/motion/paths";
 import type { ScriptBeat } from "@motiongx/primitives";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Video } from "@/lib/types";
-import { callbackBase, runnerKind, flowClipsEnabled } from "../config";
+import { callbackBase, runnerKind, flowClipsEnabled, directorEngineEnabled, directorSettings } from "../config";
 import { brandSlug, briefFor, linesFromBeats, STAGE_OF } from "../mapping";
 import { LIVE_BUCKET, storagePath, type Brief, type JobFile, type JobMode, type LedgerRow, type Report, type Step } from "../protocol";
 import { startLocal } from "./runner-local";
@@ -27,7 +27,7 @@ export type JobRow = {
   capture_id: string | null;
   kind: "capture" | "video";
   mode: JobMode | null;
-  input: { edit?: JobFile["edit"]; prevJobId?: string | null; first?: boolean; settings?: JobFile["settings"] };
+  input: { edit?: JobFile["edit"]; prevJobId?: string | null; first?: boolean; settings?: JobFile["settings"]; engine?: JobFile["engine"] };
   status: "queued" | "running" | "waiting_code" | "done" | "failed";
   stage: string | null;
   done_steps: Step[];
@@ -182,10 +182,12 @@ export async function startLiveGeneration(videoId: string, mode: LiveMode) {
     prevJobId = prev.live_job_id;
   }
   const capture = await usableCapture(company.id);
+  // the engine: a new video / another direction takes VIDEO_ENGINE; an edit stays on the engine of the version it edits
+  const engine: JobFile["engine"] = prevJobId ? (((await db.from("live_jobs").select("input").eq("id", prevJobId).maybeSingle()).data?.input as JobRow["input"] | null)?.engine ?? "live") : directorEngineEnabled() ? "director" : "live";
   const edit = mode.kind === "lines" ? { lines: linesFromBeats(mode.beats) } : mode.kind === "edit" ? { request: mode.instruction } : undefined;
   const { data: job, error } = await db
     .from("live_jobs")
-    .insert({ workspace_id: video.workspace_id, video_id: videoId, company_id: company.id, capture_id: capture?.id ?? null, kind: "video", mode: mode.kind, input: { edit, prevJobId, first: !capture }, status: "queued" })
+    .insert({ workspace_id: video.workspace_id, video_id: videoId, company_id: company.id, capture_id: capture?.id ?? null, kind: "video", mode: mode.kind, input: { edit, prevJobId, first: !capture, engine }, status: "queued" })
     .select("*")
     .single();
   if (error || !job) {
@@ -246,8 +248,10 @@ export async function launch(jobId: string) {
   const needBrand = job.kind === "video" || job.done_steps.includes("capture");
   if (needBrand) {
     // a video job reads only the live UI clones, their assets and the library (logo, images) — not the agent / html / probes / screens packs
-    // video jobs read the live UI clones, their assets, the library — and the flow clips when the experiment is on
-    const keep = job.kind === "video" ? (flowClipsEnabled() ? /^(clips|clones|assets|library)\.tgz(\.part\d+)?$/ : /^(clones|assets|library)\.tgz(\.part\d+)?$/) : /./;
+    // video jobs read the live UI clones, their assets, the library — and the flow clips when the experiment is on;
+    // a director job also reads the screenshots and UI blocks (never the agent / html / probes packs, never auth.json)
+    const director = job.kind === "video" && job.input.engine === "director";
+    const keep = director ? /^(clips|clones|assets|library|screens|parts)\.tgz(\.part\d+)?$/ : job.kind === "video" ? (flowClipsEnabled() ? /^(clips|clones|assets|library)\.tgz(\.part\d+)?$/ : /^(clones|assets|library)\.tgz(\.part\d+)?$/) : /./;
     const packs = await listFiles(`${brandPrefix}/_pack`);
     for (const f of packs) if (keep.test(f.split("/").pop()!)) await add(f, `brand/_pack/${f.split("/").pop()}`);
     if (job.kind === "video" && flowClipsEnabled()) console.log(`[live] video job ${job.id}: capture ${capture.id} — ${packs.some((f) => /\/clips\.tgz(\.part\d+)?$/.test(f)) ? "flow clips downloaded" : "this capture has no flow clips (recapture with LIVE_FLOW_CLIPS=1)"}`);
@@ -257,7 +261,8 @@ export async function launch(jobId: string) {
     // edits start from the previous version's saved script (+ its music for "request a change")
     if (job.input.prevJobId) {
       const prevRun = `${job.workspace_id}/runs/${job.video_id}/${job.input.prevJobId}`;
-      const want = job.mode === "edit" ? ["script.json", "assets.json", "music.wav", "art.json"] : ["script.json", "assets.json", "art.json"];
+      // a director edit resumes the same agent: its work dir (plan, composition, transcript), the script and the bed
+      const want = job.input.engine === "director" ? ["director.tgz", "script.json", "music.wav"] : job.mode === "edit" ? ["script.json", "assets.json", "music.wav", "art.json"] : ["script.json", "assets.json", "art.json"];
       const have = await listFiles(prevRun);
       for (const f of want) if (have.includes(`${prevRun}/${f}`)) await add(`${prevRun}/${f}`, `run/${f}`);
     }
@@ -291,6 +296,7 @@ export async function launch(jobId: string) {
     edit: job.input.edit,
     history,
     settings: job.input.settings,
+    ...(job.input.engine === "director" ? { engine: "director" as const, director: directorSettings() } : {}),
   };
   // local runner: a capture whose agent already finished on this machine (but whose upload never reached the app) resumes
   // from that folder at the upload — a relaunch never repeats the agent and its model calls

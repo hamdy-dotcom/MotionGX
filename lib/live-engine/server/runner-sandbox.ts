@@ -53,6 +53,8 @@ async function snapshotId(): Promise<string> {
   }
 }
 
+const walk = (d: string): string[] => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
+
 export async function startSandbox(job: JobFile, attempt: number): Promise<{ sandboxId?: string }> {
   const { Sandbox } = await import("@vercel/sandbox");
   const worker = projectPath("lib", "live-engine", "worker");
@@ -64,6 +66,8 @@ export async function startSandbox(job: JobFile, attempt: number): Promise<{ san
     { path: `${APP}/vendor/kit.js`, content: fs.readFileSync(path.join(worker, "vendor", "kit.js")) },
     { path: `${APP}/vendor/recipes.js`, content: fs.readFileSync(path.join(worker, "vendor", "recipes.js")) },
     { path: `${APP}/job.json`, content: JSON.stringify(job) },
+    // the director engine's CC0 sound effects (lib/director-engine/assets → director-assets/ next to worker.mjs)
+    ...(job.engine === "director" ? walk(projectPath("lib", "director-engine", "assets")).map((f) => ({ path: `${APP}/director-assets/${path.relative(projectPath("lib", "director-engine", "assets"), f)}`, content: fs.readFileSync(f) })) : []),
   ]);
   await sb.runCommand({ cmd: "node", args: ["worker.mjs", "job.json", `/tmp/live/a${attempt}`], cwd: APP, detached: true });
   return { sandboxId: sb.name };
