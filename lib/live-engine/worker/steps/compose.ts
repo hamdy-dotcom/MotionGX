@@ -379,6 +379,14 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
     const img = a.image && photos[a.image] ? photos[a.image] : Object.values(photos)[i % Math.max(1, Object.keys(photos).length)];
     if ((layout === "photo" || layout === "split") && !DEVICE_RECIPES.includes(recipe) && !img) layout = "bigtype";
     used.push(layout);
+    // flow clips (experiment): every flow scene says what it plays — the clip (logged where it is picked), or why not
+    const flowAsset = brief.flowClips ? (sc.visual?.assets || []).map((x) => byId[x]).find((x) => x?.kind === "live-flow") : null;
+    if (flowAsset) {
+      const sid = flowAsset.id.replace(/-flow$/, ""), meta = (brand.screens || []).find((x) => x.id === sid)?.clones?.clip;
+      if (!meta) clipNotes.push(`scene ${n}: no clip recorded for ${sid} in this capture → ${recipe === "replay" ? "clone replay" : recipe}`);
+      else if (recipe !== "replay") clipNotes.push(`scene ${n}: ${sid} plays as "${recipe}"${recipe === "phone" ? " (a customer page on a phone; clips are desktop recordings)" : ""} — its clip is not used`);
+      else if (!portrait) clipNotes.push(`scene ${n}: ${brief.layout} layout — clips play only in the 9:16 window → clone replay`);
+    }
     const cta = recipe === "logo" ? a.cta || art.cta : null;
     // chips speak the headlines' language: with Arabic headlines, a chip without any Arabic letter is dropped
     const chips = (p.callouts || []).filter((c) => !rtl || /[؀-ۿ]/.test(c)).slice(0, 2);

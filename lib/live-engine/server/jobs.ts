@@ -77,13 +77,18 @@ async function usableCapture(companyId: string) {
   const db = admin();
   const { data: profile } = await db.from("brand_profiles").select("raw").eq("company_id", companyId).maybeSingle();
   const saved = (profile?.raw as { source?: string; capture_id?: string } | null)?.source === "live" ? (profile!.raw as { capture_id: string }).capture_id : null;
-  if (saved) {
-    const { data } = await db.from("live_brand_captures").select("*").eq("id", saved).maybeSingle();
-    if (usable(data as CaptureRow | null)) return data as CaptureRow;
-  }
-  // the latest usable capture — unless an older one has more app screens (a newer capture cut short never replaces it)
+  const pinned = saved ? usable(((await db.from("live_brand_captures").select("*").eq("id", saved).maybeSingle()).data as CaptureRow | null) ?? null) : null;
+  // the latest usable capture — unless an older one has more app screens (a newer capture cut short never replaces it).
+  // A capture saved with the company (Add company) is the floor: a newer recapture with at least as many app screens
+  // supersedes it (re-reads improve the brand: more screens, seeded data, flow clips), a weaker one never does.
   const { data } = await db.from("live_brand_captures").select("*").eq("company_id", companyId).eq("status", "done").order("created_at", { ascending: false }).limit(10);
-  const ok = ((data ?? []) as CaptureRow[]).filter((c) => usable(c));
+  const all = ((data ?? []) as CaptureRow[]).filter((c) => usable(c));
+  if (pinned) {
+    const newer = all.find((c) => c.id !== pinned.id && c.created_at > pinned.created_at && (c.app_screens ?? 0) >= (pinned.app_screens ?? 0));
+    if (newer) console.log(`[live] company ${companyId}: capture ${newer.id} (${newer.app_screens} app screens, ${newer.created_at.slice(0, 16)}) supersedes the saved ${pinned.id} (${pinned.app_screens})`);
+    return newer ?? pinned;
+  }
+  const ok = all;
   let best = ok[0] ?? null;
   for (const c of ok.slice(1)) if ((c.app_screens ?? 0) > (best?.app_screens ?? 0)) best = c;
   if (best && ok[0] && best.id !== ok[0].id) console.warn(`[live] company ${companyId}: kept capture ${best.id} (${best.app_screens} app screens) — the newer ${ok[0].id} has only ${ok[0].app_screens ?? 0} (${ok[0].app_status})`);
@@ -241,8 +246,11 @@ export async function launch(jobId: string) {
   const needBrand = job.kind === "video" || job.done_steps.includes("capture");
   if (needBrand) {
     // a video job reads only the live UI clones, their assets and the library (logo, images) — not the agent / html / probes / screens packs
-    const keep = job.kind === "video" ? /^(clips|clones|assets|library)\.tgz(\.part\d+)?$/ : /./; // clips: the flow-clips experiment
-    for (const f of await listFiles(`${brandPrefix}/_pack`)) if (keep.test(f.split("/").pop()!)) await add(f, `brand/_pack/${f.split("/").pop()}`);
+    // video jobs read the live UI clones, their assets, the library — and the flow clips when the experiment is on
+    const keep = job.kind === "video" ? (flowClipsEnabled() ? /^(clips|clones|assets|library)\.tgz(\.part\d+)?$/ : /^(clones|assets|library)\.tgz(\.part\d+)?$/) : /./;
+    const packs = await listFiles(`${brandPrefix}/_pack`);
+    for (const f of packs) if (keep.test(f.split("/").pop()!)) await add(f, `brand/_pack/${f.split("/").pop()}`);
+    if (job.kind === "video" && flowClipsEnabled()) console.log(`[live] video job ${job.id}: capture ${capture.id} — ${packs.some((f) => /\/clips\.tgz(\.part\d+)?$/.test(f)) ? "flow clips downloaded" : "this capture has no flow clips (recapture with LIVE_FLOW_CLIPS=1)"}`);
     for (const f of ["capture.json", "brand.json"]) if ((await listFiles(brandPrefix)).includes(`${brandPrefix}/${f}`)) await add(`${brandPrefix}/${f}`, `brand/${f}`);
   }
   if (job.kind === "video") {

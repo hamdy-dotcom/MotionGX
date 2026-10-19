@@ -113,6 +113,7 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
   } catch (e) { log(`  ! director failed (${e.message}) — composing with defaults`); }
   fs.writeFileSync(path.join(runDir, "plan.json"), JSON.stringify(plan, null, 2));
   const { html, recipes, layouts, fingerprint, clipNotes } = compose({ brief, brand, script, assets, plan, art, brandDir, runDir });
+  if (brief.flowClips) { const rec = (brand.screens || []).filter((x) => x.clones?.clip).length, dir = path.join(brandDir, "clips"), files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(".mp4")).length : 0; log(`  🎬 flow clips: ${rec} recorded in this brand, ${files} clip file(s) on disk`); }
   for (const c of clipNotes || []) log(`  🎬 ${c}`);
   fs.writeFileSync(path.join(runDir, "video.src.html"), html);
   fs.writeFileSync(path.join(runDir, "fingerprint.json"), JSON.stringify(fingerprint, null, 2));
