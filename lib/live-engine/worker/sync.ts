@@ -167,13 +167,13 @@ export class Sync {
   }
 
   /** pack brand folders (one .tgz per top-level folder, split above 45 MB) + top-level files; auth.json goes private */
-  async uploadBrand(onlyFolders?: string[], files: string[] = ["capture.json", "brand.json"]) {
+  async uploadBrand(onlyFolders?: string[], files: string[] = ["capture.json", "brand.json"], except: string[] = []) {
     const b = this.dirs.brandDir;
     const tmp = path.join(this.dirs.root, ".pack");
     fs.rmSync(tmp, { recursive: true, force: true });
     fs.mkdirSync(tmp, { recursive: true });
     const out: { logical: string; file: string }[] = [];
-    const folders = fs.readdirSync(b, { withFileTypes: true }).filter((d) => d.isDirectory() && (!onlyFolders || onlyFolders.includes(d.name))).map((d) => d.name);
+    const folders = fs.readdirSync(b, { withFileTypes: true }).filter((d) => d.isDirectory() && (!onlyFolders || onlyFolders.includes(d.name)) && !except.includes(d.name)).map((d) => d.name);
     for (const dir of folders) {
       const tgz = path.join(tmp, `${dir}.tgz`);
       execFileSync("tar", ["-czf", tgz, "-C", b, dir]);

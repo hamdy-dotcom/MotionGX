@@ -12,6 +12,8 @@ import { createInbox } from "../inbox";
 import { saveSnapshot, fontFaceCss } from "../snapshot";
 import { installInPage, call as inPage } from "../inpage";
 import { makeScope } from "../scope";
+import os from "node:os";
+import { cutFlowClips } from "./clips";
 
 const VIEW = { width: 1440, height: 900 };
 const MAX_PUBLIC_PAGES = 6;
@@ -37,7 +39,10 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   const seen = new Set();
   const browser = await chromium.launch({ headless: process.env.HEADFUL ? false : true });
   const authState = path.join(brandDir, "auth.json");
-  const ctx = await browser.newContext({ ...(brief.resnap && fs.existsSync(authState) ? { storageState: authState } : {}), viewport: VIEW, deviceScaleFactor: 2, locale: brief.locale || "ar-SA", userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36" });
+  // flow clips (experiment, brief.flowClips): the session is recorded to a temp folder — only the cut clips are kept
+  const rec = brief.flowClips && !brief.resnap ? { dir: fs.mkdtempSync(path.join(os.tmpdir(), "mgx-rec-")), events: [], flows: [], paths: new Map(), pageT0: new Map() } : null;
+  if (rec) process.once("exit", () => fs.rmSync(rec.dir, { recursive: true, force: true })); // a failed capture never leaves the recording behind
+  const ctx = await browser.newContext({ ...(rec ? { recordVideo: { dir: rec.dir, size: VIEW } } : {}), ...(brief.resnap && fs.existsSync(authState) ? { storageState: authState } : {}), viewport: VIEW, deviceScaleFactor: 2, locale: brief.locale || "ar-SA", userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36" });
 
   await installInPage(ctx);
 
@@ -55,7 +60,9 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
     } catch {}
   });
 
+  if (rec) ctx.on("page", (p) => { if (!rec.pageT0.has(p)) { rec.pageT0.set(p, Date.now()); rec.paths.set(p, p.video()?.path() || null); } });
   let page = await ctx.newPage();
+  if (rec && !rec.pageT0.has(page)) { rec.pageT0.set(page, Date.now()); rec.paths.set(page, page.video()?.path() || null); }
   ctx.on("page", async (p) => { page = p; await p.waitForLoadState("domcontentloaded").catch(() => {}); });
   const settle = async () => { try { await page.waitForLoadState("networkidle", { timeout: 8000 }); } catch {} await page.waitForTimeout(800); };
   const autoscroll = async () => { await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 700) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 120)); } scrollTo({ top: 0, behavior: "instant" }); }); await page.waitForTimeout(500); };
@@ -180,7 +187,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
     if (!brief.sampleUrl) brief.sampleUrl = await marketplaceLink(browser, brief.country, log).catch(() => null);
     // what the public site promises (headings + feature copy) — the essentials plan must cover it
     const promises = manifest.pages.map((pg) => { try { const pr = JSON.parse(fs.readFileSync(path.join(brandDir, pg.probe), "utf8")); return `[${pg.label}] ${pr.headings.join(" · ")}\n${pr.text.replace(/\s*\n\s*/g, " · ").slice(0, 1800)}`; } catch { return ""; } }).filter(Boolean).join("\n\n").slice(0, 6000);
-    try { await page.goto(appUrl, { waitUntil: "domcontentloaded", timeout: 45000 }); await settle(); manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises, scope }); }
+    try { await page.goto(appUrl, { waitUntil: "domcontentloaded", timeout: 45000 }); await settle(); manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises, rec, scope }); }
     catch (e) { manifest.app = { status: "error", error: e.message.split("\n")[0], screens: [] }; }
   }
   try { await ctx.storageState({ path: path.join(brandDir, "auth.json") }); } catch {}
@@ -188,6 +195,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   manifest.demoAssets = [...phaseAssets.app].filter((f) => f.startsWith("assets/images/") && !phaseAssets.public.has(f));
   fs.writeFileSync(path.join(brandDir, "capture.json"), JSON.stringify(manifest, null, 2));
   await browser.close();
+  if (rec) { cutFlowClips({ rec, manifest, brandDir, view: VIEW, log }); fs.writeFileSync(path.join(brandDir, "capture.json"), JSON.stringify(manifest, null, 2)); }
   log(`✓ capture: ${manifest.pages.length} public pages, ${manifest.app.screens.length} app screens (${manifest.app.status}), ${Object.keys(manifest.assets).length} files`);
   return manifest;
 }
@@ -236,7 +244,21 @@ async function marketplaceLink(browser, country, log) {
 const CAPTCHA_RE = /challenges\.cloudflare\.com|google\.com\/recaptcha|recaptcha\.net|hcaptcha\.com/i;
 const providerOf = (url) => (/cloudflare/i.test(url) ? "cloudflare-turnstile" : /hcaptcha/i.test(url) ? "hcaptcha" : "recaptcha");
 
-async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises = "", scope }) {
+// Runs inside the page: the result's main block in the viewport (the largest visible block with the most text, not the
+// navigation) — where a flow clip's camera ends
+const RESULT_BOX = () => {
+  const vw = innerWidth, vh = innerHeight; let best = null;
+  for (const el of document.querySelectorAll("main, section, article, form, div, table, ul")) {
+    if (el.closest("nav, aside, header, footer, [role=navigation]")) continue;
+    const r = el.getBoundingClientRect(), x0 = Math.max(0, r.left), y0 = Math.max(0, r.top), x1 = Math.min(vw, r.right), y1 = Math.min(vh, r.bottom);
+    const a = Math.max(0, x1 - x0) * Math.max(0, y1 - y0); if (a < vw * vh * 0.06 || a > vw * vh * 0.7) continue;
+    const text = (el.innerText || "").replace(/\s+/g, " ").length, v = Math.min(text, 1500) * Math.sqrt(a);
+    if (!best || v > best.v) best = { v, x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+  }
+  return best && { x: best.x, y: best.y, width: best.width, height: best.height };
+};
+
+async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises = "", rec = null, scope }) {
   const creds = brief.login?.email ? brief.login : null;
   const id = Date.now().toString(36);
   // sandbox settings remember the phone you gave once, so you are not asked again
@@ -402,6 +424,8 @@ ${promises || "(no public pages captured)"}`;
     const call = res.content.find((c) => c.type === "tool_use");
     if (!call) { history.push("- (no action)"); continue; }
     const a = call.input; let out = "ok";
+    // flow clips: when each action starts / is done / the page has settled, and where its target sits in the viewport
+    const tA0 = Date.now(), rbox = rec && a.id != null ? await page.locator(`[data-mgx="${a.id}"]`).first().boundingBox({ timeout: 1000 }).catch(() => null) : null;
     const refusal = call.name === "goto" && !scope.allows(a.url) ? `Not allowed: ${a.url} is outside the company's website (${scope.domain}). Only the company's own site and pages it opens itself are allowed — continue on it.`
       : ["click", "type", "select", "upload", "key", "save_screen"].includes(call.name) && !scope.allows(page.url()) ? `Not allowed: this page (${page.url().slice(0, 80)}) is outside the company's website (${scope.domain}). Go back, or goto the company's site.` : null;
     if (refusal) { out = refusal; log(`  ⛔ ${refusal}`); }
@@ -474,7 +498,8 @@ ${promises || "(no public pages captured)"}`;
       else if (call.name === "save_screen" && (await inPage(page, "BUSY").catch(() => ({ busy: false }))).busy && waitedAt !== page.url()) { out = "the page is still loading / generating — call wait, then save the finished result"; }
       else if (call.name === "save_screen") { const loading = (await inPage(page, "BUSY").catch(() => ({ busy: false }))).busy; const typedNear = lastPre ? typedLog.filter((x) => x.step >= lastPre.step - 8 && x.step <= lastPre.step && !/^•+$/.test(x.text)).map((x) => x.text) : [];
         const typedPick = typedNear.find((v) => /^(https?:\/\/|www\.)/i.test(v)) || [...typedNear].sort((x, y) => y.length - x.length)[0] || null; // a URL first, else the longest value
-        const before = lastPre && lastPre.step > lastSave && lastPre.step >= step - 10 ? { ...lastPre, typed: typedPick, typedAll: typedNear } : null; lastSave = step + 1; const s = await savePage(a.label, { description: a.description, features: a.features || [], app: true, before, customer: !!a.customer_facing, covers: a.covers || [] }); s.empty = isEmpty(s); if (s.empty && s.clones?.screen) { try { const cf = path.join(brandDir, s.clones.screen.file); const cj = JSON.parse(fs.readFileSync(cf, "utf8")); cj.empty = true; fs.writeFileSync(cf, JSON.stringify(cj)); } catch {} } result.screens.push(s); if (plan.length) { const nav = await inPage(page, "NAV").catch(() => null); if (!a.customer_facing) addNav({ tabs: nav?.tabs, looks: nav?.looks }); markSaved(page.url(), nav, step + 1); } for (const c of loading ? [] : a.covers || []) { const it = plan.find((x) => x.name === c) || plan.find((x) => x.name.toLowerCase().includes(String(c).toLowerCase()) || String(c).toLowerCase().includes(x.name.toLowerCase())); if (it) it.done = true; } out = `saved ${s.id}${loading ? " (still loading — it does not count for the essentials)" : ""}${missing().length ? ` — still to do: ${missing().slice(0, 12).join(" | ")}` : ""}`; log(`  📸 ${a.customer_facing ? "[customer view] " : ""}${a.label} — ${a.description} (${s.parts.length} parts · live UI ${s.clones.screen ? "✓" : "✗"}${s.clones.before ? ` · replay: ${s.clones.before.action}` : ""})`); }
+        const before = lastPre && lastPre.step > lastSave && lastPre.step >= step - 10 ? { ...lastPre, typed: typedPick, typedAll: typedNear } : null; lastSave = step + 1; const s = await savePage(a.label, { description: a.description, features: a.features || [], app: true, before, customer: !!a.customer_facing, covers: a.covers || [] });
+        if (rec && before) { const ts = typedLog.filter((x) => x.step >= lastPre.step - 8 && x.step <= lastPre.step).map((x) => x.step); rec.flows.push({ id: s.id, page: getPage(), from: Math.min(lastPre.step, ...ts), to: step + 1, result: await getPage().evaluate(RESULT_BOX).catch(() => null) }); } s.empty = isEmpty(s); if (s.empty && s.clones?.screen) { try { const cf = path.join(brandDir, s.clones.screen.file); const cj = JSON.parse(fs.readFileSync(cf, "utf8")); cj.empty = true; fs.writeFileSync(cf, JSON.stringify(cj)); } catch {} } result.screens.push(s); if (plan.length) { const nav = await inPage(page, "NAV").catch(() => null); if (!a.customer_facing) addNav({ tabs: nav?.tabs, looks: nav?.looks }); markSaved(page.url(), nav, step + 1); } for (const c of loading ? [] : a.covers || []) { const it = plan.find((x) => x.name === c) || plan.find((x) => x.name.toLowerCase().includes(String(c).toLowerCase()) || String(c).toLowerCase().includes(x.name.toLowerCase())); if (it) it.done = true; } out = `saved ${s.id}${loading ? " (still loading — it does not count for the essentials)" : ""}${missing().length ? ` — still to do: ${missing().slice(0, 12).join(" | ")}` : ""}`; log(`  📸 ${a.customer_facing ? "[customer view] " : ""}${a.label} — ${a.description} (${s.parts.length} parts · live UI ${s.clones.screen ? "✓" : "✗"}${s.clones.before ? ` · replay: ${s.clones.before.action}` : ""})`); }
       else if (call.name === "wait") {
         const until = Date.now() + Math.max(5, Math.min(90, +a.seconds || 10)) * 1000; let b = { busy: true, why: "" };
         while (Date.now() < until) { b = await inPage(page, "BUSY").catch(() => ({ busy: false, why: "" })); if (!b.busy) break; await page.waitForTimeout(1500); }
@@ -500,7 +525,8 @@ ${promises || "(no public pages captured)"}`;
       }
       else if (call.name === "finish") { result.status = a.status; result.notes = a.notes; log(`  ■ agent ${a.status}: ${a.notes}`); break; }
       if (!["save_screen", "finish", "ask_code"].includes(call.name)) log(`  ↳ ${call.name} ${JSON.stringify({ ...a, text: a.text && /pass/i.test(elements.split("\n").find((l) => l.startsWith(`[${a.id}]`)) || "") ? "••••" : a.text }).slice(0, 90)}`);
-      await settle();
+      const tAct = Date.now(); await settle();
+      if (rec) rec.events.push({ page: getPage(), step: step + 1, name: call.name, t0: tA0, tA: tAct, t1: Date.now(), box: rbox });
     } catch (e) { out = `error: ${e.message.split("\n")[0].slice(0, 120)}`; }
     const lbl = a.id != null ? (elements.split("\n").find((l) => l.startsWith(`[${a.id}]`)) || "").slice(0, 90) : "";
     if (call.name === "click" && lbl && getPage().url() !== urlAtStart) learnUrl(lbl, getPage().url());

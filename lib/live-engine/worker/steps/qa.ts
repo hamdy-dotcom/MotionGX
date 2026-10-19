@@ -66,10 +66,33 @@ export async function inspect({ htmlFile, layout, script, runDir, tag }) {
     const hit = (A, B, tol = 4) => Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x) > tol && Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y) > tol;
     const chipsOn = p.boxes.filter((b) => /(^|\s)(co|stackcard)(\s|$)/.test(b.cls)), visuals = p.boxes.filter((b) => /(^|\s)(dev|pop|tile)(\s|$)/.test(b.cls));
     for (const c of chipsOn) { const v = visuals.find((x) => hit(c, x)); if (v) { add("error", "chip-overlap", `${label}: a chip (${c.sel}) sits on the visual (${v.sel}) at ${t}s`, t); break; } }
+    // a live screen (flow / replay / follow-on included) shows content, not empty page: on a 16×16 grid over its window, no empty
+    // band of ≥ 4 rows at the top or bottom (a warning — the camera framing, not a repair, fixes it)
+    const fills = await page.evaluate(() => {
+      const out = [];
+      for (const u of document.querySelectorAll("[data-clone]")) {
+        const cam = u.querySelector(".ui-cam"); if (!cam || u.closest(".pop")) continue;
+        const R0 = u.getBoundingClientRect(); let op = 1; for (let e = u; e && e !== document.body; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.visibility === "hidden" || cs.display === "none") { op = 0; break; } op *= +cs.opacity; }
+        if (op < 0.5 || R0.width * R0.height < 60000) continue;
+        const N = 16, rows = new Array(N).fill(0);
+        for (const el of cam.querySelectorAll("*")) {
+          const media = el.matches("img, svg, canvas, video, input, textarea, select, button");
+          if (!media && ![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+          const q = el.getBoundingClientRect(); if (q.width < 2 || q.height < 2 || q.right <= R0.left || q.left >= R0.right) continue;
+          const j0 = Math.max(0, Math.floor(((q.top - R0.top) / R0.height) * N)), j1 = Math.min(N - 1, Math.floor(((q.bottom - R0.top) / R0.height) * N));
+          for (let j = j0; j <= j1; j++) rows[j] = 1;
+        }
+        let top = 0, bot = 0; while (top < N && !rows[top]) top++; while (bot < N && !rows[N - 1 - bot]) bot++;
+        out.push({ id: u.id || u.dataset.clone, band: Math.max(top, bot) / N, where: top >= bot ? "top" : "bottom" });
+      }
+      return out;
+    }).catch(() => []);
+    for (const f of fills) if (f.band >= 0.25) add("warn", "sparse-ui", `${label}: the live screen ${f.id} shows an empty page band ${Math.round(f.band * 100)}% of its window at the ${f.where} at ${t}s`, t);
     // the corner logo never touches the headline
     const mk = await page.evaluate(() => { const m = document.getElementById("mark"), S = document.getElementById("stage")?.getBoundingClientRect(); if (!m || !S) return null; const cs = getComputedStyle(m), r = m.getBoundingClientRect(); return cs.visibility === "hidden" || +cs.opacity < 0.2 ? null : { x: r.left - S.left, y: r.top - S.top, w: r.width, h: r.height }; }).catch(() => null);
     if (mk) { const hb = p.boxes.find((b) => /(^|\s)(head|card)(\s|$)/.test(b.cls) && hit(mk, b, 0)); if (hb) add("warn", "logo", `${label}: the corner logo overlaps the headline (${hb.sel}) at ${t}s`, t); }
-    if (!noDevice && (s.visual.assets || []).some((id) => liveIds.has(id)) && !p.clones) add("error", "no-live", `${label}: the script shows a live product screen here, but none is visible at ${t}s`, t);
+    const clipOn = await page.evaluate(() => [...document.querySelectorAll(".clipui")].some((u) => { const r = u.getBoundingClientRect(); let op = 1; for (let e = u; e && e !== document.body; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.visibility === "hidden") return false; op *= +cs.opacity; } return op > 0.3 && r.width * r.height > 20000; })).catch(() => false);
+    if (!noDevice && (s.visual.assets || []).some((id) => liveIds.has(id)) && !p.clones && !clipOn) add("error", "no-live", `${label}: the script shows a live product screen here, but none is visible at ${t}s`, t);
     const seen = norm(p.texts.map((x) => x.text).join(""));
     const words = String(s.headline || "").split(/\s+/).filter((w) => norm(w).length > 1).slice(0, 3);
     if (words.length && words.filter((w) => seen.includes(norm(w))).length < Math.ceil(words.length / 2)) add("error", "headline", `${label}: headline "${s.headline}" is not readable at ${t}s`, t);
@@ -140,7 +163,7 @@ export async function safetyNet({ htmlFile, brief, brand, script, runDir, brandD
   const history = [];
   let cur = await check("v0"), best = { html: readSrc(), r: cur, tag: "v0" };
   history.push({ tag: "v0", errors: score(cur), warnings: cur.issues.length - score(cur) });
-  log(`  v0: ${score(cur)} errors, ${cur.issues.length - score(cur)} warnings`); cur.issues.filter((x) => ["balance", "logo"].includes(x.code)).slice(0, 4).forEach((x) => log(`   ⚖ ${x.msg}`)); cur.issues.filter((x) => x.sev === "error").slice(0, 6).forEach((x) => log(`   ✗ ${x.msg}`));
+  log(`  v0: ${score(cur)} errors, ${cur.issues.length - score(cur)} warnings`); cur.issues.filter((x) => ["balance", "logo", "sparse-ui"].includes(x.code)).slice(0, 4).forEach((x) => log(`   ⚖ ${x.msg}`)); cur.issues.filter((x) => x.sev === "error").slice(0, 6).forEach((x) => log(`   ✗ ${x.msg}`));
   // composed videos (code from recipes) are not patched by the model — the edits could never apply to generated HTML;
   // QA problems go back to the director instead, and compose runs again (one retry)
   const composed = brief.composer !== "freeform";

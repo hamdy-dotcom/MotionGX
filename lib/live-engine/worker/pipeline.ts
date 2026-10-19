@@ -48,7 +48,9 @@ export async function runJob(job: JobFile, dirs: { root: string; brandDir: strin
     const cap: any =
       (await step("capture", async () => {
         const c = await capture({ brief, brandDir, ledger, models, log });
-        await sync.uploadBrand();
+        // flow clips (experiment): uploaded as their own phase so the log shows their size and upload time
+        if (fs.existsSync(path.join(brandDir, "clips"))) { await sync.uploadBrand(["clips"], []); await sync.uploadBrand(undefined, undefined, ["clips"]); }
+        else await sync.uploadBrand();
         return c;
       }, (c: any) => ({ pages: c.pages.length, app_screens: c.app.screens.length, app_status: c.app.status, steps: c.app.steps ?? null, identity_email: c.app.identity?.email ?? null, scope: c.app.scope ?? null, manifest: c }))) ?? JSON.parse(fs.readFileSync(path.join(brandDir, "capture.json"), "utf8"));
     // 4 — brand profile (once per company)

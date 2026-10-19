@@ -8,6 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { LAYOUTS } from "./script";
+import { clipFrames } from "./clips";
 
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const has = (brandDir, id) => fs.existsSync(path.join(brandDir, "clones", `${id}.json`));
@@ -333,7 +334,11 @@ export function applyOrder(script, art) {
   return { ...art, scenes: art.order.map((n, i) => ({ ...art.scenes[n - 1], n: i + 1, was: n })), order: art.order.map((_, i) => i + 1) };
 }
 
+/** a clone's typical text size (median inline font-size, px) — how far a camera must zoom for text to read */
+function cloneFont(brandDir, id) { const c = loadClone(brandDir, id); if (!c) return null; const v = [...String(c.html).matchAll(/font-size:\s*([\d.]+)px/g)].map((m) => +m[1]).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : null; }
+
 export function compose({ brief, brand, script, assets, plan = {}, art, brandDir, runDir }) {
+  const clipNotes = []; // flow clips (experiment): which scenes play a real clip, which fall back to the clone replay, and why
   const [W, H] = LAYOUTS[brief.layout] || LAYOUTS["9:16"];
   const rel = (p) => path.relative(runDir, path.join(brandDir, p)).split(path.sep).join("/");
   const byId = Object.fromEntries(assets.map((a) => [a.id, a]));
@@ -423,6 +428,22 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
       let typeArg = "";
 
       if (recipe === "tour") { devHtml = win ? `${frameOpen}${deskUi(`u${n}`, r.ui)}${frameClose}` : `<div class="dev laptop" style="${devStyle}">${deskUi(`u${n}`, r.ui)}</div>`; call = `K.R.tour(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d},focus:${JSON.stringify(p.focus || sc._focus || [])}${popArg}${typeArg}});`; }
+      // a flow clip (experiment, brief.flowClips): the recorded session plays in the window, sped up to fit, the camera zoomed on
+      // top — only when it stays sharp at the zoom that makes its text readable (≤ 2× upscale); else the clone replay as before
+      const clip = recipe === "replay" && brief.flowClips && win ? (brand.screens || []).find((x) => x.id === r.b)?.clones?.clip : null;
+      let clipUse = null;
+      if (clip) {
+        const k = clip.w / (clip.view?.[0] || clip.w), sClip = geo.w / clip.w, fpx = (cloneFont(brandDir, r.a) || 14) * k * sClip;
+        const z = Math.min(3.2, Math.max(1, 22 / fpx)), up = sClip * z;
+        if (!fs.existsSync(path.join(brandDir, clip.file))) clipNotes.push(`scene ${n}: clip ${clip.file} missing → clone replay`);
+        else if (up > 2) clipNotes.push(`scene ${n}: clip would be ${up.toFixed(2)}× upscaled at the readable zoom (blurry) → clone replay`);
+        else { const fr = clipFrames({ brandDir, runDir, clip, id: `${r.b}-${n}` }); if (fr) { clipUse = { ...fr, sClip, z, clip }; clipNotes.push(`scene ${n}: plays clip ${clip.file} (${clip.dur} s in ${d} s, zoom ${z.toFixed(2)}, ${up.toFixed(2)}× upscale)`); } else clipNotes.push(`scene ${n}: clip frames failed → clone replay`); }
+      }
+      if (clipUse) {
+        const cw = Math.round(clipUse.clip.w * clipUse.sClip), ch = Math.round(clipUse.clip.h * clipUse.sClip);
+        devHtml = `${frameOpen}<div id="u${n}v" class="clipui" style="left:0;top:${BAR}px;width:${geo.w}px;height:${uiH}px"><div class="clip-cam" style="width:${cw}px;height:${ch}px"><img src="${clipUse.dir}/0001.jpg"></div></div>${frameClose}`;
+        call = `K.R.clip(tl,{sc:"#${id}",ui:"#u${n}v",s:${s},d:${d},dir:${JSON.stringify(clipUse.dir)},n:${clipUse.n},fps:${clipUse.fps},dur:${clipUse.clip.dur},k:${clipUse.sClip.toFixed(5)},z:${clipUse.z.toFixed(3)},w:${cw},h:${ch},marks:${JSON.stringify(clipUse.clip.marks || [])}});`;
+      }
       else if (recipe === "replay") { const then = (sc.visual?.assets || []).map((x) => (byId[x]?.kind === "live-phone" ? x.replace(/-phone$/, "") : x)).filter((x) => x !== r.b && /^live-(screen|phone)/.test(byId[x]?.kind || byId[`${x}-phone`]?.kind || "") && has(brandDir, x)).filter((x, k, l) => l.indexOf(x) === k).slice(0, 2);
         devHtml = `${win ? frameOpen : `<div class="dev laptop" style="${devStyle}">`}${deskUi(`u${n}a`, r.a)}${deskUi(`u${n}b`, r.b, true)}${then.map((x, k) => deskUi(`u${n}c${k}`, x, true)).join("")}<div class="spin"></div><div class="ok">✓</div>${win ? frameClose : "</div>"}`; const tk = p.typeKey || (r.asset && flowInfo(r.asset, brandDir).typeKey); call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${tk ? `,typeKey:"${tk}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${then.length ? `,then:${JSON.stringify(then.map((_, k) => `#u${n}c${k}`))}` : popArg}${fake ? `,fake:${JSON.stringify(fake)}` : ""}});`; }
       else if (recipe === "phone") { devHtml = `<div class="dev phone" style="${devStyle}"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${geo.w - 40}" data-h="${geo.h - 60}" data-frame="none"></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${typeArg}});`; }
@@ -535,6 +556,7 @@ ${hiCss}
 .fakefield{position:absolute;left:${SX + 30}px;right:${SX + 30}px;height:118px;display:flex;align-items:center;gap:22px;padding:0 34px;font-size:42px;font-weight:600;color:${ink};z-index:9;opacity:0;direction:ltr;box-shadow:0 24px 70px rgba(0,0,0,.4),0 0 0 3px ${primary}}
 .fakefield .ff-ico{font-size:44px;opacity:.8}.fakefield .ff-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fakefield .ff-caret{width:3px;height:52px;background:${primary};margin-inline-start:-14px}
 .ui-after{visibility:hidden}
+.clipui{position:absolute;overflow:hidden;background:#000}.clip-cam{position:absolute;left:0;top:0;transform-origin:0 0}.clip-cam img{display:block;width:100%;height:100%}
 .spin{position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:10px solid ${ink}22;border-top-color:${primary};opacity:0;z-index:7}
 .pop{position:absolute;left:${Math.round((W - 940) / 2)}px;opacity:0;z-index:6}
 .pop .ui{border-radius:var(--r);background:${surface};box-shadow:0 50px 140px rgba(0,0,0,.65),0 0 0 3px ${primary}88}
@@ -609,5 +631,5 @@ K.done(tl, ${script.length});
 window.__ready = Promise.resolve(window.__ready).then(() => K.R.fit()).then(() => K.R.balance(${SX}, ${SY})).then(() => true);
 </script></body></html>`;
   const final = { ...art, scenes: art.scenes.map((x, i) => ({ ...x, layout: used[i] ?? x.layout })) };
-  return { html, recipes: script.scenes.map((sc, i) => (art.scenes[i] || {}).recipe || "type"), layouts: used, fingerprint: fingerprintOf(final) };
+  return { clipNotes, html, recipes: script.scenes.map((sc, i) => (art.scenes[i] || {}).recipe || "type"), layouts: used, fingerprint: fingerprintOf(final) };
 }

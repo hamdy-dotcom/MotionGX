@@ -7,7 +7,7 @@ export const VIDEO_STEPS = ["script", "build", "music", "qa", "render"] as const
 export type Step = (typeof CAPTURE_STEPS)[number] | (typeof VIDEO_STEPS)[number];
 
 /** sandbox brief (pipeline.mjs) */
-export type Brief = { url: string; objective: string; country: string; layout: string; length: number; description?: string; offer?: string };
+export type Brief = { url: string; objective: string; country: string; layout: string; length: number; description?: string; offer?: string; flowClips?: boolean };
 
 export type JobMode = "new" | "direction" | "lines" | "edit";
 

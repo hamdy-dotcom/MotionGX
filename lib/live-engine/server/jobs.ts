@@ -7,7 +7,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { ScriptBeat } from "@motiongx/primitives";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Video } from "@/lib/types";
-import { callbackBase, runnerKind } from "../config";
+import { callbackBase, runnerKind, flowClipsEnabled } from "../config";
 import { brandSlug, briefFor, linesFromBeats, STAGE_OF } from "../mapping";
 import { LIVE_BUCKET, storagePath, type Brief, type JobFile, type JobMode, type LedgerRow, type Report, type Step } from "../protocol";
 import { startLocal } from "./runner-local";
@@ -224,6 +224,7 @@ export async function launch(jobId: string) {
     // the brand folder is the capture's site (brands/<slug> as in the sandbox), the brief the video's
     brief = { ...briefFor(video, company.website_url), url: capture.site_url ?? company.website_url };
   }
+  if (flowClipsEnabled()) brief = { ...brief, flowClips: true };
   const ids = { workspaceId: job.workspace_id, captureId: capture.id };
   const brandPrefix = storagePath("brand/x", ids).replace(/\/x$/, "");
   const downloads: JobFile["downloads"] = [];
@@ -232,7 +233,7 @@ export async function launch(jobId: string) {
   const needBrand = job.kind === "video" || job.done_steps.includes("capture");
   if (needBrand) {
     // a video job reads only the live UI clones, their assets and the library (logo, images) — not the agent / html / probes / screens packs
-    const keep = job.kind === "video" ? /^(clones|assets|library)\.tgz(\.part\d+)?$/ : /./;
+    const keep = job.kind === "video" ? /^(clips|clones|assets|library)\.tgz(\.part\d+)?$/ : /./; // clips: the flow-clips experiment
     for (const f of await listFiles(`${brandPrefix}/_pack`)) if (keep.test(f.split("/").pop()!)) await add(f, `brand/_pack/${f.split("/").pop()}`);
     for (const f of ["capture.json", "brand.json"]) if ((await listFiles(brandPrefix)).includes(`${brandPrefix}/${f}`)) await add(`${brandPrefix}/${f}`, `brand/${f}`);
   }

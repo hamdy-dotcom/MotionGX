@@ -27,6 +27,7 @@ def port(name, edits):
 # ── capture ──────────────────────────────────────────────────────────────────────────────────────────
 port("capture", [
   lambda s: edit(s, 'import { rawCall, imageBlock } from "../lib/claude.mjs";', 'import { rawCall, imageBlock } from "../claude";'),
+  lambda s: edit(s, 'from "./clips.mjs";', 'from "./clips";'),
   lambda s: edit(s, 'import { createInbox } from "../lib/inbox.mjs";', 'import { createInbox } from "../inbox";'),
   lambda s: edit(s, 'import { SNAPSHOT, saveSnapshot, fontFaceCss } from "../lib/snapshot.mjs";',
                  'import { saveSnapshot, fontFaceCss } from "../snapshot";\nimport { installInPage, call as inPage } from "../inpage";\nimport { makeScope } from "../scope";'),
@@ -50,10 +51,10 @@ port("capture", [
   lambda s: edit(s, '  // ---------- A) public crawl ----------', '  const scope = makeScope(brief.url);\n\n  // ---------- A) public crawl ----------'),
   lambda s: edit(s, '    log(`▶ capture: agent enters the product (${appUrl})`);',
                     '    scope.open(appUrl, "linked from the site");\n    log(`▶ capture: agent enters the product (${appUrl})`);'),
-  lambda s: edit(s, "manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises });",
-                    "manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises, scope });"),
-  lambda s: edit(s, "async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises = \"\" }) {",
-                    "async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises = \"\", scope }) {"),
+  lambda s: edit(s, "manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises, rec });",
+                    "manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises, rec, scope });"),
+  lambda s: edit(s, "async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises = \"\", rec = null }) {",
+                    "async function runAgent({ getPage, setPage, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises = \"\", rec = null, scope }) {"),
   # pages the site itself navigates to (a click, a redirect, a tab it opens) join the scope
   lambda s: edit(s, '  const plan = []; // [{ name, done }]',
                     '  const plan = []; // [{ name, done }]\n'
@@ -72,9 +73,10 @@ port("capture", [
 
 # ── profile, script, build ───────────────────────────────────────────────────────────────────────────
 port("profile", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";'), lambda s: edit(s, 'from "./capture.mjs";', 'from "./capture";')])
+port("clips", [])
 port("script", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";'), lambda s: edit(s, 'from "./compose.mjs";', 'from "./compose";')])
 port("build", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";'), lambda s: edit(s, 'from "./script.mjs";', 'from "./script";'), lambda s: edit(s, 'from "./compose.mjs";', 'from "./compose";'), lambda s: edit(s, 'from "./artdirect.mjs";', 'from "./artdirect";')])
-port("compose", [lambda s: edit(s, 'from "./script.mjs";', 'from "./script";')])
+port("compose", [lambda s: edit(s, 'from "./script.mjs";', 'from "./script";'), lambda s: edit(s, 'from "./clips.mjs";', 'from "./clips";')])
 port("artdirect", [lambda s: edit(s, 'from "../lib/claude.mjs";', 'from "../claude";'), lambda s: edit(s, 'from "./compose.mjs";', 'from "./compose";')])
 
 # ── qa ───────────────────────────────────────────────────────────────────────────────────────────────

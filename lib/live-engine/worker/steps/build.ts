@@ -112,7 +112,8 @@ async function directAndCompose({ brief, brand, script, runDir, brandDir, ledger
     if (rewrote) { fs.writeFileSync(path.join(runDir, "script.json"), JSON.stringify(script, null, 2)); log(`  ✎ ${rewrote} scene(s) rewritten: no input to show for them`); }
   } catch (e) { log(`  ! director failed (${e.message}) — composing with defaults`); }
   fs.writeFileSync(path.join(runDir, "plan.json"), JSON.stringify(plan, null, 2));
-  const { html, recipes, layouts, fingerprint } = compose({ brief, brand, script, assets, plan, art, brandDir, runDir });
+  const { html, recipes, layouts, fingerprint, clipNotes } = compose({ brief, brand, script, assets, plan, art, brandDir, runDir });
+  for (const c of clipNotes || []) log(`  🎬 ${c}`);
   fs.writeFileSync(path.join(runDir, "video.src.html"), html);
   fs.writeFileSync(path.join(runDir, "fingerprint.json"), JSON.stringify(fingerprint, null, 2));
   const info = embedClones({ runDir, brandDir, layout: brief.layout });
