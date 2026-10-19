@@ -26,7 +26,9 @@ export type AiKind =
   | "live_direct"
   | "live_build"
   | "live_qa"
-  | "live_repair";
+  | "live_repair"
+  // director engine (VIDEO_ENGINE=director) — its agent's calls (outside the hourly limit, like live_capture)
+  | "director_agent";
 
 /** Price per million tokens (input, output) — Claude API list prices. */
 export const PRICES: Record<string, [number, number]> = {
@@ -103,14 +105,15 @@ export class CostCapError extends Error {
 }
 
 /** Throws AiError("rate_limited") once the workspace has made 30 AI/scrape calls in the last hour.
- *  The live engine's capture-agent steps (~40 calls per brand capture) are not counted (decision Q8). */
+ *  Agent loops are not counted — one user action that makes many calls: the live engine's capture agent (~40 calls
+ *  per brand capture, decision Q8) and the director engine's agent (~20-45 calls per video). */
 export async function assertWithinRateLimit(workspaceId: string) {
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { count, error } = await createAdminClient()
     .from("ai_usage")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
-    .neq("kind", "live_capture")
+    .not("kind", "in", "(live_capture,director_agent)")
     .gte("created_at", since);
   if (error) {
     console.error("[ai] rate-limit check failed", { workspaceId, code: error.code, message: error.message });
