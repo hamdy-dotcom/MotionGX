@@ -17,6 +17,14 @@ const merge = (lists) => { const o = {}; for (const l of lists) for (const { val
 
 export async function buildProfile({ brief, brandDir, capture, ledger, models, log = console.log }) {
   log("▶ profile: merging captured pages");
+  // a weaker capture (fewer app screens, e.g. one cut short by an error) never replaces the brand profile already there
+  const prevFile = path.join(brandDir, "brand.json");
+  if (fs.existsSync(prevFile)) {
+    try {
+      const prev = JSON.parse(fs.readFileSync(prevFile, "utf8")), had = (prev.screens || []).filter((x) => x.app).length, now = (capture.app?.screens || []).length;
+      if (now < had) { log(`  ↺ profile kept: this capture has ${now} app screen(s) (${capture.app?.status || "?"}), the current brand has ${had} — not replaced`); return prev; }
+    } catch {}
+  }
   const all = [...capture.pages, ...capture.app.screens];
   // legal pages (privacy, terms…) never count as evidence for a feature (older captures may still have them)
   const legal = capture.pages.filter((p) => LEGAL.test(`${decodeURIComponent(p.url || "")} ${p.label}`)).map((p) => p.id);

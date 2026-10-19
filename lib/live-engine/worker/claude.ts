@@ -15,7 +15,22 @@ const PRICES: Record<string, [number, number, number, number]> = {
 };
 
 let client: Anthropic | undefined;
-const anthropic = () => (client ??= new Anthropic());
+const anthropic = () => (client ??= new Anthropic({ maxRetries: 0 })); // retries: withRetry below
+// transient API errors (connection reset, 5xx, overloaded, rate limit, timeout) are retried: up to 4 more tries after
+// 2, 5, 15 and 30 s; anything else (bad request, auth) fails at once
+const WAITS = [2, 5, 15, 30];
+const transient = (e: unknown) => { const st = (e as { status?: number } | null)?.status, msg = String((e as Error | null)?.message || e); return st == null ? /connection|timed? ?out|timeout|ECONN|ETIMEDOUT|EPIPE|socket|fetch failed|network|overloaded/i.test(msg) : st >= 500 || [408, 409, 429].includes(st); };
+async function withRetry<T>(ledger: { log?: (line: string) => void } | undefined, step: string, fn: () => Promise<T>): Promise<T> {
+  for (let i = 0; ; i++) {
+    try { return await fn(); }
+    catch (e) {
+      if (!transient(e) || i >= WAITS.length) throw e;
+      (ledger?.log || console.log)(`  ↻ ${step}: ${String((e as Error | null)?.message || e).split("\n")[0].slice(0, 90)} — retry ${i + 1}/${WAITS.length} in ${WAITS[i]} s`);
+      await new Promise((r) => setTimeout(r, WAITS[i] * 1000));
+    }
+  }
+}
+
 
 export type Usage = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null };
 export type LedgerRow = { step: string; model: string; in: number; out: number; cacheRead: number; cacheWrite: number; usd: number; ms: number };
@@ -69,7 +84,7 @@ export async function callTool({ ledger, step, model, system, content, tool, max
   for (let attempt = 0; attempt < 2; attempt++) {
     const t0 = Date.now();
     // streamed so long outputs (full compositions) are allowed
-    const res = await anthropic()
+    const res = await withRetry(ledger, step, () => anthropic()
       .messages.stream({
         model,
         max_tokens: maxTokens,
@@ -80,7 +95,7 @@ export async function callTool({ ledger, step, model, system, content, tool, max
         // Sonnet/Opus think before answering; effort caps how much (thinking is billed as output)
         ...(!forced && effort ? { output_config: { effort } } : {}),
       } as Anthropic.MessageStreamParams)
-      .finalMessage();
+      .finalMessage());
     ledger.add(step, model, res.usage, Date.now() - t0);
     const call = res.content.find((c) => c.type === "tool_use" && c.name === tool.name) as Anthropic.ToolUseBlock | undefined;
     // how the answer ended (stop_reason, output tokens) rides along, non-enumerable so it never leaks into JSON
@@ -96,7 +111,7 @@ export async function rawCall({ ledger, step, model, system, messages, tools, ma
   const haiku = model === MODELS.haiku;
   // tools + system are identical on every agent step: cache them (reads cost 0.1× input)
   const sys = [{ type: "text" as const, text: system, cache_control: { type: "ephemeral" as const } }];
-  const res = await anthropic().messages.create({ model, max_tokens: maxTokens, system: sys, messages, tools: tools as Anthropic.Tool[], tool_choice: { type: haiku ? "any" : "auto" }, ...(!haiku && effort ? { output_config: { effort } } : {}) } as Anthropic.MessageCreateParamsNonStreaming);
+  const res = await withRetry(ledger, step, () => anthropic().messages.create({ model, max_tokens: maxTokens, system: sys, messages, tools: tools as Anthropic.Tool[], tool_choice: { type: haiku ? "any" : "auto" }, ...(!haiku && effort ? { output_config: { effort } } : {}) } as Anthropic.MessageCreateParamsNonStreaming));
   ledger.add(step, model, res.usage, Date.now() - t0);
   return res;
 }

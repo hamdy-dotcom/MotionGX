@@ -78,8 +78,13 @@ async function usableCapture(companyId: string) {
     const { data } = await db.from("live_brand_captures").select("*").eq("id", saved).maybeSingle();
     if (usable(data as CaptureRow | null)) return data as CaptureRow;
   }
-  const { data } = await db.from("live_brand_captures").select("*").eq("company_id", companyId).eq("status", "done").order("created_at", { ascending: false }).limit(1).maybeSingle();
-  return usable(data as CaptureRow | null);
+  // the latest usable capture — unless an older one has more app screens (a newer capture cut short never replaces it)
+  const { data } = await db.from("live_brand_captures").select("*").eq("company_id", companyId).eq("status", "done").order("created_at", { ascending: false }).limit(10);
+  const ok = ((data ?? []) as CaptureRow[]).filter((c) => usable(c));
+  let best = ok[0] ?? null;
+  for (const c of ok.slice(1)) if ((c.app_screens ?? 0) > (best?.app_screens ?? 0)) best = c;
+  if (best && ok[0] && best.id !== ok[0].id) console.warn(`[live] company ${companyId}: kept capture ${best.id} (${best.app_screens} app screens) — the newer ${ok[0].id} has only ${ok[0].app_screens ?? 0} (${ok[0].app_status})`);
+  return best;
 }
 
 /** the capture a company's pages show (brand card, brand files): the one its videos use */

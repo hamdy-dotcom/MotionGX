@@ -188,7 +188,12 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
     // what the public site promises (headings + feature copy) — the essentials plan must cover it
     const promises = manifest.pages.map((pg) => { try { const pr = JSON.parse(fs.readFileSync(path.join(brandDir, pg.probe), "utf8")); return `[${pg.label}] ${pr.headings.join(" · ")}\n${pr.text.replace(/\s*\n\s*/g, " · ").slice(0, 1800)}`; } catch { return ""; } }).filter(Boolean).join("\n\n").slice(0, 6000);
     try { await page.goto(appUrl, { waitUntil: "domcontentloaded", timeout: 45000 }); await settle(); manifest.app = await runAgent({ getPage: () => page, setPage: (p) => { page = p; }, ctx, brief, brandDir, ledger, models, log, savePage, settle, promises, rec, scope }); }
-    catch (e) { manifest.app = { status: "error", error: e.message.split("\n")[0], screens: [] }; }
+    catch (e) {
+      // the agent died (after the model-call retries): keep every screen it saved, as "partial" — never an empty list
+      const kept = ctx.__agentResult, err = e.message.split("\n")[0];
+      manifest.app = kept && kept.screens.length ? { ...kept, status: "partial", error: err } : { status: "error", error: err, screens: [] };
+      log(`  ■ agent stopped (${err}) — ${kept?.screens.length ? `kept ${kept.screens.length} saved screen(s) as partial` : "nothing saved yet"}`);
+    }
   }
   try { await ctx.storageState({ path: path.join(brandDir, "auth.json") }); } catch {}
   fs.writeFileSync(path.join(brandDir, "clones", "fonts.css"), fontFaceCss(manifest, brandDir));
@@ -343,7 +348,7 @@ ${promises || "(no public pages captured)"}`;
     { name: "skip_section", description: "Mark a SECTION as visited without a screen because it is empty, locked behind payment/verification, or not part of the product (only after you opened it)", input_schema: { type: "object", properties: { section: { type: "string", description: "the section name exactly as listed in SECTIONS" }, reason: { type: "string" } }, required: ["section", "reason"] } },
     { name: "finish", description: "Stop the agent", input_schema: { type: "object", properties: { status: { type: "string", enum: ["done", "blocked"] }, notes: { type: "string" } }, required: ["status", "notes"] } },
   ];
-  const result = { status: "running", screens: [], notes: "", steps: 0, identity: creds ? { email: creds.email } : { ...identity, password: undefined } };
+  const result = ctx.__agentResult = { status: "running", screens: [], notes: "", steps: 0, identity: creds ? { email: creds.email } : { ...identity, password: undefined } };
   // a sample image for upload steps: the brand's biggest downloaded photo, else a generated placeholder
   const sampleImage = () => {
     const dir = path.join(brandDir, "assets/images"); let best = null;
@@ -362,6 +367,7 @@ ${promises || "(no public pages captured)"}`;
     ? `\nSEED ACTIVITY — test order ${seedAttempt} of ${seedMax} (confirmed so far: ${seedOrders}), step ${step + 2 - seedOrderFrom}/${SEED_PER_ORDER} for this order. Fill EVERY required field first (name, phone, address, city, …), press the submit button LAST, check that the success / confirmation state shows, then start the next order.`
     : `\nSEED ACTIVITY is over (${seedOrders} test order(s) confirmed). ${resave.size ? `Re-save these screens WITH the new data (open, wait until loaded, save_screen): ${[...resave.values()].join(" | ")}. ` : ""}Then finish.`;
   // waits until the page is no longer loading (spinners, skeletons, "loading…" labels), re-checking every 2 s
+  let busyNow = null; const waitedOn = new Set(); // pages already waited on (90 s) while loading — never waited on twice
   const idle = async (page, sec) => { const until = Date.now() + sec * 1000, t0 = Date.now(); let b = { busy: false, why: "" }; for (;;) { b = await inPage(page, "BUSY").catch(() => ({ busy: false, why: "" })); if (!b.busy || Date.now() > until) break; await page.waitForTimeout(2000); } if (Date.now() - t0 > 2500) log(`  ⏳ ${b.busy ? "still loading" : "loaded"} after ${((Date.now() - t0) / 1000).toFixed(0)} s${b.busy ? ` (${b.why})` : ""}`); return b; }; const refused = new Map(); // submit key → times refused
   // a captcha on the page: a known challenge frame, or a visible "verify you are human" box
   const captchaOn = async (pg) => { const f = pg.frames().find((x) => CAPTCHA_RE.test(x.url())); if (f) return { frame: f, provider: providerOf(f.url()) }; const t = await inPage(pg, "HUMAN").catch(() => ""); return t ? { frame: null, provider: `box "${t.slice(0, 40)}"` } : null; };
@@ -510,10 +516,14 @@ ${promises || "(no public pages captured)"}`;
         else out = `the human answered: "${code}". If that is a value (code, number), type it into the right field. If it is an instruction (e.g. skip / later / not now), follow it: press the page's skip / later / X / back button or go straight to the dashboard URL, and NEVER call ask_code for this step again.`;
         log(`  ↳ code received`);
       }
-      else if (call.name === "save_screen" && (await idle(page, 90)).busy) { out = "the page is STILL loading / generating after 90 s — NOT saved. Never save it while it loads: continue with another step and save it once it has finished."; }
-      else if (call.name === "save_screen") { const loading = (await inPage(page, "BUSY").catch(() => ({ busy: false }))).busy; const typedNear = lastPre ? typedLog.filter((x) => x.step >= lastPre.step - 8 && x.step <= lastPre.step && !/^•+$/.test(x.text)).map((x) => x.text) : [];
+      else if (call.name === "save_screen" && (busyNow = await idle(page, waitedOn.has(norm(page.url())) ? 0 : 90)).busy && (busyNow.items || 0) < 3) {
+        const again = waitedOn.has(norm(page.url())); waitedOn.add(norm(page.url()));
+        out = again ? "this page is still loading and was already waited on — NOT saved. Move on to another step now; do not try to save this page again until it has visibly finished." : "the page is STILL loading / generating after 90 s — NOT saved. Never save it while it loads: continue with another step and save it once it has finished.";
+      }
+      else if (call.name === "save_screen") { const bz = await inPage(page, "BUSY").catch(() => ({ busy: false, items: 0 })), loading = bz.busy && (bz.items || 0) < 3, partial = bz.busy && !loading; if (partial) log(`  ◐ saved with ${bz.items} result item(s) while a source still loads (${bz.why}) — marked partial`); const typedNear = lastPre ? typedLog.filter((x) => x.step >= lastPre.step - 8 && x.step <= lastPre.step && !/^•+$/.test(x.text)).map((x) => x.text) : [];
         const typedPick = typedNear.find((v) => /^(https?:\/\/|www\.)/i.test(v)) || [...typedNear].sort((x, y) => y.length - x.length)[0] || null; // a URL first, else the longest value
         const before = lastPre && lastPre.step > lastSave && lastPre.step >= step - 10 ? { ...lastPre, typed: typedPick, typedAll: typedNear } : null; lastSave = step + 1; if (seedOver) resave.delete(norm(page.url())); const s = await savePage(a.label, { description: a.description, features: a.features || [], app: true, before, customer: !!a.customer_facing, covers: a.covers || [] });
+        if (partial) s.partial = true;
         if (rec && before) { const ts = typedLog.filter((x) => x.step >= lastPre.step - 8 && x.step <= lastPre.step).map((x) => x.step); rec.flows.push({ id: s.id, page: getPage(), from: Math.min(lastPre.step, ...ts), to: step + 1, result: await getPage().evaluate(RESULT_BOX).catch(() => null) }); } s.empty = isEmpty(s); if (s.empty && s.clones?.screen) { try { const cf = path.join(brandDir, s.clones.screen.file); const cj = JSON.parse(fs.readFileSync(cf, "utf8")); cj.empty = true; fs.writeFileSync(cf, JSON.stringify(cj)); } catch {} } result.screens.push(s); if (plan.length) { const nav = await inPage(page, "NAV").catch(() => null); if (!a.customer_facing) addNav({ tabs: nav?.tabs, looks: nav?.looks }); markSaved(page.url(), nav, step + 1); } for (const c of loading ? [] : a.covers || []) { const it = plan.find((x) => x.name === c) || plan.find((x) => x.name.toLowerCase().includes(String(c).toLowerCase()) || String(c).toLowerCase().includes(x.name.toLowerCase())); if (it) it.done = true; } out = `saved ${s.id}${loading ? " (still loading — it does not count for the essentials)" : ""}${missing().length ? ` — still to do: ${missing().slice(0, 12).join(" | ")}` : ""}`; log(`  📸 ${a.customer_facing ? "[customer view] " : ""}${a.label} — ${a.description} (${s.parts.length} parts · live UI ${s.clones.screen ? "✓" : "✗"}${s.clones.before ? ` · replay: ${s.clones.before.action}` : ""})`); }
       else if (call.name === "wait") {
         const until = Date.now() + Math.max(5, Math.min(90, +a.seconds || 10)) * 1000; let b = { busy: true, why: "" };

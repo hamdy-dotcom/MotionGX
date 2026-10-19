@@ -58,11 +58,19 @@ export function cutClip({ src, segs, outFile, view }) {
 export function cutFlowClips({ rec, manifest, brandDir, view, log = console.log }) {
   const t0 = Date.now(); let total = 0;
   try {
+    // one context, usually one page: every flow maps to its page's recording, else (popups, page objects swapped) to the only
+    // recording there is; offsets are relative to that recording's start (its page's creation)
+    const recs = [...rec.paths.entries()].filter(([, f]) => f && fs.existsSync(f));
     for (const f of rec.flows) {
-      const src = rec.paths.get(f.page), start = rec.pageT0.get(f.page), s = (manifest.app?.screens || []).find((x) => x.id === f.id);
-      if (!src || !fs.existsSync(src) || start == null || !s) { log(`  🎬 ${f.id}: no recording`); continue; }
-      const segs = planSegments(rec.events, f, start);
-      if (!segs.length) { log(`  🎬 ${f.id}: no actions to cut`); continue; }
+      let page = f.page, src = rec.paths.get(page), single = false;
+      if (!src || !fs.existsSync(src)) { if (recs.length === 1) { [page, src] = recs[0]; single = true; } else src = null; }
+      const start = rec.pageT0.get(page), s = (manifest.app?.screens || []).find((x) => x.id === f.id);
+      if (!src) { log(`  🎬 ${f.id}: no recording for its page (${recs.length} recording(s) on disk)`); continue; }
+      if (!s) { log(`  🎬 ${f.id}: its screen is not in the capture`); continue; }
+      const evs = rec.events.filter((e) => e.step >= f.from && e.step <= f.to && (single || e.page === page));
+      const segs = planSegments(evs.map((e) => ({ ...e, page })), { ...f, page }, start);
+      if (!segs.length) { log(`  🎬 ${f.id}: no actions to cut (steps ${f.from}–${f.to})`); continue; }
+      log(`  🎬 ${f.id}: ${path.basename(src)} · steps ${f.from}–${f.to} · ${segs.map((g) => `${g.a.toFixed(1)}–${g.b.toFixed(1)} s${g.speed > 1 ? ` ×${g.speed.toFixed(1)}` : ""}`).join(", ")}`);
       try {
         const file = `clips/${f.id}.mp4`, meta = cutClip({ src, segs, outFile: path.join(brandDir, file), view });
         s.clones = { ...(s.clones || {}), clip: { file, ...meta } }; total += meta.kb;
