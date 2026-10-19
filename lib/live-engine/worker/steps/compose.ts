@@ -377,6 +377,44 @@ export function applyOrder(script, art) {
   return { ...art, scenes: art.order.map((n, i) => ({ ...art.scenes[n - 1], n: i + 1, was: n })), order: art.order.map((_, i) => i + 1) };
 }
 
+/**
+ * The regions of a screen the scene names (headline, sub, chips): images, countdown, stock bar, reviews, features, the form,
+ * an orders table / stat row, or a block sharing words with them — each as its containing block (part) box, top to bottom.
+ */
+const NAMED = [
+  ["images", /صور|صورة|photos?|images?|gallery|معرض/i, (k) => k.role === "image" && k.box[2] * k.box[3] > 20000],
+  ["countdown", /عداد|countdown|timer|ينتهي|العرض/i, (k) => k.role === "stat" && /^\s*[0-9٠-٩]{2}\s*$/.test(String(k.text || ""))],
+  ["stock", /مخزون|stock|متبقي|باقي|كمية/i, (k) => /مخزون|stock|متبقي|باقي|left|قطع/i.test(String(k.text || ""))],
+  ["reviews", /آراء|اراء|تقييم|reviews?|ratings?/i, (k) => /⭐|تقييم|موثق|review|rating/i.test(String(k.text || ""))],
+  ["features", /مميزات|features?|benefits?|تفاصيل/i, (k) => /مميزات|تفاصيل المنتج|features?|✅/i.test(String(k.text || ""))],
+  ["form", /فورم|form|بيانات|الدفع|اطلب|order|checkout|الاستلام/i, (k) => k.role === "field"],
+  ["table", /طلبات|الطلب|orders?|جدول|table|قائمة|list/i, (k) => k.role === "row" || (k.role === "part" && /[0-9٠-٩].*(EGP|جنيه|ج\.م)/i.test(String(k.text || "")))],
+  ["stats", /إحصائ|أرقام|stats?|مؤشرات|kpi|إيرادات|مبيعات|revenue/i, (k) => k.role === "stat"],
+];
+function namedRegions(clone, sc, chips = []) {
+  const said = `${sc.headline || ""} ${sc.sub || ""} ${chips.join(" ")}`, keys = clone.keys || [], parts = keys.filter((k) => k.part != null);
+  const inBox = (b, r) => b[0] >= r[0] - 4 && b[1] >= r[1] - 4 && b[0] + b[2] <= r[0] + r[2] + 4 && b[1] + b[3] <= r[1] + r[3] + 4;
+  const partOf = (b) => parts.filter((p) => inBox(b, p.box) && p.box[2] < clone.w * 0.97).sort((x, y) => x.box[2] * x.box[3] - y.box[2] * y.box[3])[0];
+  const out = [];
+  for (const [kind, re, hit] of NAMED) {
+    if (!re.test(said)) continue;
+    const ks = keys.filter((k) => k.role !== "nav" && hit(k)); if (!ks.length) continue;
+    const p = partOf(ks[0].box), box = p ? p.box : [Math.min(...ks.map((k) => k.box[0])), Math.min(...ks.map((k) => k.box[1])), Math.max(...ks.map((k) => k.box[0] + k.box[2])) - Math.min(...ks.map((k) => k.box[0])), Math.max(...ks.map((k) => k.box[1] + k.box[3])) - Math.min(...ks.map((k) => k.box[1]))];
+    if (!out.some((o) => Math.abs(o.box[1] - box[1]) < 40)) out.push({ kind, box, part: p ? `part:${p.part}` : null });
+  }
+  // a block that shares a word with what the scene says
+  const words = new Set(said.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 3));
+  for (const p of parts) if (out.length < 4 && p.box[2] < clone.w * 0.97 && String(p.text || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).some((w) => words.has(w)) && !out.some((o) => Math.abs(o.box[1] - p.box[1]) < 40)) out.push({ kind: "block", box: p.box, part: `part:${p.part}` });
+  return out.sort((a, b) => a.box[1] - b.box[1]).slice(0, 5);
+}
+/** the page's form / CTA: its fields (and submit) as one block — where a page tour ends */
+function formRegion(clone) {
+  const f = (clone.keys || []).filter((k) => k.role === "field" || (k.role === "button" && /اطلب|order|buy|checkout|شراء|سجل|start/i.test(String(k.text || ""))));
+  if (!f.length) return null;
+  const x0 = Math.min(...f.map((k) => k.box[0])), y0 = Math.min(...f.map((k) => k.box[1])), x1 = Math.max(...f.map((k) => k.box[0] + k.box[2])), y1 = Math.max(...f.map((k) => k.box[1] + k.box[3]));
+  return { kind: "form", box: [x0 - 16, y0 - 16, x1 - x0 + 32, y1 - y0 + 32], part: null };
+}
+
 /** a clone's typical text size (median inline font-size, px) — how far a camera must zoom for text to read */
 function cloneFont(brandDir, id) { const c = loadClone(brandDir, id); if (!c) return null; const v = [...String(c.html).matchAll(/font-size:\s*([\d.]+)px/g)].map((m) => +m[1]).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : null; }
 
@@ -478,9 +516,15 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
       const fieldOf = (cid) => (loadClone(brandDir, cid)?.keys || []).find((k) => k.role === "field");
       let typeArg = "";
 
-      if (recipe === "tour") { devHtml = win ? `${frameOpen}${deskUi(`u${n}`, r.ui)}${frameClose}` : `<div class="dev laptop" style="${devStyle}">${deskUi(`u${n}`, r.ui)}</div>`; call = `K.R.tour(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d},focus:${JSON.stringify(p.focus || sc._focus || [])}${popArg}${typeArg}});`; }
       // a flow clip (experiment, brief.flowClips): the recorded session plays in the window, sped up to fit, the camera zoomed on
       // top — only when it stays sharp at the zoom that makes its text readable (≤ 2× upscale); else the clone replay as before
+      // a customer-facing page taller than its window (landing / product / store page) is shown as a page tour: top → the
+      // regions the scene names → the form / CTA; any other tour opens on the region the scene names
+      const custPage = recipe === "tour" && ((brand.screens || []).find((x) => x.id === r.ui)?.customer || r.asset?.essential);
+      const clone = recipe === "tour" ? loadClone(brandDir, r.ui) : null, named = clone ? namedRegions(clone, sc, chips) : [];
+      const pageTour = custPage && clone && clone.h * ((win ? geo.w : lapW) / clone.w) > (uiH || lapH) * 1.15 ? [...named.filter((x) => x.kind !== "form"), ...named.filter((x) => x.kind === "form").slice(0, 1)] : null;
+      if (pageTour && !pageTour.some((x) => x.kind === "form")) { const f = formRegion(clone); if (f) pageTour.push(f); }
+      if (recipe === "tour" && !pageTour && named.length && !(p.focus && p.focus.length)) p.focus = named.map((x) => x.part).filter(Boolean).slice(0, 2);
       const clip = recipe === "replay" && brief.flowClips && win ? (brand.screens || []).find((x) => x.id === r.b)?.clones?.clip : null;
       let clipUse = null;
       if (clip) {
@@ -495,6 +539,8 @@ export function compose({ brief, brand, script, assets, plan = {}, art, brandDir
         devHtml = `${frameOpen}<div id="u${n}v" class="clipui" style="left:0;top:${BAR}px;width:${geo.w}px;height:${uiH}px"><div class="clip-cam" style="width:${cw}px;height:${ch}px"><img src="${clipUse.dir}/0001.jpg"></div></div>${frameClose}`;
         call = `K.R.clip(tl,{sc:"#${id}",ui:"#u${n}v",s:${s},d:${d},dir:${JSON.stringify(clipUse.dir)},n:${clipUse.n},fps:${clipUse.fps},dur:${clipUse.clip.dur},k:${clipUse.sClip.toFixed(5)},z:${clipUse.z.toFixed(3)},w:${cw},h:${ch},marks:${JSON.stringify(clipUse.clip.marks || [])}});`;
       }
+      else if (recipe === "tour" && pageTour) { devHtml = win ? `${frameOpen}${deskUi(`u${n}`, r.ui)}${frameClose}` : `<div class="dev laptop" style="${devStyle}">${deskUi(`u${n}`, r.ui)}</div>`; call = `K.R.pageTour(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d},stops:${JSON.stringify(pageTour.map((x) => x.box))}});`; clipNotes.push(`scene ${n}: page tour of ${r.ui} — top → ${pageTour.map((x) => x.kind).join(" → ")}`); }
+      else if (recipe === "tour") { devHtml = win ? `${frameOpen}${deskUi(`u${n}`, r.ui)}${frameClose}` : `<div class="dev laptop" style="${devStyle}">${deskUi(`u${n}`, r.ui)}</div>`; call = `K.R.tour(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d},focus:${JSON.stringify(p.focus || sc._focus || [])}${popArg}${typeArg}});`; }
       else if (recipe === "replay") { const then = (sc.visual?.assets || []).map((x) => (byId[x]?.kind === "live-phone" ? x.replace(/-phone$/, "") : x)).filter((x) => x !== r.b && /^live-(screen|phone)/.test(byId[x]?.kind || byId[`${x}-phone`]?.kind || "") && has(brandDir, x)).filter((x, k, l) => l.indexOf(x) === k).slice(0, 2);
         devHtml = `${win ? frameOpen : `<div class="dev laptop" style="${devStyle}">`}${deskUi(`u${n}a`, r.a)}${deskUi(`u${n}b`, r.b, true)}${then.map((x, k) => deskUi(`u${n}c${k}`, x, true)).join("")}<div class="spin"></div><div class="ok">✓</div>${win ? frameClose : "</div>"}`; const tk = p.typeKey || (r.asset && flowInfo(r.asset, brandDir).typeKey); call = `K.R.replay(tl,{sc:"#${id}",a:"#u${n}a",b:"#u${n}b",s:${s},d:${d}${tk ? `,typeKey:"${tk}"` : ""}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${p.result ? `,result:${JSON.stringify(p.result)}` : ""}${then.length ? `,then:${JSON.stringify(then.map((_, k) => `#u${n}c${k}`))}` : popArg}${fake ? `,fake:${JSON.stringify(fake)}` : ""}});`; }
       else if (recipe === "phone") { devHtml = `<div class="dev phone" style="${devStyle}"><div class="notch"></div><div id="u${n}" class="ui" data-clone="${r.ui}" data-w="${geo.w - 40}" data-h="${geo.h - 60}" data-frame="none"></div></div>`; call = `K.R.phone(tl,{sc:"#${id}",ui:"#u${n}",s:${s},d:${d}${p.tapKey ? `,tapKey:"${p.tapKey}"` : ""}${typeArg}});`; }
