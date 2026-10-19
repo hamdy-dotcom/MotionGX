@@ -7,7 +7,7 @@ import path from "node:path";
 import { projectPath } from "@/lib/motion/paths";
 import type { JobFile } from "../protocol";
 
-export async function startLocal(job: JobFile, attempt: number, onExit: () => unknown): Promise<{ sandboxId?: string }> {
+export async function startLocal(job: JobFile, attempt: number, onExit: (code: number | null, dir: string) => unknown): Promise<{ sandboxId?: string }> {
   const dir = projectPath(".work", "live", job.jobId, `a${attempt}`);
   fs.mkdirSync(dir, { recursive: true });
   const jobFile = path.join(dir, "job.json");
@@ -22,7 +22,7 @@ export async function startLocal(job: JobFile, attempt: number, onExit: () => un
   child.on("exit", (code) => {
     fs.closeSync(out);
     console.log(`[live] worker ${job.jobId} a${attempt} exited (${code})`);
-    void Promise.resolve(onExit()).catch((e) => console.error("[live] resume failed", e));
+    void Promise.resolve(onExit(code, dir)).catch((e) => console.error("[live] resume failed", e));
   });
   child.unref();
   console.log(`[live] worker ${job.jobId} a${attempt} started (pid ${child.pid}) → ${path.relative(projectPath(), dir)}/worker.log`);

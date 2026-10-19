@@ -6,6 +6,7 @@ import path from "node:path";
 import type { JobFile, LedgerRow, Report, Step } from "../protocol";
 
 const PART_BYTES = 45 * 1024 * 1024; // Supabase's default per-file limit is 50 MB
+const WAITS = [2, 5, 15, 30]; // storage transfers: retries after these seconds (network errors, 5xx, 429)
 
 export class Sync {
   private buffer: string[] = [];
@@ -113,6 +114,20 @@ export class Sync {
     return null;
   };
 
+  /** a storage transfer (signed PUT / GET): retried on network errors, 5xx and 429 — 4 more tries after 2, 5, 15, 30 s, each
+   *  logged as ↻; a 4xx answer is final. Throws a clear error once the tries are used up. */
+  private async transfer(label: string, go: () => Promise<Response>): Promise<Response> {
+    for (let i = 0; ; i++) {
+      const r = await go().catch((e: Error) => e);
+      if (!(r instanceof Error) && r.ok) return r;
+      const why = r instanceof Error ? `${r.message}${(r as Error & { cause?: { code?: string } }).cause?.code ? ` (${(r as Error & { cause?: { code?: string } }).cause!.code})` : ""}` : `${r.status} ${(await r.text().catch(() => "")).slice(0, 200)}`;
+      const final = !(r instanceof Error) && r.status < 500 && r.status !== 429;
+      if (final || i >= WAITS.length) throw new Error(`${label} failed after ${i + 1} tries: ${why}`);
+      this.log(`  ↻ ${label}: ${why} — retry ${i + 1}/${WAITS.length} in ${WAITS[i]} s`);
+      await new Promise((ok) => setTimeout(ok, WAITS[i] * 1000));
+    }
+  }
+
   /** local file for a logical path (brand/…, run/…, private/auth.json) */
   local(logical: string) {
     const [root, ...rest] = logical.split("/");
@@ -146,14 +161,8 @@ export class Sync {
           const { f, url } = jobs[next++];
           const body = fs.readFileSync(f.file);
           bytes += body.length;
-          // network blips must not lose a finished step: retry with backoff (a 4xx answer is final)
-          for (let attempt = 0; ; attempt++) {
-            const r = await fetch(url, { method: "PUT", headers: { "content-type": contentType(f.file), "x-upsert": "true" }, body }).catch((e: Error) => e);
-            if (!(r instanceof Error) && r.ok) break;
-            const why = r instanceof Error ? r.message : `${r.status} ${(await r.text()).slice(0, 200)}`;
-            if ((!(r instanceof Error) && r.status < 500 && r.status !== 429) || attempt >= 4) throw new Error(`upload ${f.logical}: ${why}`);
-            await new Promise((ok) => setTimeout(ok, 2000 * (attempt + 1)));
-          }
+          // network blips must not lose a finished step: retried with backoff (a 4xx answer is final)
+          await this.transfer(`upload ${f.logical}`, () => fetch(url, { method: "PUT", headers: { "content-type": contentType(f.file), "x-upsert": "true" }, body }));
         }
       };
       await Promise.all(Array.from({ length: Math.min(6, jobs.length) }, worker));
@@ -234,8 +243,7 @@ export class Sync {
     const tmp = path.join(this.dirs.root, ".unpack");
     fs.mkdirSync(tmp, { recursive: true });
     for (const d of this.job.downloads) {
-      const r = await fetch(d.url);
-      if (!r.ok) throw new Error(`download ${d.path}: ${r.status}`);
+      const r = await this.transfer(`download ${d.path}`, () => fetch(d.url));
       const buf = Buffer.from(await r.arrayBuffer());
       const m = d.path.match(/^brand\/_pack\/(.+?\.tgz)(?:\.part(\d+))?$/);
       if (m) {

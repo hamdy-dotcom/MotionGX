@@ -4,6 +4,9 @@ import "server-only";
 // ai_usage. One capture job per company (reused by every video, like the sandbox's brands/<site>); a video
 // job waits for it. A stalled or crashed job is relaunched and resumes from its last finished step.
 import { createHash, randomBytes } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { projectPath } from "@/lib/motion/paths";
 import type { ScriptBeat } from "@motiongx/primitives";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Video } from "@/lib/types";
@@ -281,22 +284,58 @@ export async function launch(jobId: string) {
     history,
     settings: job.input.settings,
   };
+  // local runner: a capture whose agent already finished on this machine (but whose upload never reached the app) resumes
+  // from that folder at the upload — a relaunch never repeats the agent and its model calls
+  if (runnerKind() === "local" && job.kind === "capture" && !job.done_steps.includes("capture")) {
+    const from = finishedLocalCapture(job.id, file.slug);
+    if (from) { file.resumeFrom = from; console.log(`[live] ${job.id}: resuming the capture from ${path.relative(projectPath(), from)}`); }
+  }
   const attempt = job.attempts + 1;
   await patchJob(job.id, { status: "running", token_hash: sha(token), attempts: attempt, runner: runnerKind(), error: null });
   if (job.kind === "capture") await db.from("live_brand_captures").update({ status: "running", updated_at: now() }).eq("id", capture.id);
   try {
-    const started = runnerKind() === "sandbox" ? await startSandbox(file, attempt) : await startLocal(file, attempt, () => onWorkerExit(job.id));
+    const started = runnerKind() === "sandbox" ? await startSandbox(file, attempt) : await startLocal(file, attempt, (code, dir) => onWorkerExit(job.id, code, dir));
     if (started.sandboxId) await patchJob(job.id, { sandbox_id: started.sandboxId });
   } catch (err) {
     await failJob({ ...job, attempts: attempt }, `could not start the worker: ${err instanceof Error ? err.message : err}`);
   }
 }
 
-/** local runner: the child process ended — relaunch (resume) unless the job finished */
-async function onWorkerExit(jobId: string) {
+/** the newest local attempt folder of a job whose capture finished there (capture.json written, "✓ capture:" logged) */
+function finishedLocalCapture(jobId: string, slug: string): string | null {
+  const root = projectPath(".work", "live", jobId);
+  if (!fs.existsSync(root)) return null;
+  const attempts = fs.readdirSync(root).filter((d) => /^a\d+$/.test(d)).sort((a, b) => Number(b.slice(1)) - Number(a.slice(1)));
+  for (const a of attempts) {
+    const brand = path.join(root, a, "brands", slug), log = path.join(root, a, "worker.log");
+    if (fs.existsSync(path.join(brand, "capture.json")) && fs.existsSync(log) && /✓ capture:|↺ capture: reusing the finished capture/.test(fs.readFileSync(log, "utf8"))) return brand;
+  }
+  return null;
+}
+
+/** resume a capture / video job by hand (scripts/live-engine/resume-local.ts): back to queued, then launched — a capture
+ *  that finished locally continues at its upload */
+export async function resumeJob(jobId: string) {
+  const job = await getJob(jobId);
+  if (!job) throw new Error(`no job ${jobId}`);
+  if (job.status === "done") throw new Error(`job ${jobId} is already done`);
+  await patchJob(job.id, { status: "queued", error: null, attempts: Math.min(job.attempts, MAX_ATTEMPTS - 1) });
+  await launch(job.id);
+  return (await getJob(job.id)) ?? job;
+}
+
+/** local runner: the child process ended — a worker that failed on its own (exit 1: its retries used up) fails the job
+ *  with its last error, so the UI stops waiting even when its "failed" report never arrived; any other exit resumes */
+async function onWorkerExit(jobId: string, code: number | null = null, dir?: string) {
   await new Promise((ok) => setTimeout(ok, 2000));
   const job = await getJob(jobId);
   if (!job || job.status === "done" || job.status === "failed") return;
+  if (code === 1) {
+    const log = dir && fs.existsSync(path.join(dir, "worker.log")) ? fs.readFileSync(path.join(dir, "worker.log"), "utf8").split("\n") : [];
+    const last = [...log].reverse().find((l) => l.startsWith("✗ "))?.slice(2).trim();
+    const hint = log.some((l) => l.includes("pnpm live:resume")) ? ` — the capture is saved locally; resume it with: pnpm live:resume ${jobId}` : "";
+    return failJob(job, `the worker failed: ${last ?? "see worker.log"}${hint}`);
+  }
   if (job.attempts >= MAX_ATTEMPTS) return failJob(job, `the worker stopped ${job.attempts} times`);
   console.warn("[live] worker exited early — resuming", { jobId, after: job.done_steps });
   await launch(jobId);

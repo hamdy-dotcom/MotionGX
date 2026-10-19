@@ -47,7 +47,10 @@ export async function runJob(job: JobFile, dirs: { root: string; brandDir: strin
     // 3 — capture (once per company)
     const cap: any =
       (await step("capture", async () => {
-        const c = await capture({ brief, brandDir, ledger, models, log });
+        // resumed from a local folder (the agent already finished here): straight to the upload, no agent, no model calls
+        const resumed = job.resumeFrom && fs.existsSync(path.join(brandDir, "capture.json")) ? JSON.parse(fs.readFileSync(path.join(brandDir, "capture.json"), "utf8")) : null;
+        if (resumed) log(`↺ capture: reusing the finished capture (${resumed.pages.length} pages, ${resumed.app.screens.length} app screens, ${resumed.app.status}) — uploading`);
+        const c = resumed ?? (await capture({ brief, brandDir, ledger, models, log }));
         // flow clips (experiment): uploaded as their own phase so the log shows their size and upload time
         if (fs.existsSync(path.join(brandDir, "clips"))) { await sync.uploadBrand(["clips"], []); await sync.uploadBrand(undefined, undefined, ["clips"]); }
         else await sync.uploadBrand();

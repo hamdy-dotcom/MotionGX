@@ -33,6 +33,8 @@ export type JobFile = {
   history?: Record<string, unknown>[];
   /** remembered test phone/email (the sandbox's .sandbox-settings.json) */
   settings?: { phone?: string; email?: string };
+  /** local runner only: a previous attempt's finished brand folder — the capture resumes at its upload (no agent, no model calls) */
+  resumeFrom?: string;
 };
 
 export type LedgerRow = { step: string; model: string; in: number; out: number; cacheRead: number; cacheWrite: number; usd: number; ms: number };

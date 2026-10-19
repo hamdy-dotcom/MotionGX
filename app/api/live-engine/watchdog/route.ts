@@ -5,6 +5,7 @@ import { reviveStalledJobs } from "@/lib/live-engine/server/jobs";
 export const maxDuration = 300;
 
 export async function GET(request: NextRequest) {
-  if (!process.env.CRON_SECRET || request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const auth = request.headers.get("authorization"), ok = [process.env.CRON_SECRET, process.env.LIVE_WATCHDOG_TOKEN].some((t) => t && auth === `Bearer ${t}`);
+  if (!ok) return Response.json({ error: "unauthorized" }, { status: 401 }); // CRON_SECRET (Vercel cron) or the local watchdog's token (instrumentation.ts)
   return Response.json({ revived: await reviveStalledJobs() });
 }

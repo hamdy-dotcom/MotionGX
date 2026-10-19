@@ -366,6 +366,13 @@ ${promises || "(no public pages captured)"}`;
   const seedStatus = (step) => seedFrom == null ? "" : !seedOver
     ? `\nSEED ACTIVITY — test order ${seedAttempt} of ${seedMax} (confirmed so far: ${seedOrders}), step ${step + 2 - seedOrderFrom}/${SEED_PER_ORDER} for this order. Fill EVERY required field first (name, phone, address, city, …), press the submit button LAST, check that the success / confirmation state shows, then start the next order.`
     : `\nSEED ACTIVITY is over (${seedOrders} test order(s) confirmed). ${resave.size ? `Re-save these screens WITH the new data (open, wait until loaded, save_screen): ${[...resave.values()].join(" | ")}. ` : ""}Then finish.`;
+  // the page around a submit: its URL, visible form fields, headings / alerts, the clicked button — compared before and after
+  const seedState = (page, id) => page.evaluate((id) => {
+    const fields = [...document.querySelectorAll("input:not([type=hidden]), textarea, select")].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== "hidden"; }).length;
+    const heads = [...document.querySelectorAll("h1, h2, h3, h4, [role=alert], [role=status], [class*=toast i], [class*=success i], [class*=alert i], [class*=confirm i]")].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).map((e) => (e.innerText || "").replace(/\s+/g, " ").trim().slice(0, 80)).filter(Boolean);
+    const b = document.querySelector(`[data-mgx="${id}"]`), br = b ? b.getBoundingClientRect() : null;
+    return { url: location.href.split("#")[0], fields, heads, btn: Boolean(br && br.width > 0 && br.height > 0), disabled: Boolean(b && (b.disabled || b.getAttribute("aria-disabled") === "true")), text: (document.body.innerText || "").slice(0, 4000) };
+  }, id).catch(() => null);
   // waits until the page is no longer loading (spinners, skeletons, "loading…" labels), re-checking every 2 s
   let busyNow = null; const waitedOn = new Set(); // pages already waited on (90 s) while loading — never waited on twice
   const idle = async (page, sec) => { const until = Date.now() + sec * 1000, t0 = Date.now(); let b = { busy: false, why: "" }; for (;;) { b = await inPage(page, "BUSY").catch(() => ({ busy: false, why: "" })); if (!b.busy || Date.now() > until) break; await page.waitForTimeout(2000); } if (Date.now() - t0 > 2500) log(`  ⏳ ${b.busy ? "still loading" : "loaded"} after ${((Date.now() - t0) / 1000).toFixed(0)} s${b.busy ? ` (${b.why})` : ""}`); return b; }; const refused = new Map(); // submit key → times refused
@@ -446,6 +453,8 @@ ${promises || "(no public pages captured)"}`;
     if (!call) { history.push("- (no action)"); continue; }
     const a = call.input; let out = "ok";
     // flow clips: when each action starts / is done / the page has settled, and where its target sits in the viewport
+    // seed: the page just before a click on a filled form (its submit) — the order is confirmed by what changes after it
+    const preSeed = seedFrom != null && !seedOver && call.name === "click" && a.id != null ? await seedState(page, a.id) : null;
     const tA0 = Date.now(), rbox = rec && a.id != null ? await page.locator(`[data-mgx="${a.id}"]`).first().boundingBox({ timeout: 1000 }).catch(() => null) : null;
     const refusal = call.name === "goto" && !scope.allows(a.url) ? `Not allowed: ${a.url} is outside the company's website (${scope.domain}). Only the company's own site and pages it opens itself are allowed — continue on it.`
       : ["click", "type", "select", "upload", "key", "save_screen"].includes(call.name) && !scope.allows(page.url()) ? `Not allowed: this page (${page.url().slice(0, 80)}) is outside the company's website (${scope.domain}). Go back, or goto the company's site.` : null;
@@ -573,8 +582,18 @@ ${promises || "(no public pages captured)"}`;
     fs.writeFileSync(path.join(stepsDir, "trace.json"), JSON.stringify(trace, null, 2));
     // seed bookkeeping: a click that lands on a success state confirms the current test order; an order out of steps is given up
     if (seedFrom != null && !seedOver) {
-      const ok = call.name === "click" && (await getPage().evaluate(() => [...document.querySelectorAll("h1, h2, h3, h4, p, div, span")].some((e) => e.children.length <= 2 && e.offsetParent !== null && /^[^\p{L}\d]{0,3}(تم (استلام|تأكيد|إرسال|تسجيل) (طلبك|الطلب|حجزك)|تم الطلب|شكرا|شكراً|thank you|order (received|confirmed|placed)|booking confirmed|your order)/iu.test((e.innerText || "").trim()))).catch(() => false));
-      if (ok) { seedOrders++; log(`  🌱 test order ${seedOrders} confirmed`); }
+      // confirmed when, after a submit on a filled form: the URL changes, the form disappears / is replaced, a new heading or
+      // alert appears (not an error), or the submit button goes away / disables; a success phrase is only an extra signal
+      let ok = false, why = "";
+      if (preSeed && preSeed.fields >= 2 && typedLog.some((x) => x.step >= seedOrderFrom)) {
+        const post = await seedState(getPage(), a.id), ERR = /مطلوب|required|invalid|غير صالح|خطأ|error|please (enter|fill)|يرجى (إدخال|ادخال)/i, OK = /(تم (استلام|تأكيد|إرسال|تسجيل)|شكرا|شكراً|thank you|order (received|confirmed|placed)|booking confirmed)/i;
+        if (post) {
+          const fresh = post.heads.find((h) => !preSeed.heads.includes(h) && !ERR.test(h));
+          why = post.url !== preSeed.url ? "the URL changed" : post.fields <= Math.floor(preSeed.fields * 0.3) ? "the form was replaced" : fresh ? `a new message «${fresh.slice(0, 40)}»` : !post.btn || post.disabled ? "the submit button went away" : OK.test(post.text) && !OK.test(preSeed.text) ? "a success phrase" : "";
+          ok = Boolean(why);
+        }
+      }
+      if (ok) { seedOrders++; log(`  🌱 test order ${seedOrders} confirmed (${why})`); }
       if (ok || step + 2 - seedOrderFrom >= SEED_PER_ORDER) { if (!ok) log(`  🌱 test order ${seedAttempt} not confirmed in ${SEED_PER_ORDER} steps`); seedAttempt++; seedOrderFrom = step + 2; }
       if (seedAttempt > seedMax) {
         seedOver = true;

@@ -22,6 +22,11 @@ async function main() {
   if (job.settings && (job.settings.phone || job.settings.email)) fs.writeFileSync(path.join(root, ".sandbox-settings.json"), JSON.stringify(job.settings, null, 2));
   const sync = new Sync(job, { root, brandDir, runDir });
   try {
+    if (job.resumeFrom && fs.existsSync(path.join(job.resumeFrom, "capture.json"))) {
+      // a capture that finished on this machine but never got uploaded: its folder is reused (no agent, no model calls)
+      fs.cpSync(job.resumeFrom, brandDir, { recursive: true });
+      sync.log(`↺ resume: brand folder from ${path.relative(process.cwd(), job.resumeFrom)} — the capture continues at its upload`);
+    }
     sync.log(`▶ worker ${job.jobId}: ${job.downloads.length} files to fetch`);
     await sync.downloadAll();
     const summary = await runJob(job, { root, brandDir, runDir }, sync);
@@ -29,6 +34,7 @@ async function main() {
   } catch (err) {
     const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
     sync.log(`✗ ${msg.split("\n")[0]}`);
+    if (job.kind === "capture" && fs.existsSync(path.join(brandDir, "capture.json"))) sync.log(`  the capture is saved in ${path.relative(process.cwd(), root)} — resume it with: pnpm live:resume ${job.jobId}`);
     await sync.failed(msg).catch((e) => console.error("could not report the failure:", e));
     process.exitCode = 1;
   }
