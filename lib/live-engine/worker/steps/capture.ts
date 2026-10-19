@@ -40,7 +40,7 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   const browser = await chromium.launch({ headless: process.env.HEADFUL ? false : true });
   const authState = path.join(brandDir, "auth.json");
   // flow clips (experiment, brief.flowClips): the session is recorded to a temp folder — only the cut clips are kept
-  const rec = brief.flowClips && !brief.resnap ? { dir: fs.mkdtempSync(path.join(os.tmpdir(), "mgx-rec-")), events: [], flows: [], paths: new Map(), pageT0: new Map() } : null;
+  const rec = brief.flowClips && !brief.resnap ? { dir: fs.mkdtempSync(path.join(os.tmpdir(), "mgx-rec-")), events: [], flows: [], paths: new Map(), videos: new Map(), pageT0: new Map() } : null;
   if (rec) process.once("exit", () => fs.rmSync(rec.dir, { recursive: true, force: true })); // a failed capture never leaves the recording behind
   const ctx = await browser.newContext({ ...(rec ? { recordVideo: { dir: rec.dir, size: VIEW } } : {}), ...(brief.resnap && fs.existsSync(authState) ? { storageState: authState } : {}), viewport: VIEW, deviceScaleFactor: 2, locale: brief.locale || "ar-SA", userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36" });
 
@@ -60,9 +60,9 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
     } catch {}
   });
 
-  if (rec) ctx.on("page", (p) => { if (!rec.pageT0.has(p)) { rec.pageT0.set(p, Date.now()); rec.paths.set(p, p.video()?.path() || null); } });
+  if (rec) ctx.on("page", (p) => { if (!rec.pageT0.has(p)) { rec.pageT0.set(p, Date.now()); rec.videos.set(p, p.video()); } });
   let page = await ctx.newPage();
-  if (rec && !rec.pageT0.has(page)) { rec.pageT0.set(page, Date.now()); rec.paths.set(page, page.video()?.path() || null); }
+  if (rec && !rec.pageT0.has(page)) { rec.pageT0.set(page, Date.now()); rec.videos.set(page, page.video()); }
   ctx.on("page", async (p) => { page = p; await p.waitForLoadState("domcontentloaded").catch(() => {}); });
   const settle = async () => { try { await page.waitForLoadState("networkidle", { timeout: 8000 }); } catch {} await page.waitForTimeout(800); };
   const autoscroll = async () => { await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 700) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 120)); } scrollTo({ top: 0, behavior: "instant" }); }); await page.waitForTimeout(500); };
@@ -194,6 +194,13 @@ export async function capture({ brief, brandDir, ledger, models, log = console.l
   fs.writeFileSync(path.join(brandDir, "clones", "fonts.css"), fontFaceCss(manifest, brandDir));
   manifest.demoAssets = [...phaseAssets.app].filter((f) => f.startsWith("assets/images/") && !phaseAssets.public.has(f));
   fs.writeFileSync(path.join(brandDir, "capture.json"), JSON.stringify(manifest, null, 2));
+  if (rec) {
+    // the recordings are only complete once the context the agent drove is closed; Video.path() is a promise
+    await ctx.close().catch(() => {});
+    for (const [p, v] of rec.videos) { const f = v ? await v.path().catch(() => null) : null; rec.paths.set(p, f); }
+    const files = [...new Set([...rec.paths.values()].filter(Boolean))];
+    log(`  🎬 recordings (${rec.dir}): ${files.length ? files.map((f) => `${path.basename(f)} ${fs.existsSync(f) ? (fs.statSync(f).size / 1048576).toFixed(1) + " MB" : "MISSING"}`).join(", ") : "none"}`);
+  }
   await browser.close();
   if (rec) { cutFlowClips({ rec, manifest, brandDir, view: VIEW, log }); fs.writeFileSync(path.join(brandDir, "capture.json"), JSON.stringify(manifest, null, 2)); }
   log(`✓ capture: ${manifest.pages.length} public pages, ${manifest.app.screens.length} app screens (${manifest.app.status}), ${Object.keys(manifest.assets).length} files`);
@@ -309,7 +316,8 @@ HOW TO WORK
 - Once inside, your job is a FEATURE TOUR for a promo video, not a list of pages. The app's main navigation is read for you and shown every turn as SECTIONS (✓ visited / ☐ not visited); a section counts as visited once you opened it and saved at least one screen there, or called skip_section because it is empty / locked. Visit every SECTION AND go one level deeper: tabs inside a page, "create / new / add / import / launch / generate" flows, editors, wizards, preview screens, settings sub-tabs (themes, pixels, shipping, domains…). Save each distinct screen that shows a feature in action.
 - Empty screens make bad videos. If a section is empty and offers a create flow, create ONE demo item inside this test account (e.g. add a product${brief.sampleUrl ? ` from ${brief.sampleUrl}` : " from a product link the page suggests or a sample it offers"}, generate a page, open a wizard) and save the filled result. Do not publish ads, spend money, or connect external accounts.
 - FILL IT WITH LIFE: empty dashboards and lists make dead videos. After the essentials, generate the ACTIVITY the product exists for, through the product's OWN flows inside this test account — e.g. a test order on a store (via its own storefront / checkout, cash-on-delivery or test mode), a booking on a booking tool, a lead on a CRM, a submission on a form builder, a message on a chat tool. Invented test data only, at most 2-3 items. Never a real payment, never publishing, never messaging real people. Then revisit the dashboard and the lists so they are saved WITH that data.
-- SEED ACTIVITY (when you are told to start it; about 8 steps): use the product the way its real customers would on its own customer-facing side — 2-3 test actions there (e.g. cash-on-delivery test orders on its own storefront, a booking, a form submission). Never a real payment, never KYC. Then return to the dashboards and lists and save them again WITH that data.
+- SEED ACTIVITY (when you are told to start it): use the product the way its real customers would on its own customer-facing side — up to 3 test orders there (e.g. cash-on-delivery orders on its own storefront, a booking, a form submission), about 6 steps each. For each one: fill EVERY required field first, submit LAST, check the success / confirmation state, then start the next. Never a real payment, never KYC. Then return to the dashboard and the orders / lists and save them again WITH that data.
+- NEVER save a screen while it is still loading (spinner, skeleton, "جاري…", "loading…"): wait until it has finished, and never save a second copy of a page that is still loading.
 - APPEARANCE: settings that change how the customer-facing side looks (themes, branding, templates, appearance) are SECTIONS too: open one, apply a different option, then re-open the customer view and save it (customer_facing=true) to show the result.
 - The video replays what you do: every click and the typed values are recorded with the screen before and after. So run flows for real (type a real value, press the real button, wait for the result) and save the RESULT screen right after it appears. Make sure to open and save what the merchant's customers see too: the store front / store preview, a generated landing or product page, the theme gallery and a theme applied, plus orders, dashboard stats, ad / TikTok tools.
 - save_screen: short English label, one line on what it shows, and the features visible on it (name + what it does for the merchant).
@@ -347,7 +355,14 @@ ${promises || "(no public pages captured)"}`;
   };
   let lastSig = "", same = 0;
   const history = [], trace = []; let asks = 0, lastPre = null, lastSave = 0, fillPass = false, waitedAt = "";
-  let captchaClicks = 0, captchaAsked = false, humanNote = "", seedFrom = null, lastTyped = null; const SEED_STEPS = 8, typedLog = []; const refused = new Map(); // submit key → times refused
+  let captchaClicks = 0, captchaAsked = false, humanNote = "", seedFrom = null, lastTyped = null; const typedLog = [];
+  // seed activity: about 6 steps per test order, up to 3 orders; an order counts once the page shows its success state
+  const SEED_ORDERS = 3, SEED_PER_ORDER = 6; let seedMax = SEED_ORDERS, seedAttempt = 1, seedOrders = 0, seedOrderFrom = null, seedOver = false, seedNudged = false, resaveAsked = false; const resave = new Map();
+  const seedStatus = (step) => seedFrom == null ? "" : !seedOver
+    ? `\nSEED ACTIVITY — test order ${seedAttempt} of ${seedMax} (confirmed so far: ${seedOrders}), step ${step + 2 - seedOrderFrom}/${SEED_PER_ORDER} for this order. Fill EVERY required field first (name, phone, address, city, …), press the submit button LAST, check that the success / confirmation state shows, then start the next order.`
+    : `\nSEED ACTIVITY is over (${seedOrders} test order(s) confirmed). ${resave.size ? `Re-save these screens WITH the new data (open, wait until loaded, save_screen): ${[...resave.values()].join(" | ")}. ` : ""}Then finish.`;
+  // waits until the page is no longer loading (spinners, skeletons, "loading…" labels), re-checking every 2 s
+  const idle = async (page, sec) => { const until = Date.now() + sec * 1000, t0 = Date.now(); let b = { busy: false, why: "" }; for (;;) { b = await inPage(page, "BUSY").catch(() => ({ busy: false, why: "" })); if (!b.busy || Date.now() > until) break; await page.waitForTimeout(2000); } if (Date.now() - t0 > 2500) log(`  ⏳ ${b.busy ? "still loading" : "loaded"} after ${((Date.now() - t0) / 1000).toFixed(0)} s${b.busy ? ` (${b.why})` : ""}`); return b; }; const refused = new Map(); // submit key → times refused
   // a captcha on the page: a known challenge frame, or a visible "verify you are human" box
   const captchaOn = async (pg) => { const f = pg.frames().find((x) => CAPTCHA_RE.test(x.url())); if (f) return { frame: f, provider: providerOf(f.url()) }; const t = await inPage(pg, "HUMAN").catch(() => ""); return t ? { frame: null, provider: `box "${t.slice(0, 40)}"` } : null; };
   // after 2 failed captcha clicks (or 3 refused submits behind a captcha): ask the human ONCE for an existing login, else stop with public pages only
@@ -418,7 +433,7 @@ ${promises || "(no public pages captured)"}`;
     // the app's navigation: read right after set_plan (inside the app), and again while it is still empty
     if (plan.length && !sections.some((x) => !x.tab)) { const n = addNav(await inPage(page, "NAV").catch(() => null)); if (n) log(`  🧭 sections: ${sections.map((x) => x.name).join(" | ")}`); }
     const tabs = ctx.pages().map((p, i) => `[${i}] ${p.url().slice(0, 100)}${p === page ? "  ← current" : ""}`).join("\n");
-    const text = wellFormed(`Step ${step + 1}/${MAX_AGENT_STEPS}\nURL: ${page.url()}\nTitle: ${await page.title().catch(() => "")}\nTabs:\n${tabs}\nESSENTIALS PLAN:\n${planText()}\nSECTIONS:\n${sectionsText()}\nSaved so far: ${result.screens.map((s) => s.label).join(", ") || "none"}\nLast actions:\n${history.slice(-14).join("\n") || "(none)"}${stuck}${cap ? `\n⚠ CAPTCHA on this page (${cap.provider}): click [${cap.id}] (attempt ${captchaClicks + 1} of 2). Do not re-submit the form while it is there.` : ""}${humanNote}${seedFrom != null ? (step + 1 - seedFrom < SEED_STEPS ? `\nSEED ACTIVITY: step ${step + 2 - seedFrom}/${SEED_STEPS} — test actions on the customer side, then re-save the dashboards.` : "\nSEED ACTIVITY is over: re-save the dashboards with data if you have not, then finish.") : ""}\n\nElements:\n${elements}`);
+    const text = wellFormed(`Step ${step + 1}/${MAX_AGENT_STEPS}\nURL: ${page.url()}\nTitle: ${await page.title().catch(() => "")}\nTabs:\n${tabs}\nESSENTIALS PLAN:\n${planText()}\nSECTIONS:\n${sectionsText()}\nSaved so far: ${result.screens.map((s) => s.label).join(", ") || "none"}\nLast actions:\n${history.slice(-14).join("\n") || "(none)"}${stuck}${cap ? `\n⚠ CAPTCHA on this page (${cap.provider}): click [${cap.id}] (attempt ${captchaClicks + 1} of 2). Do not re-submit the form while it is there.` : ""}${humanNote}${seedStatus(step)}\n\nElements:\n${elements}`);
     const content = shot ? [imageBlock(shot), { type: "text", text }] : [{ type: "text", text }];
     const res = await rawCall({ ledger, step: "capture-agent", model: models.agent, system, messages: [{ role: "user", content }], tools, effort: "low" });
     const call = res.content.find((c) => c.type === "tool_use");
@@ -495,10 +510,10 @@ ${promises || "(no public pages captured)"}`;
         else out = `the human answered: "${code}". If that is a value (code, number), type it into the right field. If it is an instruction (e.g. skip / later / not now), follow it: press the page's skip / later / X / back button or go straight to the dashboard URL, and NEVER call ask_code for this step again.`;
         log(`  ↳ code received`);
       }
-      else if (call.name === "save_screen" && (await inPage(page, "BUSY").catch(() => ({ busy: false }))).busy && waitedAt !== page.url()) { out = "the page is still loading / generating — call wait, then save the finished result"; }
+      else if (call.name === "save_screen" && (await idle(page, 90)).busy) { out = "the page is STILL loading / generating after 90 s — NOT saved. Never save it while it loads: continue with another step and save it once it has finished."; }
       else if (call.name === "save_screen") { const loading = (await inPage(page, "BUSY").catch(() => ({ busy: false }))).busy; const typedNear = lastPre ? typedLog.filter((x) => x.step >= lastPre.step - 8 && x.step <= lastPre.step && !/^•+$/.test(x.text)).map((x) => x.text) : [];
         const typedPick = typedNear.find((v) => /^(https?:\/\/|www\.)/i.test(v)) || [...typedNear].sort((x, y) => y.length - x.length)[0] || null; // a URL first, else the longest value
-        const before = lastPre && lastPre.step > lastSave && lastPre.step >= step - 10 ? { ...lastPre, typed: typedPick, typedAll: typedNear } : null; lastSave = step + 1; const s = await savePage(a.label, { description: a.description, features: a.features || [], app: true, before, customer: !!a.customer_facing, covers: a.covers || [] });
+        const before = lastPre && lastPre.step > lastSave && lastPre.step >= step - 10 ? { ...lastPre, typed: typedPick, typedAll: typedNear } : null; lastSave = step + 1; if (seedOver) resave.delete(norm(page.url())); const s = await savePage(a.label, { description: a.description, features: a.features || [], app: true, before, customer: !!a.customer_facing, covers: a.covers || [] });
         if (rec && before) { const ts = typedLog.filter((x) => x.step >= lastPre.step - 8 && x.step <= lastPre.step).map((x) => x.step); rec.flows.push({ id: s.id, page: getPage(), from: Math.min(lastPre.step, ...ts), to: step + 1, result: await getPage().evaluate(RESULT_BOX).catch(() => null) }); } s.empty = isEmpty(s); if (s.empty && s.clones?.screen) { try { const cf = path.join(brandDir, s.clones.screen.file); const cj = JSON.parse(fs.readFileSync(cf, "utf8")); cj.empty = true; fs.writeFileSync(cf, JSON.stringify(cj)); } catch {} } result.screens.push(s); if (plan.length) { const nav = await inPage(page, "NAV").catch(() => null); if (!a.customer_facing) addNav({ tabs: nav?.tabs, looks: nav?.looks }); markSaved(page.url(), nav, step + 1); } for (const c of loading ? [] : a.covers || []) { const it = plan.find((x) => x.name === c) || plan.find((x) => x.name.toLowerCase().includes(String(c).toLowerCase()) || String(c).toLowerCase().includes(x.name.toLowerCase())); if (it) it.done = true; } out = `saved ${s.id}${loading ? " (still loading — it does not count for the essentials)" : ""}${missing().length ? ` — still to do: ${missing().slice(0, 12).join(" | ")}` : ""}`; log(`  📸 ${a.customer_facing ? "[customer view] " : ""}${a.label} — ${a.description} (${s.parts.length} parts · live UI ${s.clones.screen ? "✓" : "✗"}${s.clones.before ? ` · replay: ${s.clones.before.action}` : ""})`); }
       else if (call.name === "wait") {
         const until = Date.now() + Math.max(5, Math.min(90, +a.seconds || 10)) * 1000; let b = { busy: true, why: "" };
@@ -514,10 +529,12 @@ ${promises || "(no public pages captured)"}`;
       }
       else if (call.name === "finish" && a.status === "done" && (plan.length === 0 || missing().length) && step < MAX_AGENT_STEPS - 12) { out = plan.length ? `not yet — still missing: ${missing().join(" | ")}. Produce each missing essential and open it as the customer sees it; open each missing section and save a screen there (or skip_section if it is empty / locked).` : "not yet — call set_plan with the product's essential outputs and produce them first"; log(`  ↩ finish refused: ${plan.length ? `${missing().length} missing` : "no plan"}`); }
       else if (call.name === "finish" && a.status === "done" && seedFrom == null && plan.length && step < MAX_AGENT_STEPS - 12 && result.screens.some((x) => x.customer)) {
-        seedFrom = step + 1;
-        out = `not yet — SEED ACTIVITY now (about ${SEED_STEPS} steps): on the product's own customer-facing side (store / booking / form / checkout) make 2-3 test actions a real customer would (e.g. cash-on-delivery test orders). No real payment, no KYC. Then return to the dashboards / lists and save them again with that data. Then finish.`;
-        log(`  🌱 seed activity: up to ${SEED_STEPS} steps`);
+        seedFrom = step + 1; seedOrderFrom = step + 2; seedMax = Math.max(1, Math.min(SEED_ORDERS, Math.floor((MAX_AGENT_STEPS - step - 8) / SEED_PER_ORDER)));
+        out = `not yet — SEED ACTIVITY now: on the product's own customer-facing side (store / booking / form / checkout) make ${seedMax} test order(s) a real customer would (e.g. cash-on-delivery), about ${SEED_PER_ORDER} steps each. For EACH order: open the product, fill EVERY required field first, press submit LAST, check the success / confirmation state, then start the next one. No real payment, no KYC. Afterwards re-save the dashboard and the orders / list screens with that data. Then finish.`;
+        log(`  🌱 seed activity: ${seedMax} test order(s), ~${SEED_PER_ORDER} steps each`);
       }
+      else if (call.name === "finish" && seedFrom != null && !seedOver && !seedNudged && step < MAX_AGENT_STEPS - 4) { seedNudged = true; out = `not yet — the seed activity is still running (test order ${seedAttempt} of ${seedMax}, ${seedOrders} confirmed): finish the order (all required fields, submit, success state) first.`; }
+      else if (call.name === "finish" && seedOver && resave.size && !resaveAsked && step < MAX_AGENT_STEPS - 3) { resaveAsked = true; out = `not yet — re-save these screens with the new test data first: ${[...resave.values()].join(" | ")} (open each, wait until loaded, save_screen). Then finish.`; log(`  ↩ finish refused: ${resave.size} screen(s) to re-save after seeding`); }
       else if (call.name === "finish" && ["done", "blocked"].includes(a.status) && !fillPass && step < MAX_AGENT_STEPS - 12 && (() => { const c = emptyCount(); return c.total && c.empty > c.total / 2; })()) {
         fillPass = true; const c = emptyCount();
         out = `not yet — ${c.empty} of ${c.total} saved app screens are EMPTY (${c.ids.join(", ")}). FILL IT WITH LIFE: create 2-3 test items of the product's core activity through its own flows (invented data, no real payments / publishing / messages), then revisit those screens and save them again with data. Then finish.`;
@@ -544,6 +561,18 @@ ${promises || "(no public pages captured)"}`;
     history.push(`- ${call.name} ${JSON.stringify(a).slice(0, 80)} on ${lbl} → ${out}`);
     trace.push({ step: step + 1, url: page.url(), action: call.name, input: a, target: lbl, result: out });
     fs.writeFileSync(path.join(stepsDir, "trace.json"), JSON.stringify(trace, null, 2));
+    // seed bookkeeping: a click that lands on a success state confirms the current test order; an order out of steps is given up
+    if (seedFrom != null && !seedOver) {
+      const ok = call.name === "click" && (await getPage().evaluate(() => [...document.querySelectorAll("h1, h2, h3, h4, p, div, span")].some((e) => e.children.length <= 2 && e.offsetParent !== null && /^[^\p{L}\d]{0,3}(تم (استلام|تأكيد|إرسال|تسجيل) (طلبك|الطلب|حجزك)|تم الطلب|شكرا|شكراً|thank you|order (received|confirmed|placed)|booking confirmed|your order)/iu.test((e.innerText || "").trim()))).catch(() => false));
+      if (ok) { seedOrders++; log(`  🌱 test order ${seedOrders} confirmed`); }
+      if (ok || step + 2 - seedOrderFrom >= SEED_PER_ORDER) { if (!ok) log(`  🌱 test order ${seedAttempt} not confirmed in ${SEED_PER_ORDER} steps`); seedAttempt++; seedOrderFrom = step + 2; }
+      if (seedAttempt > seedMax) {
+        seedOver = true;
+        // the screens that show the orders: the dashboard / home and the orders (bookings, leads…) lists, saved before
+        for (const x of result.screens) if (!x.customer && /dashboard|overview|home|orders?|bookings?|leads?|sales|لوحة|الرئيسية|الطلبات|الحجوزات/i.test(`${x.label} ${x.url}`) && resave.size < 3 && ![...resave.keys()].includes(norm(x.url))) resave.set(norm(x.url), `${x.label} (${x.url})`);
+        log(`  🌱 seed activity over: ${seedOrders}/${seedMax} test order(s) confirmed · re-save: ${[...resave.values()].join(" | ") || "none"}`);
+      }
+    }
   }
   if (result.status === "running") result.status = "step_limit";
   result.plan = plan;

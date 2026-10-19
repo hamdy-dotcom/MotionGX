@@ -170,6 +170,8 @@
     "files_public": "Public pages",
     "filesParts": "UI blocks",
     "filesImages": "Images",
+    "filesDemo": "Test data",
+    "filesDemoHint": "Images from the agent's test drive (sample products, test orders) — not brand photos, never used as photos in videos.",
     "filesTrace": "Agent steps",
     "filesOpen": "Open {name}",
     "filesClose": "Close",

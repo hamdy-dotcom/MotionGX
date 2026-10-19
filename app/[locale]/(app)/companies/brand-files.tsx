@@ -41,7 +41,9 @@ export function BrandFiles({ captureId }: { captureId: string }) {
     );
 
   const groups = (["customer", "app", "public"] as const).map((g) => ({ g, items: files.screens.filter((s) => s.group === g) })).filter((x) => x.items.length);
-  const kinds = KINDS.map((k) => ({ k, items: files.images.filter((i) => i.kind === k && i.url) })).filter((x) => x.items.length);
+  // brand photos by kind; the capture agent's test data (sample products, test orders) in its own group
+  const kinds = KINDS.map((k) => ({ k, items: files.images.filter((i) => i.kind === k && i.url && !i.demo) })).filter((x) => x.items.length);
+  const demo = files.images.filter((i) => i.demo && i.url);
   const open = (src: string | null, caption: string) => src && setBig({ src, caption });
 
   return (
@@ -132,6 +134,21 @@ export function BrandFiles({ captureId }: { captureId: string }) {
                   ))}
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {demo.length ? (
+        <div>
+          <p className="label mb-1">{t("filesDemo")}</p>
+          <p className="mb-2 text-xs text-ink-muted">{t("filesDemoHint")}</p>
+          <div className="flex flex-wrap gap-2">
+            {demo.map((i, n) => (
+              <button key={n} type="button" onClick={() => open(i.url, i.note)} aria-label={t("filesOpen", { name: i.note || i.kind })}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- signed storage URL */}
+                <img src={i.url!} alt={i.note} loading="lazy" className="size-20 rounded-2xl bg-white object-contain p-1 opacity-80" />
+              </button>
             ))}
           </div>
         </div>

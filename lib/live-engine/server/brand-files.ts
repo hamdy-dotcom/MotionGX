@@ -5,7 +5,7 @@ import { LIVE_BUCKET, storagePath } from "../protocol";
 
 type Screen = { id: string; file: string; view: string; label: string; app: boolean; shows: string; features?: string[]; customer?: boolean };
 type Part = { id: string; file: string | null; shows: string; feature?: string; kind?: string };
-type Image = { file: string; kind: string; note?: string; alt?: string };
+type Image = { file: string; kind: string; note?: string; alt?: string; demo?: boolean };
 type Brand = { name?: string; name_ar?: string; tagline?: string; logo?: { file: string; on_dark?: boolean } | null; screens?: Screen[]; parts?: Part[]; images?: Image[]; features?: { name: string; evidence?: string[] }[] };
 type TraceRow = { step: number; url: string; action: string; input?: Record<string, unknown>; target?: string; result?: string };
 
@@ -13,7 +13,8 @@ export type BrandFiles = {
   logo: { url: string; onDark: boolean } | null;
   screens: { group: "customer" | "app" | "public"; id: string; label: string; shows: string; features: string[]; thumb: string | null; full: string | null }[];
   parts: { id: string; shows: string; feature: string; url: string | null }[];
-  images: { kind: string; note: string; url: string | null }[];
+  /** demo: from the capture agent's own test actions (sample marketplace products, test orders) — not brand photos */
+  images: { kind: string; note: string; url: string | null; demo: boolean }[];
   trace: { step: number; url: string; action: string; detail: string; result: string; shot: string | null }[];
 };
 
@@ -67,7 +68,7 @@ export async function brandFiles(workspaceId: string, captureId: string): Promis
       .map((s) => ({ group: group(s), id: s.id, label: s.label, shows: s.shows, features: proves(s), thumb: url(s.view), full: url(s.file) ?? url(s.view) }))
       .sort((a, b) => order[a.group] - order[b.group]),
     parts: (brand.parts ?? []).map((p) => ({ id: p.id, shows: p.shows, feature: p.feature ?? "", url: url(p.file) })),
-    images: (brand.images ?? []).map((i) => ({ kind: i.kind, note: i.note || i.alt || "", url: url(i.file) })),
+    images: (brand.images ?? []).map((i) => ({ kind: i.kind, note: i.note || i.alt || "", url: url(i.file), demo: Boolean(i.demo) })),
     trace: trace.map((t) => ({ step: t.step, url: t.url, action: t.action, detail: detail(t), result: String(t.result ?? "").slice(0, 300), shot: url(shotName(t.step)) })),
   };
 }
