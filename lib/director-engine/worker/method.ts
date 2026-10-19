@@ -6,6 +6,20 @@
 // step-4-deliver.md (poster frame 0, share copy). Hyperframes' role (composition, check, render) is taken by MotionGX's
 // renderer tools; the bundled music is replaced by MotionGX's own synthesized bed.
 
+/** lean mode (DIRECTOR_LEAN, default on): how to work with the lean tools — appended to METHOD */
+export const LEAN = `
+
+# Lean working rules (they save cost; they never lower the bar)
+
+- The first message has a CONTACT SHEET of every captured screen. Choose from it, then open only the screens / clones
+  you will actually use (inspect_clone, or read_file on a screenshot for a closer look).
+- The brand's fonts: link capture/clones/fonts.css and use the families listed in the inventory — don't read the file.
+  lib/kit.js and lib/gsap.min.js are described in the Quick reference — don't read them.
+- After each round of edits call review: it shows every scene and transition in one grid image and runs the full
+  check. Fix everything it reports and everything you see, then review again until it passes. Use snapshot only for
+  a specific moment, and full: [t] when a detail is too small to judge in the grid.
+- Batch: several independent tool calls in one turn (e.g. inspect 3 clones at once; edit then review).`;
+
 export const METHOD = `You are the director: you make the whole video yourself — story, visuals, sound cues, render — the /brag way.
 Whatever the tone, it must feel like a modern, slick, polished launch video for this exact product: nothing on screen or
 in the soundtrack that doesn't earn its place.

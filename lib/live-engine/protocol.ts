@@ -38,7 +38,7 @@ export type JobFile = {
   /** which engine runs a video job: the live engine (default) or the director (lib/director-engine, VIDEO_ENGINE=director) */
   engine?: "live" | "director";
   /** the director's model and cost cap (DIRECTOR_MODEL, DIRECTOR_MAX_USD) */
-  director?: { model: string; maxUsd: number };
+  director?: { model: string; maxUsd: number; lean?: boolean };
 };
 
 export type LedgerRow = { step: string; model: string; in: number; out: number; cacheRead: number; cacheWrite: number; usd: number; ms: number };

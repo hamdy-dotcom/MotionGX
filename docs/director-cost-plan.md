@@ -103,3 +103,31 @@ A step that saves money but worsens the check or the video is reverted.
 | 1–4 (fewer calls) | 1.7–2.1 |
 
 These are estimates from this one run's history mix; the first measured run replaces them.
+
+## Round 2 — lean mode (target < $0.50)
+
+Measured after round 1 (Efham, 30 s, Opus): **$1.30**, 25 calls, history ≤ 77k tokens. By phase: browsing $0.22,
+two junk reads (fonts.css 38k chars, kit.js 11k) $0.18, plan + composition $0.33, look-and-fix loop $0.53 (each
+snapshot sent 8 full-size images), render + finish $0.05.
+
+Lean mode (`DIRECTOR_LEAN`, on by default) changes how the agent looks, not what it may use or the bar it must pass:
+
+1. **Contact sheet** — every captured screen in one labeled image in the first message; the agent opens only what it
+   will use.
+2. **No junk reads** — the brand's font families are in the inventory; reading fonts.css or lib/kit.js / gsap returns
+   a short note (`force: true` still reads them).
+3. **Tiled stills** — snapshot returns one labeled grid image (+ `full: [t]` for a full-size still when a detail
+   matters) instead of one image per frame.
+4. **Unused clone views leave the history** once the composition exists (inspect_clone again if needed).
+5. **One review tool** — every scene and transition in one grid + the full check, in one call (the same gate).
+
+Expected (Opus): ~$0.55–0.65 for 30 s. Under $0.50 needs `DIRECTOR_MODEL=claude-sonnet-5-5` (half the price):
+~$0.30 for 30 s, ~$0.45 for 60 s — to be A/B-tested against Opus on the same brief.
+
+### Getting back if something goes wrong
+
+- **At runtime, no deploy:** `DIRECTOR_LEAN=0` → the agent works exactly as in round 1 (the full-size per-frame
+  snapshots, no contact sheet, no review tool, files read in full). Restart the server after changing it.
+- **The model:** `DIRECTOR_MODEL=claude-opus-5-5` (the default) after trying Sonnet.
+- **The code:** the git tag `director-before-lean` marks the engine before lean mode:
+  `git diff director-before-lean -- lib/director-engine` shows every change; `git revert <lean commit>` undoes it.
