@@ -116,10 +116,13 @@ export class Sync {
 
   /** a storage transfer (signed PUT / GET): retried on network errors, 5xx and 429 — 4 more tries after 2, 5, 15, 30 s, each
    *  logged as ↻; a 4xx answer is final. Throws a clear error once the tries are used up. */
+  /** set after the first network error: a slow / unstable link gets one transfer at a time (parallel ones starve each other) */
+  private oneAtATime = false;
   private async transfer(label: string, go: () => Promise<Response>): Promise<Response> {
     for (let i = 0; ; i++) {
       const r = await go().catch((e: Error) => e);
       if (!(r instanceof Error) && r.ok) return r;
+      if (r instanceof Error && !this.oneAtATime) { this.oneAtATime = true; this.log("  ⇣ network trouble — transfers continue one at a time"); }
       const why = r instanceof Error ? `${r.message}${(r as Error & { cause?: { code?: string } }).cause?.code ? ` (${(r as Error & { cause?: { code?: string } }).cause!.code})` : ""}` : `${r.status} ${(await r.text().catch(() => "")).slice(0, 200)}`;
       const final = !(r instanceof Error) && r.status < 500 && r.status !== 429;
       if (final || i >= WAITS.length) throw new Error(`${label} failed after ${i + 1} tries: ${why}`);
@@ -156,8 +159,9 @@ export class Sync {
         return { f, url: u.url };
       });
       let next = 0;
-      const worker = async () => {
+      const worker = async (w: number) => {
         while (next < jobs.length) {
+          if (this.oneAtATime && w > 0) return; // after a network error only the first lane keeps going
           const { f, url } = jobs[next++];
           const body = fs.readFileSync(f.file);
           bytes += body.length;
@@ -165,7 +169,7 @@ export class Sync {
           await this.transfer(`upload ${f.logical}`, () => fetch(url, { method: "PUT", headers: { "content-type": contentType(f.file), "x-upsert": "true" }, body }));
         }
       };
-      await Promise.all(Array.from({ length: Math.min(6, jobs.length) }, worker));
+      await Promise.all(Array.from({ length: Math.min(this.oneAtATime ? 1 : 6, jobs.length) }, (_, w) => worker(w)));
     }
     this.log(`  upload (${phase}): ${files.length} files, ${(bytes / 1048576).toFixed(1)} MB, ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   }
