@@ -116,14 +116,33 @@ export class Director {
     return this.done;
   }
 
-  /** one model call: images only in the latest turn (older ones were reviewed), cache on the stable prefix + the last block */
+  /**
+   * One model call. The history is copied (never mutated), with every cache_control stripped and images kept only in
+   * the latest turn (older ones were reviewed). Then at most 4 cache breakpoints: the system prompt, the tools, and a
+   * rolling one on the last block of the latest assistant turn (its text / tool_use) — plus the latest user turn's
+   * last block only when that is plain text. Never on a tool_result or an image block.
+   */
   private async call() {
-    const msgs: any[] = this.messages.map((m, i) => {
-      if (i >= this.messages.length - 1 || !Array.isArray(m.content)) return m;
-      return { ...m, content: (m.content as any[]).map((b) => (b.type === "image" ? { type: "text", text: "[image reviewed earlier]" } : b.type === "tool_result" && Array.isArray(b.content) ? { ...b, content: b.content.map((x: any) => (x.type === "image" ? { type: "text", text: "[image reviewed earlier]" } : x)) } : b)) };
-    });
-    const last = msgs[msgs.length - 1];
-    if (last && Array.isArray(last.content) && last.content.length) last.content = last.content.map((b: any, k: number) => (k === last.content.length - 1 ? { ...b, cache_control: { type: "ephemeral" } } : b));
+    const n = this.messages.length;
+    const clean = (b: any, keepImages: boolean): any => {
+      const { cache_control: _drop, ...rest } = b ?? {};
+      void _drop;
+      if (rest.type === "image" && !keepImages) return { type: "text", text: "[image reviewed earlier]" };
+      if (rest.type === "tool_result" && Array.isArray(rest.content)) return { ...rest, content: rest.content.map((x: any) => clean(x, keepImages)) };
+      return rest;
+    };
+    const msgs: any[] = this.messages.map((m, i) => ({ role: m.role, content: Array.isArray(m.content) ? (m.content as any[]).map((b) => clean(b, i === n - 1)) : m.content }));
+    const mark = (m: any, ok: (b: any) => boolean) => {
+      if (!m || !Array.isArray(m.content) || !m.content.length) return false;
+      const k = m.content.length - 1, b = m.content[k];
+      if (!ok(b)) return false;
+      m.content = m.content.map((x: any, j: number) => (j === k ? { ...x, cache_control: { type: "ephemeral" } } : x));
+      return true;
+    };
+    const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant");
+    mark(lastAssistant, (b) => b.type === "text" || b.type === "tool_use");
+    const lastMsg = msgs[msgs.length - 1];
+    if (lastMsg?.role === "user") mark(lastMsg, (b) => b.type === "text");
     const tools = TOOLS.map((t, i) => (i === TOOLS.length - 1 ? { ...t, cache_control: { type: "ephemeral" } } : t)) as any;
     const waits = [2, 5, 15, 30];
     for (let i = 0; ; i++) {
