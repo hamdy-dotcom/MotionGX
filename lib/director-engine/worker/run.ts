@@ -7,14 +7,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import type { JobFile } from "../../live-engine/protocol";
-import { VIDEO_STEPS } from "../../live-engine/protocol";
+import type { JobFile, Step } from "../../live-engine/protocol";
 import { Ledger } from "../../live-engine/worker/claude";
 import type { Sync } from "../../live-engine/worker/sync";
 import { METHOD } from "./method";
 import { Director } from "./agent";
 import { prepare, SIZES } from "./renderer";
 
+// the video steps the studio's progress follows (protocol.ts VIDEO_STEPS — repeated here: protocol.ts loads as CommonJS
+// in the worker, so only its types may be imported)
+const VIDEO_STEPS: Step[] = ["script", "build", "music", "qa", "render"];
 const DIALECT: [RegExp, string][] = [[/^EG$/, "Egyptian Arabic (masri, natural and warm, not formal)"], [/^SA$/, "Saudi Arabic (natural Saudi dialect)"], [/^AE$/, "Gulf Arabic (khaleeji)"], [/^JO$/, "Levantine Arabic (shami)"], [/^US$/, "English"], [/فصحى|Modern Standard/i, "Modern Standard Arabic (فصحى)"]];
 const OBJECTIVE: Record<string, string> = { acquire: "get sign-ups / sales", launch: "announce a launch", offer: "push an offer", awareness: "make the brand known", recruit: "hire", announce: "announce an occasion" };
 
