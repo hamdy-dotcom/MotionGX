@@ -203,12 +203,30 @@ export async function startLiveGeneration(videoId: string, mode: LiveMode) {
   await ensureCaptureJob(video, company.website_url);
 }
 
+/** the capture a post is made from: a video's capture (it got inside the app) when there is one; otherwise any finished
+ *  capture with the brand's profile — a post needs the brand (logo, colours, site, imagery, facts), not app screens
+ *  (a site with no app to sign into ends "blocked" with 0 screens and is still a complete brand) */
+async function postCapture(companyId: string) {
+  const forVideo = await usableCapture(companyId);
+  if (forVideo) return forVideo;
+  const db = admin();
+  const { data: profile } = await db.from("brand_profiles").select("raw").eq("company_id", companyId).maybeSingle();
+  const saved = (profile?.raw as { source?: string; capture_id?: string } | null)?.source === "live" ? (profile!.raw as { capture_id: string }).capture_id : null;
+  const done = (q: ReturnType<ReturnType<typeof admin>["from"]>) => q.select("*").eq("status", "done").not("profile", "is", null);
+  if (saved) {
+    const { data } = await done(db.from("live_brand_captures")).eq("id", saved).maybeSingle();
+    if (data) return data as CaptureRow;
+  }
+  const { data } = await done(db.from("live_brand_captures")).eq("company_id", companyId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  return (data as CaptureRow | null) ?? null;
+}
+
 /** a post (lib/posts-engine): a worker job on the company's capture; "Request a change" starts from a version */
 export async function startPostGeneration(postId: string, opts: { request?: string; fromVersion?: number } = {}) {
   const db = admin();
   const { data: post } = await db.from("posts").select("*").eq("id", postId).single();
   if (!post) return;
-  const capture = await usableCapture(post.company_id);
+  const capture = await postCapture(post.company_id);
   const mode = opts.request ? "edit" : "new";
   if (!capture) return setPostGeneration(postId, { stage: "error", mode, error: "no_capture" }, opts.request ? "ready" : "failed");
   let prevJobId: string | null = null;

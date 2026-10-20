@@ -89,7 +89,7 @@ export function PostStudio({ post, brand, version, versions, images, liveImage, 
         {back}
         <Heading as="h1" className="mt-2 text-3xl">{post.title}</Heading>
         {errorNote}
-        {post.status === "failed" && post.generation.error !== "no_capture" ? (
+        {post.status === "failed" ? (
           <button type="button" disabled={pending} onClick={() => run(() => retryPost(post.id))} className="btn btn-primary mt-4">
             {pending ? <SpinnerIcon className="size-4" /> : null}
             {t("create")}
