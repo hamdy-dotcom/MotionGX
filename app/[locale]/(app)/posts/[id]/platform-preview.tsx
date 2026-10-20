@@ -11,13 +11,17 @@ import styles from "../posts.module.css";
 const inter = Inter({ subsets: ["latin"], variable: "--ui", display: "swap" });
 const grand = Grand_Hotel({ subsets: ["latin"], weight: "400", variable: "--grand", display: "swap" });
 
-export type PreviewBrand = { name: string; logoUrl: string | null; logoOnDark?: boolean | null; colors: { hex: string }[]; tagline?: string | null };
+export type PreviewBrand = { name: string; logoUrl: string | null; logoOnDark?: boolean | null; colors: { hex: string }[]; tagline?: string | null; site?: string | null };
 
-const handleOf = (name: string) => name.toLowerCase().replace(/[^a-z0-9.]+/g, "").replace(/^\.+|\.+$/g, "") || "brand";
+/** the account handle: the site's name (mantoog.com → mantoog), else the brand's Latin name */
+const handleOf = (name: string, site?: string | null) => {
+  const host = (site ?? "").replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/:?#]/)[0].split(".")[0].toLowerCase();
+  return host || name.toLowerCase().replace(/[^a-z0-9.]+/g, "").replace(/^\.+|\.+$/g, "") || "brand";
+};
 
 export function PlatformPreview({ platform, device, image, text, hashtags, brand }: { platform: PostPlatformKey; device: "mobile" | "desktop"; image: string | null; text: string; hashtags: string[]; brand: PreviewBrand }) {
   const stage = useRef<HTMLDivElement>(null), scaler = useRef<HTMLDivElement>(null);
-  const b: MockBrand = { name: brand.name, handle: handleOf(brand.name), logo: brand.logoUrl, dark: brand.logoOnDark === true, tagline: brand.tagline ?? null, palette: { primary: brand.colors[0]?.hex } };
+  const b: MockBrand = { name: brand.name, handle: handleOf(brand.name, brand.site), logo: brand.logoUrl, dark: brand.logoOnDark === true, tagline: brand.tagline ?? null, palette: { primary: brand.colors[0]?.hex } };
   const html = mockupHtml(platform, device, { text, tags: hashtags, image }, b);
 
   const fit = useCallback(() => {

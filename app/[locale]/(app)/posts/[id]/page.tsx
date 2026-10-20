@@ -40,7 +40,7 @@ export default async function PostPage({ params, searchParams }: { params: Promi
   }
 
   const company = (await listCompanies(ctx)).find((c) => c.id === post.company_id);
-  const brand = { name: company?.name ?? post.companies?.name ?? "", logoUrl: company?.logo_url ?? null, logoOnDark: company?.logo_on_dark ?? null, colors: company?.brand_profiles?.colors ?? [], tagline: company?.brand_profiles?.tagline ?? null };
+  const brand = { name: company?.name ?? post.companies?.name ?? "", logoUrl: company?.logo_url ?? null, logoOnDark: company?.logo_on_dark ?? null, colors: company?.brand_profiles?.colors ?? [], tagline: company?.brand_profiles?.tagline ?? null, site: company?.website_url ?? null };
 
   // while the post is being made: its newest image, the moment the worker uploads it (the studio shows it forming)
   let liveImage: string | null = null;
