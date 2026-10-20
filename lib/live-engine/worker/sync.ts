@@ -7,6 +7,31 @@ import type { JobFile, LedgerRow, Report, Step } from "../protocol";
 
 const PART_BYTES = 45 * 1024 * 1024; // Supabase's default per-file limit is 50 MB
 const WAITS = [2, 5, 15, 30]; // storage transfers: retries after these seconds (network errors, 5xx, 429)
+const IDLE_MS = 60_000; // a download that receives nothing for this long has stalled: aborted, then retried
+const UPLOAD_MS = 10 * 60_000; // one upload's limit
+
+/** GET a URL and read the whole body; a body that stops arriving for IDLE_MS aborts (a stalled connection otherwise
+ *  hangs the worker forever). Returns a Response over the buffered bytes. */
+async function fetchWhole(url: string): Promise<Response> {
+  const ctl = new AbortController();
+  let idle: ReturnType<typeof setTimeout> = setTimeout(() => ctl.abort(new Error("no data for 60 s (stalled)")), IDLE_MS);
+  const touch = () => { clearTimeout(idle); idle = setTimeout(() => ctl.abort(new Error("no data for 60 s (stalled)")), IDLE_MS); };
+  try {
+    const r = await fetch(url, { signal: ctl.signal });
+    if (!r.ok || !r.body) return r;
+    const chunks: Uint8Array[] = [];
+    const reader = r.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      touch();
+    }
+    return new Response(Buffer.concat(chunks), { status: r.status, headers: r.headers });
+  } finally {
+    clearTimeout(idle);
+  }
+}
 
 export class Sync {
   private buffer: string[] = [];
@@ -166,7 +191,7 @@ export class Sync {
           const body = fs.readFileSync(f.file);
           bytes += body.length;
           // network blips must not lose a finished step: retried with backoff (a 4xx answer is final)
-          await this.transfer(`upload ${f.logical}`, () => fetch(url, { method: "PUT", headers: { "content-type": contentType(f.file), "x-upsert": "true" }, body }));
+          await this.transfer(`upload ${f.logical}`, () => fetch(url, { method: "PUT", headers: { "content-type": contentType(f.file), "x-upsert": "true" }, body, signal: AbortSignal.timeout(UPLOAD_MS) }));
         }
       };
       await Promise.all(Array.from({ length: Math.min(this.oneAtATime ? 1 : 6, jobs.length) }, (_, w) => worker(w)));
@@ -247,7 +272,7 @@ export class Sync {
     const tmp = path.join(this.dirs.root, ".unpack");
     fs.mkdirSync(tmp, { recursive: true });
     for (const d of this.job.downloads) {
-      const r = await this.transfer(`download ${d.path}`, () => fetch(d.url));
+      const r = await this.transfer(`download ${d.path}`, () => fetchWhole(d.url));
       const buf = Buffer.from(await r.arrayBuffer());
       const m = d.path.match(/^brand\/_pack\/(.+?\.tgz)(?:\.part(\d+))?$/);
       if (m) {
