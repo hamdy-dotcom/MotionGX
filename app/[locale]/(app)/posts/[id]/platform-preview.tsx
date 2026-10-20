@@ -48,7 +48,7 @@ export function PlatformPreview({ platform, device, image, text, hashtags, brand
   };
 
   return (
-    <div ref={stage} className={`${styles.stage} ${styles.mock} ${inter.variable} ${grand.variable}`} onClick={onClick} dir="ltr">
+    <div ref={stage} className={`${styles.stage} mgx-mock ${inter.variable} ${grand.variable}`} onClick={onClick} dir="ltr">
       {/* the mockup is built from escaped strings (lib/posts/mockups.ts) */}
       <div ref={scaler} className={styles.scaler} dangerouslySetInnerHTML={{ __html: html }} />
     </div>

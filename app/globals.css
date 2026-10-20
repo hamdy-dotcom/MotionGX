@@ -102,3 +102,22 @@ body {
     @apply text-xs font-medium tracking-wide text-ink-muted;
   }
 }
+
+/* Posts: the platform mockups (lib/posts/mockups.ts — HTML strings, so plain global classes under .mgx-mock) */
+.mgx-mock .phone { width: 390px; height: 844px; border-radius: 56px; background: #1b1c22; padding: 12px; box-shadow: 0 30px 80px rgba(20, 22, 50, .28), inset 0 0 0 2px #3a3c46 }
+.mgx-mock .phone .screen-in { width: 366px; height: 820px; border-radius: 46px; overflow: hidden; position: relative; background: #fff; display: flex; flex-direction: column }
+.mgx-mock .phone .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; border-radius: 20px; background: #000; z-index: 5 }
+.mgx-mock .phone .status { height: 50px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 6px 30px 0; font: 600 15px var(--ui); z-index: 4 }
+.mgx-mock .phone .home-ind { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: #111; z-index: 6 }
+.mgx-mock .phone .app { flex: 1; overflow: hidden; position: relative; display: flex; flex-direction: column }
+.mgx-mock .browser { width: 1280px; height: 800px; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 24px 70px rgba(20, 22, 50, .22), 0 0 0 1px rgba(0, 0, 0, .08); display: flex; flex-direction: column }
+.mgx-mock .browser .chrome { height: 44px; flex: none; background: #e9ebef; display: flex; align-items: center; gap: 8px; padding: 0 14px; font: 13px var(--ui) }
+.mgx-mock .browser .chrome i { width: 12px; height: 12px; border-radius: 50%; display: inline-block }
+.mgx-mock .browser .url { margin-left: 18px; flex: 1; max-width: 640px; background: #fff; border-radius: 999px; padding: 6px 14px; color: #5f6368 }
+.mgx-mock .browser .page { flex: 1; overflow: hidden; position: relative }
+.mgx-mock .pf { font-family: var(--ui); direction: ltr; text-align: left; color: #0f1419; height: 100%; display: flex; flex-direction: column }
+.mgx-mock .pf .ar { font-family: var(--font-readex, "Readex Pro"), var(--ui) }
+.mgx-mock .pf svg { display: block }
+.mgx-mock .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+.mgx-mock .clamp3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden }
+.mgx-mock [hidden] { display: none !important }
