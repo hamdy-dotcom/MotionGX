@@ -105,7 +105,11 @@ export async function brandRefs(brand: any, brandDir: string, runDir: string) {
   const look = [screens.find((s: any) => !s.app && s.use === "hero") ?? screens.find((s: any) => !s.app), screens.find((s: any) => s.app && s.use === "hero") ?? screens.find((s: any) => s.app)].filter(Boolean);
   const looks: Ref[] = [];
   for (const s of [...new Set(look)] as any[]) { const f = await refJpeg(path.join(brandDir, s.view), path.join(dir, `look-${s.id}.jpg`)); if (f) looks.push({ file: f, role: `the brand's ${s.app ? "product" : "website"} (${s.id}) — take its visual language, not its content` }); }
-  return { logo, looks, screens };
+  // the brand's own imagery (its photos / illustrations, never the capture's demo products): the picture's style comes from it
+  const own = (brand.images ?? []).filter((i: any) => !i.demo && ["people", "lifestyle", "illustration", "background"].includes(i.kind) && i.w >= 400 && fs.existsSync(path.join(brandDir, i.file)));
+  const imagery: Ref[] = [];
+  for (const i of own.sort((a: any, b: any) => (b.w * b.h) - (a.w * a.h)).slice(0, 1)) { const f = await refJpeg(path.join(brandDir, i.file), path.join(dir, `imagery-${path.basename(i.file).replace(/\.\w+$/, "")}.jpg`)); if (f) imagery.push({ file: f, role: `the brand's own ${i.kind === "people" || i.kind === "lifestyle" ? "photography" : i.kind} — make the picture in this same style (subjects, light, colour grade, rendering)` }); }
+  return { logo, looks, screens, imagery };
 }
 
 /** one slide's references: a screen id → its real screenshot; a captured image file → itself */
@@ -136,7 +140,7 @@ function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs
     `Create a finished, premium social media post image (${w}×${h}) for the brand ${brand.name}${brand.name_ar ? ` (${brand.name_ar})` : ""}${total > 1 ? ` — slide ${n} of ${total} of a carousel; keep one consistent design across the slides` : ""}.`,
     slide.scene ?? "",
     `Text on the image — write EXACTLY these words and nothing else, in ${LANGUAGE[post.dialect] ?? post.dialect}${rtl ? " (Arabic script, right-to-left, every letter correctly joined, all dots in place, no extra or missing letters)" : ""}, large and crisp, in bold modern typography that matches the brand:\n  ${words}`,
-    `Brand: colours ${palette}. Look: ${brand.look ?? ""}. Fonts: ${brand.fonts?.display ?? ""} / ${brand.fonts?.body ?? ""} style.`,
+    `THE BRAND IS THE BASE OF THIS IMAGE — it must feel like an extension of the brand itself, as if taken from its own website. Its colours dominate: ${palette}${brand.palette?.theme ? ` (a ${brand.palette.theme} brand: the image is ${brand.palette.theme})` : ""}. Its look: ${brand.look ?? ""}. Its type: ${brand.fonts?.display ?? ""} / ${brand.fonts?.body ?? ""} style. Any occasion or theme (a holiday, a season, an event) is expressed INSIDE this identity — its motifs drawn in the brand's own colours and style — never with the occasion's stock palette or look (for example, not navy-and-gold for Ramadan unless those are the brand's colours).`,
     refs.roles.map((r, i) => `Reference image ${i + 1}: ${r}.`).join("\n"),
     refs.logo ? `Reference image 1 is the brand's logo (shown on a plain tile — the tile is not part of the logo): reproduce the mark and its lettering exactly as given — same shapes, letters, colours and proportions, never redrawn, re-spelled, recoloured or altered — clearly visible and well sized, like a signature.` : "",
     refs.screen ? "Any phone or laptop in the image shows ONLY the real screen given as a reference, exactly as it is." : "Do NOT show any phone, laptop, tablet, app screen or user interface — there is no real screen for this image.",
@@ -181,7 +185,7 @@ async function checkImage(post: PostJob, slide: Slide, file: string, logo: strin
 
 export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: string; runDir: string; slides: Slide[]; canvases: Canvas[]; ledger: Ledger; prevRenders?: Record<string, string[]> | null; log: (l: string) => void }) {
   const { post, brand, brandDir, runDir, slides, canvases, ledger, log } = opts;
-  const { logo, looks, screens } = await brandRefs(brand, brandDir, runDir);
+  const { logo, looks, screens, imagery } = await brandRefs(brand, brandDir, runDir);
   const renders: Record<string, string[]> = {}, check: Record<string, string[][]> = {};
   fs.mkdirSync(path.join(runDir, "slides"), { recursive: true });
   for (const canvas of canvases) {
@@ -194,7 +198,10 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
       const prevFile = opts.prevRenders?.[canvas]?.[i] ? path.join(runDir, "prev", opts.prevRenders[canvas][i]) : null;
       const prev: Ref[] = prevFile && fs.existsSync(prevFile) ? [{ file: prevFile, role: `the current version of this slide — keep everything the client didn't ask to change (the change: ${post.request})` }] : [];
       // at most 4 references (each one is billed as image input): the logo, the current version, the slide's own, one brand look
-      const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own, ...looks.slice(0, own.length ? 1 : 2).map((l) => ({ ...l, role: `${l.role} — for its colours, shapes and style only; do not reproduce its interface` }))].slice(0, 4);
+      const site = looks.find((l) => /website/.test(l.role)) ?? looks[0];
+      const style: Ref[] = [...(site ? [{ ...site, role: "the brand's own website — the image must look like a section of this site: its background colour, gradients, shapes, card style, type and mood (do not reproduce its interface or words)" }] : []), ...imagery];
+      const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own, ...style].slice(0, own.length || prev.length ? 4 : 3);
+      if (refs.length < 4 && !own.length && !prev.length) { const app = looks.find((l) => l !== site); if (app) refs.push({ ...app, role: "the brand's product — for its colours and style only; do not reproduce its interface" }); }
       const roles = refs.map((r) => r.role);
       const hasScreen = own.some((r) => /real (phone )?(product )?screen/.test(r.role));
       const file = path.join(runDir, "slides", `${canvasKey(canvas)}-${i + 1}.jpg`);
