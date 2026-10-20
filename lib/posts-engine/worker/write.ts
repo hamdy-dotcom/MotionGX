@@ -7,7 +7,21 @@ import { callTool, type Ledger } from "../../live-engine/worker/claude";
 import { LANGUAGE, PLATFORM } from "./platforms";
 
 export type Visual = { kind: "screen" | "image" | "ai_image" | "logo" | "none"; screen?: string; device?: "phone" | "laptop"; at?: string; image?: string; prompt?: string };
-export type Slide = { headline: string; sub?: string; points?: string[]; cta?: string; visual: Visual; ai_file?: string; scene?: string; refs?: string[] };
+/** the kinds of picture a feed rotates through — a brand's posts share one identity, never one formula */
+export const FORMATS = {
+  people_moment: "people of the brand's audience in a real moment",
+  product_in_use: "the product in real use (a real product screen on a device, or the product itself)",
+  object_metaphor: "an object / still-life metaphor for the idea (no people)",
+  typographic: "a bold typographic poster: the words are the hero, with the brand's graphic language",
+  illustration: "an illustration or graphic composition in the brand's style",
+  fact_highlight: "one real fact or number from the brand's facts, made visual",
+  detail_closeup: "a close-up detail (hands, texture, a small moment) that tells the story",
+  place_scene: "a place or setting that evokes the idea (a workspace, a street, a room), little or no people",
+  brand_pattern: "an abstract composition of the brand's shapes, colours and motifs",
+} as const;
+export type Format = keyof typeof FORMATS;
+
+export type Slide = { headline: string; sub?: string; points?: string[]; cta?: string; visual: Visual; ai_file?: string; scene?: string; refs?: string[]; format?: Format };
 export type PostText = { text: string; hashtags: string[] };
 export type Written = { angle: string; alt_text: string; platforms: Partial<Record<PostPlatform, PostText>>; slides: Slide[] };
 
@@ -67,15 +81,22 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
       },
     },
   };
+  // the feed rotates: the formats of the brand's last 3 posts are not offered; the least used ones are suggested
+  const recent = (post.history ?? []).map((h) => h.format).filter((f): f is Format => Boolean(f && f in FORMATS));
+  const blocked = new Set(recent.slice(0, 3));
+  const allowed = (Object.keys(FORMATS) as Format[]).filter((f) => !blocked.has(f));
+  const used = (f: Format) => recent.filter((x) => x === f).length;
+  const fresh = [...allowed].sort((a, b) => used(a) - used(b)).slice(0, 4);
   // image mode: each slide is one generated image — its exact words, and the whole picture described for the image model
   const imageSlide = {
     type: "object",
-    required: ["headline", "scene"],
+    required: ["headline", "format", "scene"],
     properties: {
       headline: { type: "string", description: "the big line written ON the image, in the post's language — short (≤ 6 words), exactly as it must appear" },
       sub: { type: "string", description: "optional second line on the image, in the post's language (≤ 10 words)" },
       cta: { type: "string", description: "optional call to action on the image, in the post's language (≤ 4 words; usually the last slide)" },
-      scene: { type: "string", description: "in English, the whole image for the image model. Start from ONE concept specific to this brand and its audience (a real moment in their life the post speaks to). It is ALIVE: real people of the brand's audience in that moment, or the product in real use — photographed (or in the brand's own illustration style when BRAND STYLE's imagery is illustration) — with depth, light and emotion; never a flat badge of icons on a plain background. Built on THIS brand's identity (BRAND STYLE): its background (light or dark) and colours by hex, its shapes, so it feels like a section of the brand's own website. Then the composition (where the headline, the logo and any product screen sit). An occasion is shown through the moment and motifs in the brand's colours, never the occasion's stock palette. Premium campaign quality. No other words than the headline / sub / cta." },
+      format: { type: "string", enum: allowed, description: `the kind of picture: ${allowed.map((f) => `${f} = ${FORMATS[f]}`).join("; ")}` },
+      scene: { type: "string", description: "in English, the whole image for the image model, in its FORMAT. Start from ONE concept specific to this brand and its audience. It is ALIVE whatever the subject — depth, light, texture and emotion, premium campaign craft; never a flat badge of icons on a plain background. People appear only when the format is about people. Built on THIS brand's identity (BRAND STYLE): its background (light or dark) and colours by hex, its shapes, so it feels like a section of the brand's own website. Then the composition (where the headline, the logo and any product screen sit). An occasion is shown through the moment and motifs in the brand's colours, never the occasion's stock palette. Premium campaign quality. No other words than the headline / sub / cta." },
       refs: { type: "array", items: { type: "string" }, description: "optional, at most 1: the id of a PRODUCT screen from SCREENS (app: true) to show on a phone or laptop, as it really is — only when the post is about the product. Never a website page, never an image." },
     },
   };
@@ -98,6 +119,7 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
     `COMPANY FACTS\n${JSON.stringify(facts)}`,
     visualPost ? `SCREENS (real captured screens; show them whole in their device)\n${JSON.stringify(screens)}\nIMAGES (captured; test_data ones are the capture's demo content — products shown as an example of a store's catalogue, never as the company's own photos)\n${JSON.stringify(images)}` : "",
     `TODAY: ${new Date().toISOString().slice(0, 10)}`,
+    imageMode && visualPost ? `FORMAT: pick the kind of picture that best serves THIS idea from the allowed formats — the brand's recent posts already used ${[...blocked].join(", ") || "none"}; least used so far: ${fresh.join(", ")}. In a carousel, vary the format across slides.` : "",
     post.history?.length ? `THIS BRAND'S RECENT POSTS (newest first) — the brand's feed keeps one identity, but this post must NOT repeat any of them: a different concept and angle, different people / subjects, a different setting, composition and layout, a different headline idea:\n${JSON.stringify(post.history)}` : "",
     imageMode && visualPost ? `BRAND STYLE (every image is built on it)\n${JSON.stringify({ palette: brand.palette, look: brand.look, fonts: { display: brand.fonts?.display, body: brand.fonts?.body }, imagery: [...new Set((brand.images ?? []).filter((i: any) => !i.demo).map((i: any) => i.kind))] })}` : "",
     `THE POST\n- What the client wants: ${post.brief}\n- Type: ${post.type === "single" ? "one image + text" : post.type === "carousel" ? `carousel${count ? ` of ${count} slides` : ""} + text — slide 1 hooks, the middle slides deliver, the last slide closes with the call to action` : "text only (no image)"}\n- Language: ${LANGUAGE[post.dialect] ?? post.dialect}\n- Platforms and their rules:\n${post.platforms.map((p) => `  - ${PLATFORM[p].name}: ${PLATFORM[p].rules} (max ${PLATFORM[p].maxChars} characters)`).join("\n")}${visualPost ? (imageMode ? `\n- Visuals: each slide is ONE image made by an image model that sees the brand's logo, its website and product screenshots. Describe it fully in scene; when the post is about the product, put a real screen in it (refs). On-image words are short (the platform text carries the detail). A phone, laptop or app screen may appear ONLY when you list its screen id in refs (the real screen is then put on it) — otherwise the scene has no device or UI at all.` : `\n- Visuals: ${ai} On-image text is short (the platform text carries the detail).`) : ""}`,
@@ -118,6 +140,8 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
       s.visual = { kind: "none" };
       // only a real product screen goes into an image as content; the brand's website and photos are style, never content
       s.refs = (s.refs ?? []).filter((r) => screens.some((x: any) => x.id === r && x.app)).slice(0, 1);
+      if (!s.format || !allowed.includes(s.format)) s.format = fresh[0];
+      if (s.format !== "product_in_use") s.refs = []; // a device and a real screen belong to the product format only
       continue;
     }
     const v = s.visual ?? { kind: "none" };

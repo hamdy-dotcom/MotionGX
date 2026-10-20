@@ -311,14 +311,14 @@ export async function launch(jobId: string) {
 
   // "Request a change" of a post: the version it changes (its content, design and AI images) as run/prev/…
   // the company's recent posts: a daily feed keeps one identity but never repeats a concept, subject or layout
-  const postHistory: { angle: string; headline: string; scene: string }[] = [];
+  const postHistory: { angle: string; headline: string; scene: string; format?: string }[] = [];
   if (job.kind === "post" && !job.input.request) {
     const { data: recent } = await db.from("post_versions").select("content, post_id, posts!inner(company_id)").eq("posts.company_id", job.company_id!).neq("post_id", job.post_id!).order("created_at", { ascending: false }).limit(20);
     const seen = new Set<string>();
-    for (const r of (recent ?? []) as { content: { angle?: string; slides?: { headline?: string; scene?: string }[] } | null; post_id: string }[]) {
+    for (const r of (recent ?? []) as { content: { angle?: string; slides?: { headline?: string; scene?: string; format?: string }[] } | null; post_id: string }[]) {
       if (seen.has(r.post_id) || !r.content?.angle) continue;
       seen.add(r.post_id);
-      postHistory.push({ angle: r.content.angle, headline: r.content.slides?.[0]?.headline ?? "", scene: String(r.content.slides?.[0]?.scene ?? "").slice(0, 400) });
+      postHistory.push({ angle: r.content.angle, headline: r.content.slides?.[0]?.headline ?? "", scene: String(r.content.slides?.[0]?.scene ?? "").slice(0, 400), ...(r.content.slides?.[0]?.format ? { format: r.content.slides[0].format } : {}) });
       if (postHistory.length >= 8) break;
     }
   }
