@@ -200,7 +200,20 @@ async function generate(post: PostJob, prompt: string, size: string, files: stri
   form.append("output_compression", "92");
   for (const f of files) { const buf = fs.readFileSync(f); form.append("image[]", new Blob([buf], { type: mediaOf(buf) }), path.basename(f)); }
   const t0 = Date.now();
-  const res = await fetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { authorization: `Bearer ${key}` }, body: form });
+  // a network blip or a temporary OpenAI error (429 / 5xx) is retried — 3 more tries after 3, 8 and 20 s
+  let res: Response | null = null, lastErr = "";
+  for (const wait of [0, 3000, 8000, 20000]) {
+    if (wait) await new Promise((ok) => setTimeout(ok, wait));
+    try {
+      res = await fetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { authorization: `Bearer ${key}` }, body: form, signal: AbortSignal.timeout(240_000) });
+      if (res.status !== 429 && res.status < 500) break;
+      lastErr = `OpenAI ${res.status}`;
+    } catch (err) {
+      res = null;
+      lastErr = err instanceof Error ? `${err.message}${(err as { cause?: { code?: string } }).cause?.code ? ` (${(err as { cause?: { code?: string } }).cause!.code})` : ""}` : String(err);
+    }
+  }
+  if (!res) throw new Error(`the image could not be made: ${lastErr}`);
   const body = (await res.json().catch(() => null)) as { data?: { b64_json?: string }[]; usage?: { input_tokens?: number; output_tokens?: number; input_tokens_details?: { text_tokens?: number; image_tokens?: number } }; error?: { message?: string } } | null;
   const u = body?.usage, [pt, pi, po] = PRICE[post.image.model] ?? PRICE.default;
   const tin = u?.input_tokens ?? 0, timg = u?.input_tokens_details?.image_tokens ?? 0, ttxt = u?.input_tokens_details?.text_tokens ?? Math.max(0, tin - timg), tout = u?.output_tokens ?? 0;
