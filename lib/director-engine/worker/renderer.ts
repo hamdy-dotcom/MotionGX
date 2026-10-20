@@ -24,6 +24,29 @@ export const assetsDir = () => [path.join(here, "..", "assets"), path.join(here,
 // capture folders the composition may load by relative path (capture/<dir>/…) — media and the clones' fonts only
 const CAPTURE_LINKS = ["library", "screens", "parts", "assets", "clips"];
 
+// A phone screen as captured: 390 × 844 CSS px (the capture's mobile viewport)
+const PHONE_VIEW = 844 / 390;
+/**
+ * Every real screen shown as its source: a desktop screen on the laptop (its whole 16:10 view), a phone screen as a
+ * whole phone viewport (its width × 844/390). Blocks (…-pN) stay as the agent placed them.
+ */
+function screensAsCaptured(src: string, brandDir: string, W: number, H: number) {
+  const size = new Map<string, { w: number; h: number } | null>();
+  const load = (id: string) => { if (!size.has(id)) { try { const c = JSON.parse(fs.readFileSync(path.join(brandDir, "clones", `${id}.json`), "utf8")); size.set(id, { w: +c.w, h: +c.h }); } catch { size.set(id, null); } } return size.get(id) ?? null; };
+  const attr = (tag: string, n: string) => tag.match(new RegExp(`\\s${n}\\s*=\\s*"([^"]*)"`))?.[1];
+  const drop = (tag: string, n: string) => tag.replace(new RegExp(`\\s${n}\\s*=\\s*"[^"]*"`), "");
+  return src.replace(/<([a-z]+)(\s[^>]*?\sdata-clone\s*=\s*"([^"]+)"[^>]*?)(\/?)>/gi, (whole: string, _tag: string, _attrs: string, id: string) => {
+    const cid = [id, id.replace(/-phone$/, "-mobile"), id.replace(/-flow$/, "")].find((x) => fs.existsSync(path.join(brandDir, "clones", `${x}.json`)));
+    const c = cid && !/-p\d+$/.test(cid) ? load(cid) : null;
+    if (!c || !(c.w > 0)) return whole;
+    if (c.w >= 1000) return drop(drop(whole, "data-frame"), "data-h"); // the laptop, drawn by the renderer
+    const view = Math.min(c.h, c.w * PHONE_VIEW);
+    let w = Math.round(+(attr(whole, "data-w") || 0) || W * 0.62), h = Math.round((w * view) / c.w);
+    if (h > H * 0.82) { w = Math.round((w * H * 0.82) / h); h = Math.round((w * view) / c.w); }
+    return drop(drop(drop(whole, "data-w"), "data-h"), "data-frame").replace(/\sdata-clone\s*=/, ` data-w="${w}" data-h="${h}" data-frame="none" data-clone=`);
+  });
+}
+
 /** composition/: lib/ (gsap, kit), sfx/, capture/ links, and video.html built from video.src.html */
 export function prepare(opts: { compDir: string; brandDir: string; root: string; layout: string; identity: string[] }) {
   const { compDir, brandDir, root, layout } = opts;
@@ -37,16 +60,27 @@ export function prepare(opts: { compDir: string; brandDir: string; root: string;
   const fonts = path.join(brandDir, "clones", "fonts.css");
   if (fs.existsSync(fonts)) { fs.mkdirSync(path.join(compDir, "capture", "clones"), { recursive: true }); fs.writeFileSync(path.join(compDir, "capture", "clones", "fonts.css"), fs.readFileSync(fonts, "utf8").replace(/url\((['"]?)(?!data:)(\.\.\/)?assets\//g, "url($1../assets/")); }
   if (!fs.existsSync(path.join(compDir, "video.src.html"))) return { ok: false, error: "composition/video.src.html does not exist yet" };
-  embedClones({ runDir: compDir, brandDir, layout });
+  // embedClones reads video.src.html: it gets the screens as captured; the agent's own file is put back exactly as written
+  const srcFile = path.join(compDir, "video.src.html"), own = fs.readFileSync(srcFile, "utf8"), [SW, SH] = SIZES[layout] || SIZES["9:16"];
+  const shown = screensAsCaptured(own, brandDir, SW, SH);
+  try { if (shown !== own) fs.writeFileSync(srcFile, shown); embedClones({ runDir: compDir, brandDir, layout }); } finally { if (shown !== own) fs.writeFileSync(srcFile, own); }
   // personal data inside the pasted real UI: phones, e-mails and the test identity are blurred before any frame
   const html = fs.readFileSync(path.join(compDir, "video.html"), "utf8");
   const guard = `<style>.pii,.pii-auto{filter:blur(9px)!important}</style><script>(()=>{const ID=${JSON.stringify(opts.identity.filter((s) => s && s.length >= 4))};const RE=/(\\+?\\d[\\d\\s().-]{7,}\\d)|([\\w.+-]+@[\\w-]+\\.[\\w.-]+)/;for(const root of document.querySelectorAll(".ui-cam")){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const hits=[];for(let n=w.nextNode();n;n=w.nextNode()){const t=n.textContent||"";if(RE.test(t)||ID.some((s)=>t.includes(s)))hits.push(n)}for(const n of hits){const s=document.createElement("span");s.className="pii-auto";n.parentNode.insertBefore(s,n);s.appendChild(n)}}})();</script>`;
-  fs.writeFileSync(path.join(compDir, "video.html"), /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${guard}</body>`) : html + guard);
+  // screenshots and clip frames are never cropped by object-fit; K.focus / K.scrollTo move through a whole screen at its
+  // own width (they never zoom it); blocks (…-pN) keep the normal K.focus
+  const whole = `<style>img[src*="screens/"],img[src*="clipframes/"]{object-fit:contain!important}</style>`;
+  const noZoom = `<script>(()=>{const K=window.K;if(!K||!K.focus)return;const f=K.focus;K.focus=(tl,ui,target,at,opts)=>{opts=opts||{};const el=typeof ui==="string"?document.querySelector(ui):ui;const id=el&&el.dataset&&el.dataset.clone;const m=id&&(window.__clones||{})[id];if(!m||/-p\\d+$/.test(id))return f(tl,ui,target,at,opts);const s=+el.dataset.scale||1,vh=(+el.dataset.vh||m.h*s)/s;const b=Array.isArray(target)?target:target==="all"?[0,0,m.w,m.h]:String(target).indexOf("part:")===0?m.parts[String(target).slice(5)]:m.keys[target];if(!b)return f(tl,ui,target,at,opts);const y=Math.max(0,Math.min(m.h-vh,b[1]+b[3]/2-vh/2));return f(tl,ui,[0,y,m.w,vh],at,Object.assign({},opts,{zoom:1,bounds:null,fill:false}));};})();</script>`;
+  let out = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${guard}</body>`) : html + guard;
+  out = /<\/head>/i.test(out) ? out.replace(/<\/head>/i, `${whole}</head>`) : whole + out;
+  const kit = /<script[^>]*src\s*=\s*["'][^"']*kit\.js["'][^>]*>\s*<\/script>/i;
+  if (kit.test(out)) out = out.replace(kit, (m) => m + noZoom);
+  fs.writeFileSync(path.join(compDir, "video.html"), out);
   return { ok: true };
 }
 
 // The check, run inside the page at a given time. Plain JS (a string): no bundler helpers can leak into the page.
-const ANALYZER = `(() => {
+const ANALYZER = `((full) => {
   const W = innerWidth, H = innerHeight, SX = Math.round(80 * W / 1080), SY = Math.round(140 * H / 1920), out = [];
   const opacity = (el) => { let o = 1; for (let e = el; e && e.nodeType === 1; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.display === "none" || cs.visibility === "hidden") return 0; o *= +cs.opacity; } return o; };
   const blurred = (el) => { for (let e = el; e && e.nodeType === 1; e = e.parentElement) if (/blur\\(/.test(getComputedStyle(e).filter) || e.classList.contains("pii") || e.classList.contains("pii-auto")) return true; return false; };
@@ -83,8 +117,28 @@ const ANALYZER = `(() => {
     if (ix * iy > 0.25 * Math.min(A.r.width * A.r.height, B.r.width * B.r.height)) out.push({ sev: "warn", code: "overlap", msg: label(A.el) + " «" + A.own.slice(0, 24) + "» overlaps " + label(B.el) + " «" + B.own.slice(0, 24) + "»" });
   }
   if (!texts.length && !media) out.push({ sev: "warn", code: "blank", msg: "nothing visible" });
+  // at a scene's main moment: every real screen whole — not cut by the frame or a box, not zoomed, in its own device
+  if (full) {
+    const clipOf = (el) => { let c = { l: 0, t: 0, r: W, b: H }; for (let e = el.parentElement; e && e !== document.body; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.overflowX !== "visible" || cs.overflowY !== "visible") { const q = e.getBoundingClientRect(); c = { l: Math.max(c.l, q.left), t: Math.max(c.t, q.top), r: Math.min(c.r, q.right), b: Math.min(c.b, q.bottom) }; } } return c; };
+    const shownPart = (el) => { const r = el.getBoundingClientRect(), c = clipOf(el), w = Math.max(0, Math.min(c.r, r.right) - Math.max(c.l, r.left)), h = Math.max(0, Math.min(c.b, r.bottom) - Math.max(c.t, r.top)); return r.width * r.height > 0 ? (w * h) / (r.width * r.height) : 1; };
+    for (const el of document.querySelectorAll("[data-clone]")) {
+      const id = el.getAttribute("data-clone") || ""; if (/-p\\d+$/.test(id) || opacity(el) < 0.5) continue;
+      const r = el.getBoundingClientRect(); if (r.width * r.height < W * H * 0.01) continue;
+      const seen = shownPart(el);
+      if (seen < 0.97) out.push({ sev: "error", code: "screen-cut", msg: label(el) + " (" + id + ") is cut — only " + Math.round(seen * 100) + "% of the screen is inside the frame; show the whole " + (el.querySelector(".ui-lid") ? "laptop" : "phone") + " screen" });
+      const cl = el.querySelector(".ui-clone");
+      if (cl) { const z = cl.getBoundingClientRect().width / r.width; if (z > 1.03) out.push({ sev: "error", code: "screen-zoom", msg: label(el) + " (" + id + ") is zoomed in ×" + z.toFixed(2) + " — show the screen at its own width (move through it with K.scrollTo / K.focus, which never zoom)" }); }
+    }
+    for (const img of document.images) {
+      const src = img.getAttribute("src") || ""; if (!/screens\\/|clipframes\\//.test(src) || !img.naturalWidth || opacity(img) < 0.5) continue;
+      const r = img.getBoundingClientRect(); if (r.width * r.height < W * H * 0.01) continue;
+      const seen = shownPart(img);
+      if (seen < 0.97) out.push({ sev: "error", code: "screen-cut", msg: label(img) + " «" + src.split("/").slice(-2).join("/") + "» is cut — only " + Math.round(seen * 100) + "% of the screenshot is visible; show the whole screen, not a crop or a zoom" });
+      if (img.naturalWidth > img.naturalHeight) { let box = null; for (let e = img.parentElement; e && e !== document.body; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.overflowX !== "visible" || cs.overflowY !== "visible") { box = e.getBoundingClientRect(); break; } } if (box && box.height > box.width * 1.2) out.push({ sev: "error", code: "screen-device", msg: label(img) + " is a desktop screen inside a portrait (phone) frame — desktop screens go on a laptop, phone screens on a phone" }); }
+    }
+  }
   return out.slice(0, 40);
-})()`;
+})`;
 
 export class Session {
   browser!: Browser; page!: Page; errors: string[] = [];
@@ -105,7 +159,7 @@ export class Session {
   async contract() { return (await this.page.evaluate("({ d: window.__duration, seek: typeof window.__seek, sfx: Array.isArray(window.__sfx) ? window.__sfx : [] })")) as { d: number; seek: string; sfx: { t: number; src: string; vol?: number }[] }; }
   async seek(t: number, page = this.page) { await page.evaluate(`Promise.resolve(window.__seek(${t})).then(() => Promise.all(Array.from(document.images).filter((i) => !i.complete).map((i) => i.decode().catch(() => null))))`); }
   async still(t: number, page = this.page) { await this.seek(t, page); return page.screenshot({ type: "jpeg", quality: 82 }); }
-  async analyze(t: number) { await this.seek(t); return (await this.page.evaluate(ANALYZER)) as { sev: string; code: string; msg: string }[]; }
+  async analyze(t: number, full = true) { await this.seek(t); return (await this.page.evaluate(`(${ANALYZER})(${full})`)) as { sev: string; code: string; msg: string }[]; }
   async frames(from: number, to: number, onFrame: (jpg: Buffer) => Promise<void>) {
     const page = await this.newPage();
     for (let i = from; i < to; i++) await onFrame(await this.still(i / FPS, page));

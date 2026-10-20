@@ -151,9 +151,14 @@ composition/video.src.html is ONE self-contained page at exactly W×H CSS px (gi
   no CDNs, no Google Fonts URLs, no remote images.
 - real screens: <div data-clone="<clone id>" data-w="<px>" data-h="<px>"></div>. The renderer replaces it with the real
   UI scaled into that box (its content sits inside a ".ui-cam" layer you may move / scale for camera moves, or use
-  lib/kit.js: K.focus(tl, "#id", "k12" | "part:3" | [x,y,w,h] | "all", at, { dur, max }) zooms the camera onto a key /
+  lib/kit.js: K.focus(tl, "#id", "k12" | "part:3" | [x,y,w,h] | "all", at, { dur, max }) moves the camera onto a key /
   block / box of the clone; K.type / K.typeInto type text; K.tap / K.press simulate taps). Product UI enters in place
   (fade + slight scale), never slides across the frame, never tilts, wobbles or drifts.
+- every real screen is shown whole, as captured, in its own device: a phone screen (…-mobile) as a whole phone at its
+  own 390×844 shape, a desktop screen on the laptop the renderer draws (never inside a phone), screenshots and clip
+  frames uncropped and unzoomed. The renderer sets a phone screen's height and draws the laptop itself; on a whole screen
+  K.focus / K.scrollTo move through it at its own width and never zoom. Size your phone / laptop boxes to fit the whole
+  screen inside the frame. The check fails a screen that is cut, zoomed, or in the wrong device.
 - keep every text inside the frame with margins (≥ 80px left/right, ≥ 140px top/bottom at 1080×1920; scale for
   other sizes), at a readable size (≥ 34px for lines the viewer reads at 1080 wide), with contrast ≥ 4.5:1
   (≥ 3:1 for large bold type) against what is behind it. Use the brand's exact colours and fonts.

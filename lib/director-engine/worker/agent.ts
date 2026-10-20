@@ -234,9 +234,9 @@ export class Director {
         for (const x of k.sfx) if (!fs.existsSync(path.resolve(this.compDir, String(x.src || "")))) err(`contract: sound effect not found: ${x.src}`);
         const script = fs.existsSync(path.join(this.c.runDir, "script.json")) ? JSON.parse(fs.readFileSync(path.join(this.c.runDir, "script.json"), "utf8")) : null;
         if (!script) err("no storyboard: call set_storyboard first");
-        const times = new Set<number>([0.1, this.c.length - 0.2]);
-        for (const sc of script?.scenes || []) { const e = sc.start + sc.bars * 2; times.add(+(sc.start + (e - sc.start) * 0.6).toFixed(2)); if (e < this.c.length - 0.1) times.add(+(e - 0.12).toFixed(2)); }
-        for (const t of [...times].sort((x, y) => x - y)) for (const x of await s.analyze(t)) { if (x.sev === "error") errors++; else warnings++; report.push(`${x.sev} t=${t.toFixed(2)}s ${x.code}: ${x.msg}`); }
+        const times = new Set<number>([0.1, this.c.length - 0.2]), mids = new Set<number>();
+        for (const sc of script?.scenes || []) { const e = sc.start + sc.bars * 2, m = +(sc.start + (e - sc.start) * 0.6).toFixed(2); times.add(m); mids.add(m); if (e < this.c.length - 0.1) times.add(+(e - 0.12).toFixed(2)); }
+        for (const t of [...times].sort((x, y) => x - y)) for (const x of await s.analyze(t, mids.has(t))) { if (x.sev === "error") errors++; else warnings++; report.push(`${x.sev} t=${t.toFixed(2)}s ${x.code}: ${x.msg}`); }
         if (s.errors.length) { errors++; report.push(`error page: ${s.errors.slice(-5).join(" | ")}`); }
         this.lastCheck = { passed: errors === 0, errors, warnings, at: new Date().toISOString() };
         fs.writeFileSync(path.join(this.c.runDir, "qa.json"), JSON.stringify({ engine: "director", shipped: "v0", errors, warnings, history: [{ tag: "check", errors, warnings, at: this.lastCheck.at }], issues: report.slice(0, 200).map((m) => ({ sev: m.startsWith("error") ? "error" : "warn", msg: m })) }, null, 2));
