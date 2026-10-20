@@ -10,8 +10,18 @@ import type { Sync } from "../../live-engine/worker/sync";
 import { CANVAS, PLATFORM, canvasesFor } from "./platforms";
 import { writePost, type Written } from "./write";
 import { makeImages } from "./images";
-import { designCanvas, repairCanvas, screenInfo, type Design } from "./design";
-import { buildSlidePage, canvasKey, SlideRenderer } from "./render";
+import { designCanvas, repairCanvas, reviewCanvas, screenInfo, type Design, type Looks } from "./design";
+import { buildSlidePage, canvasKey, SlideRenderer, smallJpeg } from "./render";
+
+/** the brand's own look for the designer: its homepage and one app screen (screenshots), and each slide's AI scene */
+async function brandLooks(brand: any, brandDir: string, runDir: string, slides: { ai_file?: string }[]): Promise<Looks> {
+  const screens = (brand.screens ?? []).filter((s: any) => s.view && fs.existsSync(path.join(brandDir, s.view)));
+  const picks = [screens.find((s: any) => !s.app && s.use === "hero") ?? screens.find((s: any) => !s.app), screens.find((s: any) => s.app && s.use === "hero") ?? screens.find((s: any) => s.app)].filter(Boolean);
+  const out: Looks = { brand: [], ai: {} };
+  for (const s of [...new Set(picks)] as any[]) { const jpg = await smallJpeg(path.join(brandDir, s.view), 1000); if (jpg) out.brand.push({ label: `${s.id}${s.app ? " (inside the product)" : " (the website)"}`, jpg }); }
+  for (const s of slides) if (s.ai_file && fs.existsSync(path.join(runDir, s.ai_file))) { const jpg = await smallJpeg(path.join(runDir, s.ai_file), 800); if (jpg) out.ai[s.ai_file] = jpg; }
+  return out;
+}
 
 export async function runPosts(job: JobFile, dirs: { root: string; brandDir: string; runDir: string }, sync: Sync) {
   const { brandDir, runDir } = dirs, log = sync.log, t0 = Date.now();
@@ -44,12 +54,14 @@ export async function runPosts(job: JobFile, dirs: { root: string; brandDir: str
     await makeImages({ post, slides: written.slides, canvases, brand, runDir, ledger, prev: prev?.slides ?? null, log });
     await sync.stepDone("images");
 
-    // 3 — design, one call per canvas (the first sets the look)
+    // 3 — design, one call per canvas (the first sets the look); the designer sees the brand's own screenshots and the AI scenes
     await sync.stage("design");
     const screens = screenInfo(brand, brandDir, written.slides);
+    const looks = await brandLooks(brand, brandDir, runDir, written.slides);
+    const logo = brand.logo?.file && fs.existsSync(path.join(brandDir, brand.logo.file)) ? `brand/${brand.logo.file}` : null;
     for (const [i, canvas] of canvases.entries()) {
       cap$();
-      design[canvas] = await designCanvas({ post, brand, canvas, slides: written.slides, screens, ledger, reference: i > 0 ? { canvas: canvases[0], design: design[canvases[0]]! } : null, prev: prevDesign?.[canvas] ?? null, log });
+      design[canvas] = await designCanvas({ post, brand, canvas, slides: written.slides, screens, looks, ledger, reference: i > 0 ? { canvas: canvases[0], design: design[canvases[0]]! } : null, prev: prevDesign?.[canvas] ?? null, log });
     }
     await sync.stepDone("design");
 
@@ -63,18 +75,24 @@ export async function runPosts(job: JobFile, dirs: { root: string; brandDir: str
           const pngs: string[] = [], issues: string[][] = [];
           for (const [n, d] of design[canvas]!.entries()) {
             const key = `${canvasKey(canvas)}-${n + 1}`;
-            const html = buildSlidePage({ dir: path.join(runDir, "pages", key), canvas, design: d, screens, brandDir, runDir, rtl, identity });
+            const html = buildSlidePage({ dir: path.join(runDir, "pages", key), canvas, design: d, screens, brandDir, runDir, rtl, identity, logo });
             const png = path.join(runDir, "slides", `${key}.png`);
-            issues.push(await renderer.render(html, canvas, png));
+            issues.push(await renderer.render(html, canvas, png, logo));
             pngs.push(png);
           }
           return { pngs, issues };
         };
-        let r = await draw();
-        if (r.issues.some((l) => l.length) && ledger.total() < post.maxUsd) {
+        const fix = async (r: { pngs: string[]; issues: string[][] }) => {
+          if (!r.issues.some((l) => l.length) || ledger.total() >= post.maxUsd) return r;
           log(`  check ${canvas}: ${r.issues.map((l, i) => (l.length ? `slide ${i + 1}: ${l.join(" | ")}` : "")).filter(Boolean).join(" · ")}`);
           design[canvas] = await repairCanvas({ post, canvas, design: design[canvas]!, issues: r.issues, pngs: r.pngs, ledger, log });
-          r = await draw();
+          return draw();
+        };
+        let r = await fix(await draw());
+        // the art director looks at the rendered slides next to the brand; an improved design is drawn and checked again
+        if (ledger.total() < post.maxUsd) {
+          const better = await reviewCanvas({ post, brand, canvas, design: design[canvas]!, pngs: r.pngs, looks, ledger, log, small: (f) => smallJpeg(f, 900) });
+          if (better) { design[canvas] = better; r = await fix(await draw()); }
         }
         renders[canvas] = r.pngs.map((p) => path.relative(runDir, p));
         remaining[canvas] = r.issues;

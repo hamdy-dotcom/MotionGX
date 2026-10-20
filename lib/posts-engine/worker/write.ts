@@ -31,7 +31,9 @@ Hard rules:
   around it honestly.
 - Write in the requested language and dialect, in the company's own voice. Every platform gets its own text written
   for that platform's habits (rules below) — not the same text pasted five times.
-- No links except the company's own site.`;
+- No links except the company's own site.
+- No dates or years unless the brief or the facts give them; if a year is needed, it is the current one (below).
+- Hashtags: real, relevant ones people search; the brand's name once at most.`;
 
 export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledger; prev?: Written | null; log: (l: string) => void }): Promise<Written> {
   const { post, brand, ledger, prev } = opts;
@@ -79,6 +81,7 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
   const content = [
     `COMPANY FACTS\n${JSON.stringify(facts)}`,
     visualPost ? `SCREENS (real captured screens; show them whole in their device)\n${JSON.stringify(screens)}\nIMAGES (captured; test_data ones are the capture's demo content — products shown as an example of a store's catalogue, never as the company's own photos)\n${JSON.stringify(images)}` : "",
+    `TODAY: ${new Date().toISOString().slice(0, 10)}`,
     `THE POST\n- What the client wants: ${post.brief}\n- Type: ${post.type === "single" ? "one image + text" : post.type === "carousel" ? `carousel${count ? ` of ${count} slides` : ""} + text — slide 1 hooks, the middle slides deliver, the last slide closes with the call to action` : "text only (no image)"}\n- Language: ${LANGUAGE[post.dialect] ?? post.dialect}\n- Platforms and their rules:\n${post.platforms.map((p) => `  - ${PLATFORM[p].name}: ${PLATFORM[p].rules} (max ${PLATFORM[p].maxChars} characters)`).join("\n")}${visualPost ? `\n- Visuals: ${ai} On-image text is short (the platform text carries the detail).` : ""}`,
     prev ? `THE CURRENT VERSION\n${JSON.stringify(prev)}\n\nTHE CLIENT ASKS FOR THIS CHANGE: ${post.request}\nChange what they ask for and keep everything else as it is.` : "",
   ].filter(Boolean).join("\n\n");

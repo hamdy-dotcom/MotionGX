@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { chromium, type Browser } from "playwright";
 import { embedClones } from "../../live-engine/worker/steps/build";
 import { CANVAS, type Canvas } from "./platforms";
@@ -27,10 +28,18 @@ function devices(body: string, screens: Record<string, any>, brandDir: string) {
   });
 }
 
+/** <x-logo height="N"> (or a src="LOGO" left by the designer) → the brand's own logo file */
+function logos(body: string, logo: string | null) {
+  if (!logo) return body.replace(/<x-logo\b[^>]*>\s*(?:<\/x-logo>)?/gi, "");
+  return body
+    .replace(/<x-logo\b([^>]*)>\s*(?:<\/x-logo>)?/gi, (_m, attrs: string) => { const h = Math.max(24, Math.round(Number(attrs.match(/height\s*=\s*["']?(\d+)/)?.[1]) || 96)); const cls = attrs.match(/class\s*=\s*["']([^"']*)["']/)?.[1] ?? ""; return `<img class="mgx-logo ${cls}" data-mgx-logo="1" src="${logo}" alt="" style="height:${h}px;width:auto">`; })
+    .replace(/src\s*=\s*["'](?:LOGO|\.?\/?brand\/library\/logo\/[^"']+)["']/gi, `src="${logo}" data-mgx-logo="1"`);
+}
+
 /** no scripts, no remote URLs: a slide is HTML + CSS over local files only */
 const clean = (s: string) => String(s ?? "").replace(/<script[\s\S]*?<\/script>/gi, "").replace(/\son\w+\s*=\s*("[^"]*"|'[^']*')/gi, "").replace(/(https?:)?\/\/[^\s"')]+/gi, "about:blank");
 
-export function buildSlidePage(opts: { dir: string; canvas: Canvas; design: SlideDesign; screens: Record<string, any>; brandDir: string; runDir: string; rtl: boolean; identity: string[] }) {
+export function buildSlidePage(opts: { dir: string; canvas: Canvas; design: SlideDesign; screens: Record<string, any>; brandDir: string; runDir: string; rtl: boolean; identity: string[]; logo: string | null }) {
   const { dir, canvas, design, screens, brandDir, runDir, rtl } = opts;
   const [W, H] = CANVAS[canvas];
   fs.mkdirSync(dir, { recursive: true });
@@ -39,18 +48,22 @@ export function buildSlidePage(opts: { dir: string; canvas: Canvas; design: Slid
     if (fs.existsSync(target) && !fs.existsSync(at)) fs.symlinkSync(target, at, "dir");
   }
   const base = `*{box-sizing:border-box;margin:0;padding:0}html,body{width:${W}px;height:${H}px;overflow:hidden;background:#000}#post{position:relative;width:${W}px;height:${H}px;overflow:hidden}img{display:block}.mgx-phone,.mgx-laptop{margin-inline:auto}`;
-  const src = `<!doctype html><html lang="${rtl ? "ar" : "en"}" dir="${rtl ? "rtl" : "ltr"}"><head><meta charset="utf-8"><style>${base}</style><style>${clean(design.css)}</style></head><body><div id="post">${devices(clean(design.body), screens, brandDir)}</div></body></html>`;
+  const src = `<!doctype html><html lang="${rtl ? "ar" : "en"}" dir="${rtl ? "rtl" : "ltr"}"><head><meta charset="utf-8"><style>${base}</style><style>${clean(design.css)}</style></head><body><div id="post">${logos(devices(clean(design.body), screens, brandDir), opts.logo)}</div></body></html>`;
   fs.writeFileSync(path.join(dir, "video.src.html"), src);
   embedClones({ runDir: dir, brandDir, layout: canvas === "16:9" ? "16:9" : "9:16" });
   // a long screen scrolled to its part (whole width, no zoom); personal data inside the real UI blurred
   const after = `<style>.pii-auto{filter:blur(9px)!important}</style><script>(()=>{for(const el of document.querySelectorAll("[data-scroll]")){const y=+el.dataset.scroll||0,s=+el.dataset.scale||1,cam=el.querySelector(".ui-cam");if(!cam||!y)continue;const max=Math.max(0,cam.offsetHeight-(+el.dataset.vh||0));cam.style.transform="translateY("+(-Math.min(y*s,max))+"px)"}const ID=${JSON.stringify(opts.identity.filter((s) => s && s.length >= 4))};const RE=/(\\+?\\d[\\d\\s().-]{7,}\\d)|([\\w.+-]+@[\\w-]+\\.[\\w.-]+)/;for(const root of document.querySelectorAll(".ui-cam")){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const hits=[];for(let n=w.nextNode();n;n=w.nextNode()){const t=n.textContent||"";if(RE.test(t)||ID.some((s)=>t.includes(s)))hits.push(n)}for(const n of hits){const s=document.createElement("span");s.className="pii-auto";n.parentNode.insertBefore(s,n);s.appendChild(n)}}})();</script>`;
+  // an SVG logo is cropped to its own outline (logo files often sit in a big empty square), so its height is the mark's
+  const svgFile = opts.logo && /\.svg$/i.test(opts.logo) ? path.join(dir, opts.logo) : null;
+  const svg = svgFile && fs.existsSync(svgFile) ? fs.readFileSync(svgFile, "utf8").replace(/<\?xml[^>]*>/, "").replace(/<script[\s\S]*?<\/script>/gi, "") : null;
+  const crop = svg ? `<template id="mgx-logo-svg">${svg}</template><script>(()=>{const t=document.getElementById("mgx-logo-svg"),imgs=document.querySelectorAll("#post img[data-mgx-logo]");if(!t||!imgs.length)return;const box=document.createElement("div");box.style.cssText="position:absolute;left:-99999px;top:0;width:1200px;height:1200px";box.appendChild(t.content.cloneNode(true));document.body.appendChild(box);const s=box.querySelector("svg");if(!s){box.remove();return}try{const b=s.getBBox();if(b.width>0&&b.height>0){s.setAttribute("viewBox",[b.x,b.y,b.width,b.height].join(" "));s.setAttribute("width",String(Math.round(b.width)));s.setAttribute("height",String(Math.round(b.height)));s.setAttribute("preserveAspectRatio","xMidYMid meet");const url="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(new XMLSerializer().serializeToString(s));for(const i of imgs)i.src=url}}catch(e){}box.remove()})();</script>` : "";
   const html = fs.readFileSync(path.join(dir, "video.html"), "utf8");
-  fs.writeFileSync(path.join(dir, "video.html"), /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${after}</body>`) : html + after);
+  fs.writeFileSync(path.join(dir, "video.html"), /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${crop}${after}</body>`) : html + crop + after);
   return path.join(dir, "video.html");
 }
 
 // The check, in the page (plain JS: no bundler helpers can leak in). U = the canvas width / 1080.
-const CHECK = `(() => {
+const CHECK = `((logo) => {
   const W = innerWidth, H = innerHeight, U = W / 1080, M = Math.round(56 * U), out = [];
   const opacity = (el) => { let o = 1; for (let e = el; e && e.nodeType === 1; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.display === "none" || cs.visibility === "hidden") return 0; o *= +cs.opacity; } return o; };
   const rgb = (c) => { const m = String(c).match(/rgba?\\(([^)]+)\\)/); if (!m) return null; const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; };
@@ -85,12 +98,19 @@ const CHECK = `(() => {
     if (ix * iy > 0.2 * Math.min(A.r.width * A.r.height, B.r.width * B.r.height)) out.push(label(A.el) + " overlaps " + label(B.el));
   }
   if (!texts.length && !media) out.push("the slide is empty");
+  // the brand signs every slide: its logo, loaded and visible, at a size that reads
+  if (logo) {
+    const marks = Array.from(document.querySelectorAll("#post img[data-mgx-logo]")).filter((i) => i.naturalWidth && opacity(i) > 0.5);
+    const seen = marks.map((i) => i.getBoundingClientRect()).filter((r) => r.width > 2 && r.right > 0 && r.left < W && r.bottom > 0 && r.top < H);
+    if (!seen.length) out.push("the brand's logo is missing — every slide carries it (<x-logo height=…>)");
+    else if (Math.max(...seen.map((r) => r.height)) < 60 * U) out.push("the logo is too small to recognise (≥ " + Math.round(72 * U) + " px tall)");
+  }
   return [...new Set(out)].slice(0, 12);
-})()`;
+})`;
 
 export class SlideRenderer {
   private browser: Browser | null = null;
-  async render(html: string, canvas: Canvas, png: string): Promise<string[]> {
+  async render(html: string, canvas: Canvas, png: string, logo: string | null = null): Promise<string[]> {
     const [W, H] = CANVAS[canvas];
     this.browser ??= await chromium.launch();
     const page = await this.browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
@@ -100,10 +120,17 @@ export class SlideRenderer {
       await page.evaluate("Promise.race([Promise.all([document.fonts.ready, ...Array.from(document.images).map((i) => (i.complete ? null : i.decode().catch(() => null)))]), new Promise((r) => setTimeout(r, 15000))])");
       fs.mkdirSync(path.dirname(png), { recursive: true });
       await page.screenshot({ path: png, type: "png" });
-      return (await page.evaluate(CHECK)) as string[];
+      return (await page.evaluate(`(${CHECK})(${JSON.stringify(logo)})`)) as string[];
     } finally {
       await page.close();
     }
   }
   async close() { await this.browser?.close().catch(() => {}); this.browser = null; }
+}
+
+/** an image scaled down for the model to look at (JPEG, ≈ width px wide) — ffmpeg, as the renderer's other stills */
+export async function smallJpeg(file: string, width = 900): Promise<Buffer | null> {
+  const ff = process.env.FFMPEG_PATH || ((await import("ffmpeg-static").then((m: any) => m.default).catch(() => null)) as string | null) || "ffmpeg";
+  const r = spawnSync(ff, ["-v", "error", "-i", file, "-vf", `scale='min(${width},iw)':-2`, "-q:v", "4", "-f", "image2", "-c:v", "mjpeg", "pipe:1"], { maxBuffer: 64 * 1024 * 1024 });
+  return r.status === 0 && r.stdout?.length ? r.stdout : null;
 }
