@@ -67,21 +67,6 @@ export class Director {
   private session: Session | null = null;
   private sessionFor = "";
   private client = new Anthropic({ maxRetries: 0 });
-  private trim: { plan: CollapsePlan; at: number } | null = null;
-  /** lean mode: the trim decision for this call — none while the history is small; taken all at once past TRIM_AT,
-   *  kept as it is until the history has grown another TRIM_STEP (each new decision re-writes the cache once) */
-  private trimPlan(msgs: any[]): CollapsePlan | undefined {
-    if (!this.c.lean) return undefined; // round-1 behaviour: decide on every call
-    const size = historyChars(msgs);
-    if (size < TRIM_AT) return { staleRead: new Set(), staleWrite: new Set(), unused: new Set() };
-    if (!this.trim || size - this.trim.at >= TRIM_STEP) {
-      const { staleRead, staleWrite, unused } = collapsePlan(msgs, this.usedClones());
-      const plan = { staleRead, staleWrite, unused }, after = historyChars(collapse(msgs, null, plan));
-      this.trim = { plan, at: size }; // growth is measured on the untrimmed size
-      this.c.log(`  ✂ history trimmed once: ${Math.round(size / 1000)}k → ${Math.round(after / 1000)}k characters (${staleRead.size + staleWrite.size + unused.size} old blocks)`);
-    }
-    return this.trim.plan;
-  }
   private get tools() { return this.c.lean ? [...TOOLS.filter((t) => t.name !== "finish"), REVIEW, TOOLS.find((t) => t.name === "finish")!] : TOOLS; }
   /** lean mode: the clone ids the composition uses (data-clone) — other clone views leave the history once it exists */
   private usedClones(): Set<string> | null {
@@ -160,8 +145,7 @@ export class Director {
       if (rest.type === "tool_result" && Array.isArray(rest.content)) return { ...rest, content: rest.content.map((x: any) => clean(x, keepImages)) };
       return rest;
     };
-    const cleaned = this.messages.map((m, i) => ({ role: m.role, content: Array.isArray(m.content) ? (m.content as any[]).map((b) => clean(b, i === n - 1)) : m.content }));
-    const msgs: any[] = collapse(cleaned, this.usedClones(), this.trimPlan(cleaned));
+    const msgs: any[] = collapse(this.messages.map((m, i) => ({ role: m.role, content: Array.isArray(m.content) ? (m.content as any[]).map((b) => clean(b, i === n - 1)) : m.content })), this.usedClones());
     const mark = (m: any, ok: (b: any) => boolean) => {
       if (!m || !Array.isArray(m.content) || !m.content.length) return false;
       const k = m.content.length - 1, b = m.content[k];
@@ -221,19 +205,15 @@ export class Director {
         let text = fs.readFileSync(p, "utf8");
         const edits = (a.edits || []) as { find: string; replace: string }[];
         if (!edits.length) throw new Error("no edits");
-        const shown: string[] = [];
         edits.forEach((e, i) => {
           const n = text.split(String(e.find)).length - 1;
           if (!e.find || n !== 1) throw new Error(`edit ${i + 1}: find matches ${n} times (it must match exactly once) — nothing was changed`);
-          const at = text.indexOf(String(e.find));
           text = text.replace(String(e.find), () => String(e.replace ?? ""));
-          // lean mode: the changed lines with a line of context, so the agent never re-reads the file to confirm
-          if (this.c.lean) { const a0 = text.lastIndexOf("\n", Math.max(0, at - 1)) + 1, endAt = at + String(e.replace ?? "").length, a1 = text.indexOf("\n", text.indexOf("\n", endAt) + 1); const ex = text.slice(text.lastIndexOf("\n", Math.max(0, a0 - 2)) + 1, a1 < 0 ? text.length : a1); shown.push(`— edit ${i + 1} now reads:\n${ex.length > 700 ? ex.slice(0, 700) + "…" : ex}`); }
         });
         if (text.length > WRITE_MAX) throw new Error("file too large (2 MB max)");
         fs.writeFileSync(p, text);
         if (/composition\/video\.src\.html$/.test(p)) await this.c.stage("build");
-        return `edited ${path.relative(workDir, p)}: ${edits.length} change(s), now ${text.length} characters${shown.length ? `\n${shown.join("\n")}` : ""}`;
+        return `edited ${path.relative(workDir, p)}: ${edits.length} change(s), now ${text.length} characters`;
       }
       case "write_file": {
         const p = inside(workDir, a.path, true), content = String(a.content ?? "");
@@ -376,9 +356,17 @@ export class Director {
  * later; a write_file's content once the same file is written or read again later (edits after a write keep it — the
  * agent's edits need the text it wrote). Collapsed copies become one line; the latest version is always there.
  */
-export type CollapsePlan = { staleRead: Set<string>; staleWrite: Set<string>; unused: Set<string> };
-export function collapse(messages: any[], usedClones: Set<string> | null = null, fixed?: CollapsePlan) {
-  const { staleRead, staleWrite, unused, uses, cloneOf } = collapsePlan(messages, usedClones, fixed);
+export function collapse(messages: any[], usedClones: Set<string> | null = null) {
+  const key = (u: any) => (u.name === "read_file" ? `${u.input?.root}:${String(u.input?.path || "").replace(/^\.?\//, "")}` : ["write_file", "edit_file"].includes(u.name) ? `work:${String(u.input?.path || "").replace(/^\.?\//, "")}` : null);
+  const uses = new Map<string, any>(), events: { pos: number; key: string; kind: string; id: string }[] = [];
+  let pos = 0;
+  for (const m of messages) if (Array.isArray(m.content)) for (const b of m.content) { pos++; if (b.type === "tool_use") { uses.set(b.id, b); const k = key(b); if (k) events.push({ pos, key: k, kind: b.name, id: b.id }); } }
+  const laterFor = (e: { pos: number; key: string }, kinds: string[]) => events.some((x) => x.key === e.key && x.pos > e.pos && kinds.includes(x.kind));
+  const staleRead = new Set(events.filter((e) => e.kind === "read_file" && laterFor(e, ["read_file", "write_file"])).map((e) => e.id));
+  const staleWrite = new Set(events.filter((e) => e.kind === "write_file" && laterFor(e, ["read_file", "write_file"])).map((e) => e.id));
+  // lean mode, once the composition exists: clone views it doesn't use are collapsed (inspect_clone again if needed)
+  const cloneOf = (u: any) => (u?.name === "inspect_clone" ? String(u.input?.id || "") : u?.name === "read_file" && /^clones\/[^/]+\.json$/.test(String(u.input?.path || "").replace(/^\.?\//, "")) ? path.basename(String(u.input.path), ".json") : null);
+  const unused = new Set(usedClones ? [...uses.values()].filter((u) => { const id = cloneOf(u); return id && !usedClones.has(id); }).map((u) => u.id) : []);
   if (!staleRead.size && !staleWrite.size && !unused.size) return messages;
   return messages.map((m) => (!Array.isArray(m.content) ? m : { ...m, content: m.content.map((b: any) => {
     if (b.type === "tool_use" && staleWrite.has(b.id)) return { ...b, input: { ...b.input, content: `[old version of ${b.input?.path} — ${String(b.input?.content || "").length} characters; a later version was written or read]` } };
@@ -387,29 +375,6 @@ export function collapse(messages: any[], usedClones: Set<string> | null = null,
     return b;
   }) }));
 }
-/** which blocks collapse — decided from the given messages (or a decision taken earlier, kept as it was) */
-export function collapsePlan(messages: any[], usedClones: Set<string> | null = null, fixed?: CollapsePlan) {
-  const key = (u: any) => (u.name === "read_file" ? `${u.input?.root}:${String(u.input?.path || "").replace(/^\.?\//, "")}` : ["write_file", "edit_file"].includes(u.name) ? `work:${String(u.input?.path || "").replace(/^\.?\//, "")}` : null);
-  const uses = new Map<string, any>(), events: { pos: number; key: string; kind: string; id: string }[] = [];
-  let pos = 0;
-  for (const m of messages) if (Array.isArray(m.content)) for (const b of m.content) { pos++; if (b.type === "tool_use") { uses.set(b.id, b); const k = key(b); if (k) events.push({ pos, key: k, kind: b.name, id: b.id }); } }
-  const laterFor = (e: { pos: number; key: string }, kinds: string[]) => events.some((x) => x.key === e.key && x.pos > e.pos && kinds.includes(x.kind));
-  const staleRead = fixed?.staleRead ?? new Set(events.filter((e) => e.kind === "read_file" && laterFor(e, ["read_file", "write_file"])).map((e) => e.id));
-  const staleWrite = fixed?.staleWrite ?? new Set(events.filter((e) => e.kind === "write_file" && laterFor(e, ["read_file", "write_file"])).map((e) => e.id));
-  // lean mode, once the composition exists: clone views it doesn't use are collapsed (inspect_clone again if needed)
-  const cloneOf = (u: any) => (u?.name === "inspect_clone" ? String(u.input?.id || "") : u?.name === "read_file" && /^clones\/[^/]+\.json$/.test(String(u.input?.path || "").replace(/^\.?\//, "")) ? path.basename(String(u.input.path), ".json") : null);
-  const unused = fixed?.unused ?? new Set(usedClones ? [...uses.values()].filter((u) => { const id = cloneOf(u); return id && !usedClones.has(id); }).map((u) => u.id) : []);
-  return { staleRead, staleWrite, unused, uses, cloneOf };
-}
-/** the text size of a history (images not counted): what the trimming threshold measures */
-export function historyChars(messages: any[]) {
-  let n = 0;
-  const one = (b: any) => { if (b.type === "text") n += String(b.text || "").length; else if (b.type === "tool_use") n += JSON.stringify(b.input || {}).length; else if (b.type === "tool_result") { if (typeof b.content === "string") n += b.content.length; else if (Array.isArray(b.content)) b.content.forEach(one); } };
-  for (const m of messages) if (Array.isArray(m.content)) m.content.forEach(one); else n += String(m.content || "").length;
-  return n;
-}
-// lean mode: trim only once the history is large, all at once, then keep that decision (the cached prefix stays the same)
-const TRIM_AT = 140_000, TRIM_STEP = 100_000; // characters (~40k / ~30k tokens)
 
 /** the font-family names a fonts.css declares */
 export function fontFamilies(file: string) {
