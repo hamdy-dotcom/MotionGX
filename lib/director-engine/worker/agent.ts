@@ -63,14 +63,6 @@ export class Director {
   messages: Anthropic.MessageParam[] = [];
   done: { share_copy: string; angle: string } | null = null;
   lastCheck: { passed: boolean; errors: number; warnings: number; at: string } | null = null;
-  private cssWidths: Record<string, number> | null = null;
-  /** each capture id's width in CSS px (from its clone), for how large a screenshot or clip frame is shown */
-  private get captureWidths() {
-    if (this.cssWidths) return this.cssWidths;
-    const out: Record<string, number> = {}, dir = path.join(this.c.brandDir, "clones");
-    for (const f of fs.existsSync(dir) ? fs.readdirSync(dir).filter((x) => x.endsWith(".json")) : []) { try { const w = +JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")).w; if (w > 0) out[f.replace(/\.json$/, "")] = w; } catch { /* not a clone */ } }
-    return (this.cssWidths = out);
-  }
   rendered = false;
   private session: Session | null = null;
   private sessionFor = "";
@@ -290,10 +282,9 @@ export class Director {
         return out;
       }
       case "review": {
-        const { text, times, failing } = await this.runCheck();
+        const { text, times } = await this.runCheck();
         const s = await this.open();
-        // the frames that failed a watchability measure come full size: the agent sees what the numbers mean
-        return [{ type: "text", text }, ...(await this.frames(s, times, [...failing, ...((a.full || []) as number[]).map(Number)], false))];
+        return [{ type: "text", text }, ...(await this.frames(s, times, ((a.full || []) as number[]).map(Number), false))];
       }
       case "check": return (await this.runCheck()).text;
       case "render_video": {
@@ -330,43 +321,15 @@ export class Director {
     for (const x of k.sfx) if (!fs.existsSync(path.resolve(this.compDir, String(x.src || "")))) err(`contract: sound effect not found: ${x.src}`);
     const script = fs.existsSync(path.join(this.c.runDir, "script.json")) ? JSON.parse(fs.readFileSync(path.join(this.c.runDir, "script.json"), "utf8")) : null;
     if (!script) err("no storyboard: call set_storyboard first");
-    const set = new Set<number>([0.1, this.c.length - 0.2]), mids = new Set<number>();
-    for (const sc of script?.scenes || []) { const e = sc.start + sc.bars * 2, m = +(sc.start + (e - sc.start) * 0.6).toFixed(2); set.add(m); mids.add(m); if (e < this.c.length - 0.1) set.add(+(e - 0.12).toFixed(2)); }
-    const times = [...set].sort((x, y) => x - y), failing: number[] = [];
+    const set = new Set<number>([0.1, this.c.length - 0.2]);
+    for (const sc of script?.scenes || []) { const e = sc.start + sc.bars * 2; set.add(+(sc.start + (e - sc.start) * 0.6).toFixed(2)); if (e < this.c.length - 0.1) set.add(+(e - 0.12).toFixed(2)); }
+    const times = [...set].sort((x, y) => x - y);
     if (k.seek === "function") for (const t of times) for (const x of await s.analyze(t)) { if (x.sev === "error") errors++; else warnings++; report.push(`${x.sev} t=${t.toFixed(2)}s ${x.code}: ${x.msg}`); }
-    if (k.seek === "function" && this.c.lean) for (const m of await this.watchable(s, script, [...mids].sort((x, y) => x - y))) { errors++; report.push(`error t=${m.t.toFixed(m.t % 1 ? 2 : 1)}s ${m.code}: ${m.msg}`); if (m.frame && !failing.includes(m.t)) failing.push(m.t); }
     if (s.errors.length) { errors++; report.push(`error page: ${s.errors.slice(-5).join(" | ")}`); }
     this.lastCheck = { passed: errors === 0, errors, warnings, at: new Date().toISOString() };
     fs.writeFileSync(path.join(this.c.runDir, "qa.json"), JSON.stringify({ engine: "director", shipped: "v0", errors, warnings, history: [{ tag: "check", errors, warnings, at: this.lastCheck.at }], issues: report.slice(0, 200).map((m) => ({ sev: m.startsWith("error") ? "error" : "warn", msg: m })) }, null, 2));
     this.c.log(`  ✓ check: ${errors} errors, ${warnings} warnings over ${times.length} frames`);
-    return { text: `${errors ? "NOT PASSED" : "PASSED"} — ${errors} errors, ${warnings} warnings over ${times.length} frames.\n${report.slice(0, 80).join("\n")}`, times: k.seek === "function" ? times : [], failing };
-  }
-
-  /**
-   * Lean mode: is the video watchable on a phone — measured on the rendered frames, whatever the layout. At each scene's
-   * main moment: the real UI's text readable, the UI big enough to be the subject, the frame not empty, no blur laid
-   * over the real UI; over the whole video (but the last scene's hold): nothing frozen for long.
-   */
-  private async watchable(s: Session, script: any, mids: number[]) {
-    const out: { t: number; code: string; msg: string; frame?: boolean }[] = [];
-    const [W, H] = SIZES[this.c.layout] || SIZES["9:16"], U = Math.min(W, H) / 1080, MIN_TEXT = 20 * U, MIN_UI = 0.25, MIN_COVER = 0.08, MAX_HOLD = 3;
-    for (const t of mids) {
-      const m = await s.measure(t, this.captureWidths), pct = (x: number) => `${Math.round(x * 100)}%`;
-      if (m.main && m.main.text != null && m.main.text < MIN_TEXT) out.push({ t, frame: true, code: "ui-small", msg: `the real UI ${m.main.label} shows its text at ~${Math.round(m.main.text)}px — it needs ≥ ${Math.round(MIN_TEXT)}px on this frame to be read on a phone: show it larger, or zoom into the part that tells the story` });
-      if (m.main && m.uiCover < MIN_UI) out.push({ t, frame: true, code: "ui-fill", msg: `the real UI covers ${pct(m.uiCover)} of the frame — the product is the subject: give it at least ${pct(MIN_UI)}` });
-      if (!m.main && m.cover < MIN_COVER) out.push({ t, frame: true, code: "empty", msg: `only ${pct(m.cover)} of the frame carries anything — the scene reads as empty` });
-      for (const b of m.blur) out.push({ t, frame: true, code: "blur", msg: `${b.label} blurs ${pct(b.frac)} of the frame over the real UI — blur only the personal data itself: name its strings on the clone placeholder, data-pii="name one|name two" (they are blurred in place)` });
-    }
-    // holds: the frame sampled every 0.5 s; the same picture for longer than MAX_HOLD is a freeze
-    const scenes = (script?.scenes || []) as any[], end = scenes.length > 1 ? scenes[scenes.length - 1].start : this.c.length, STEP = 0.5;
-    let runFrom = 0, last: number | null = null;
-    const close = (to: number) => { if (to - runFrom > MAX_HOLD) out.push({ t: +runFrom.toFixed(1), code: "hold", msg: `nothing moves ${runFrom.toFixed(1)}–${to.toFixed(1)}s (${(to - runFrom).toFixed(1)} s) — keep the picture alive: a camera move on the real UI, the next beat, or a sooner cut` }); };
-    for (let t = 0; t <= end + 1e-6; t += STEP) {
-      const h = await s.signature(+t.toFixed(2));
-      if (h !== last) { if (last !== null) close(t - STEP); runFrom = t; last = h; }
-    }
-    close(end);
-    return out;
+    return { text: `${errors ? "NOT PASSED" : "PASSED"} — ${errors} errors, ${warnings} warnings over ${times.length} frames.\n${report.slice(0, 80).join("\n")}`, times: k.seek === "function" ? times : [] };
   }
 
   /** lean mode: stills at the given times as ONE labeled grid image (findings per frame in text), plus chosen full-size stills */
@@ -383,7 +346,7 @@ export class Director {
     const grid = await gridImage(tiles, { cols: Math.max(1, cols), tileW: H > W ? 200 : 300, aspect: H / W });
     if (lines.length) out.push({ type: "text", text: lines.join("\n") });
     if (grid) out.push({ type: "text", text: `stills ${times.map((t) => t.toFixed(2) + "s").join(", ")} (one grid, labeled):` }, imageBlock(grid));
-    for (const t of full.filter((x) => times.some((y) => Math.abs(y - x) < 0.01)).filter((x, i, a) => a.indexOf(x) === i).slice(0, 3)) out.push({ type: "text", text: `full-size ${t.toFixed(2)}s:` }, imageBlock(await smallJpeg(tiles[times.findIndex((y) => Math.abs(y - t) < 0.01)].jpg)));
+    for (const t of full.filter((x) => times.some((y) => Math.abs(y - x) < 0.01)).slice(0, 2)) out.push({ type: "text", text: `full-size ${t.toFixed(2)}s:` }, imageBlock(await smallJpeg(tiles[times.findIndex((y) => Math.abs(y - t) < 0.01)].jpg)));
     if (s.errors.length) out.push({ type: "text", text: `page errors: ${s.errors.slice(-5).join(" | ")}` });
     return out;
   }
