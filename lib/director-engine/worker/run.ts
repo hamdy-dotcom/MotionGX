@@ -10,9 +10,9 @@ import { execFileSync } from "node:child_process";
 import type { JobFile, Step } from "../../live-engine/protocol";
 import { Ledger } from "../../live-engine/worker/claude";
 import type { Sync } from "../../live-engine/worker/sync";
-import { LEAN, METHOD } from "./method";
-import { Director, fontFamilies } from "./agent";
-import { gridImage, prepare, SIZES } from "./renderer";
+import { METHOD } from "./method";
+import { Director } from "./agent";
+import { prepare, SIZES } from "./renderer";
 
 // the video steps the studio's progress follows (protocol.ts VIDEO_STEPS — repeated here: protocol.ts loads as CommonJS
 // in the worker, so only its types may be imported)
@@ -29,14 +29,14 @@ export async function runDirector(job: JobFile, dirs: { root: string; brandDir: 
   fs.mkdirSync(path.join(workDir, "composition"), { recursive: true });
 
   const brief = job.brief, layout = brief.layout in SIZES ? brief.layout : "9:16", [W, H] = SIZES[layout], length = brief.length;
-  const model = job.director?.model || "claude-opus-5-5", maxUsd = job.director?.maxUsd ?? 6, lean = job.director?.lean !== false;
+  const model = job.director?.model || "claude-opus-5-5", maxUsd = job.director?.maxUsd ?? 6;
   const ledger = new Ledger(path.join(runDir, "cost.json"), log, (row) => sync.ledgerRow(row));
   const language = DIALECT.find(([re]) => re.test(brief.country))?.[1] ?? `the language of ${brief.country}`;
   const brand = JSON.parse(fs.readFileSync(path.join(brandDir, "brand.json"), "utf8"));
   const cap = fs.existsSync(path.join(brandDir, "capture.json")) ? JSON.parse(fs.readFileSync(path.join(brandDir, "capture.json"), "utf8")) : {};
   // the test identity and remembered test data: blurred wherever they show in the real UI
   const identity = [cap.app?.identity?.email, cap.app?.identity?.name, cap.app?.identity?.phone, job.settings?.phone, job.settings?.email].filter(Boolean).map(String);
-  log(`■ job ${job.jobId} (video · director${job.mode ? ` · ${job.mode}` : ""})\n  brand ${job.slug} · ${brief.objective} · ${language} · ${layout} ${W}×${H} · ${length}s\n  model ${model} · cost cap $${maxUsd} (DIRECTOR_MAX_USD) · ${lean ? "lean mode (DIRECTOR_LEAN=0 turns it off)" : "lean mode off"}`);
+  log(`■ job ${job.jobId} (video · director${job.mode ? ` · ${job.mode}` : ""})\n  brand ${job.slug} · ${brief.objective} · ${language} · ${layout} ${W}×${H} · ${length}s\n  model ${model} · cost cap $${maxUsd} (DIRECTOR_MAX_USD)`);
   fs.writeFileSync(path.join(runDir, "brief.json"), JSON.stringify({ ...brief, engine: "director", model, maxUsd, mode: job.mode, edit: job.edit ?? null }, null, 2));
 
   // the composition's lib/ (gsap, kit), sfx/ and capture/ links are there before the agent starts
@@ -45,7 +45,7 @@ export async function runDirector(job: JobFile, dirs: { root: string; brandDir: 
   const stage = async (s: "script" | "build" | "music" | "qa" | "render") => { if (s !== stageNow) { stageNow = s; await sync.stage(s); } };
   await stage("script");
 
-  const agent = new Director({ brandDir, workDir, runDir, root, layout, length, identity, ledger, model, maxUsd, log, stage, lean }, lean ? METHOD + LEAN : METHOD);
+  const agent = new Director({ brandDir, workDir, runDir, root, layout, length, identity, ledger, model, maxUsd, log, stage }, METHOD);
   const resumed = (job.mode === "lines" || job.mode === "edit") && agent.resume();
   if (resumed) {
     // "Edit lines": the studio's edited lines go into the saved script now; the agent updates the composition to match
@@ -61,10 +61,7 @@ export async function runDirector(job: JobFile, dirs: { root: string; brandDir: 
     log(`↺ director: resuming the agent of the previous version (${agent.messages.length} messages) for ${job.mode === "lines" ? "edited lines" : "a change request"}`);
   } else {
     if (job.mode === "lines" || job.mode === "edit") log("! director: the previous version has no saved agent run — starting a new one with the edit as direction");
-    const text = firstMessage({ brand, cap, brandDir, brief, language, layout, W, H, length, lean, edit: job.mode === "edit" ? job.edit?.request : undefined });
-    // lean mode: every captured screen in ONE labeled image, so browsing starts from a look, not a file-by-file crawl
-    const sheet = lean ? await contactSheet(brand, brandDir).catch((e) => { log(`  ! contact sheet failed (${e instanceof Error ? e.message : e})`); return null; }) : null;
-    agent.addUser(sheet ? [{ type: "text", text }, { type: "text", text: `CONTACT SHEET — every captured screen, labeled with its id (screenshots in capture/screens/<id>.jpg; clones by the same ids):` }, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: sheet.toString("base64") } }] : [{ type: "text", text }]);
+    agent.addUser([{ type: "text", text: firstMessage({ brand, cap, brief, language, layout, W, H, length, edit: job.mode === "edit" ? job.edit?.request : undefined }) }]);
   }
 
   try {
@@ -97,32 +94,10 @@ export async function runDirector(job: JobFile, dirs: { root: string; brandDir: 
 }
 
 /** the brief + what the capture holds, so the agent starts from the inventory instead of crawling */
-/** one line per clone: size, blocks, keys by role — enough to choose a screen without opening it */
-function cloneSummary(brandDir: string, id?: string) {
-  if (!id) return null;
-  const f = path.join(brandDir, "clones", `${id}.json`);
-  if (!fs.existsSync(f)) return null;
-  try {
-    const c = JSON.parse(fs.readFileSync(f, "utf8")), keys = (c.keys || []) as any[], roles: Record<string, number> = {};
-    for (const k of keys) if (k.part == null) roles[k.role] = (roles[k.role] || 0) + 1;
-    return `${c.w}×${c.h} · ${keys.filter((k) => k.part != null).length} blocks · ${Object.entries(roles).map(([r, n]) => `${n} ${r}`).join(", ")}`;
-  } catch { return null; }
-}
-
-/** every captured screen (its viewport screenshot) in one labeled grid */
-async function contactSheet(brand: any, brandDir: string) {
-  const tiles = (brand.screens || []).map((s: any) => ({ file: s.view || s.file, label: `${s.id}${s.customer ? " · customer" : s.app ? "" : " · site"}${s.empty ? " · EMPTY" : ""}` }))
-    .filter((t: any) => t.file && fs.existsSync(path.join(brandDir, t.file))).slice(0, 24)
-    .map((t: any) => ({ jpg: fs.readFileSync(path.join(brandDir, t.file)), label: t.label }));
-  return tiles.length ? gridImage(tiles, { cols: 4, tileW: 270, aspect: 0.625 }) : null;
-}
-
-function firstMessage(o: { brand: any; cap: any; brandDir: string; lean?: boolean; brief: JobFile["brief"]; language: string; layout: string; W: number; H: number; length: number; edit?: string }) {
+function firstMessage(o: { brand: any; cap: any; brief: JobFile["brief"]; language: string; layout: string; W: number; H: number; length: number; edit?: string }) {
   const { brand } = o;
-  const sum = (cid?: string) => cloneSummary(o.brandDir, cid);
-  const screens = (brand.screens || []).map((s: any) => ({ id: s.id, label: s.label, shows: s.shows, app: !!s.app, customer: !!s.customer, empty: !!s.empty, features: s.features, screenshot: s.view || s.file, clones: Object.fromEntries(Object.entries(s.clones || {}).filter(([k]) => k !== "clip").map(([k, v]: any) => [k, v?.id])), flow: s.clones?.before ? { before: s.clones.before.id, action: s.clones.before.action, typed: s.clones.before.typed ?? null } : null, clip: s.clones?.clip ? { file: s.clones.clip.file, seconds: s.clones.clip.dur } : null, clone_summary: Object.fromEntries(Object.entries(s.clones || {}).filter(([k]) => k !== "clip").map(([k, v]: any) => [k, sum(v?.id)])) }));
+  const screens = (brand.screens || []).map((s: any) => ({ id: s.id, label: s.label, shows: s.shows, app: !!s.app, customer: !!s.customer, empty: !!s.empty, features: s.features, screenshot: s.view || s.file, clones: Object.fromEntries(Object.entries(s.clones || {}).filter(([k]) => k !== "clip").map(([k, v]: any) => [k, v?.id])), flow: s.clones?.before ? { before: s.clones.before.id, action: s.clones.before.action, typed: s.clones.before.typed ?? null } : null, clip: s.clones?.clip ? { file: s.clones.clip.file, seconds: s.clones.clip.dur } : null }));
   const inventory = {
-    ...(o.lean && fs.existsSync(path.join(o.brandDir, "clones", "fonts.css")) ? { brand_fonts: { stylesheet: "capture/clones/fonts.css", families: fontFamilies(path.join(o.brandDir, "clones", "fonts.css")) } } : {}),
     brand: { name: brand.name, name_ar: brand.name_ar, tagline: brand.tagline, summary: brand.summary, audience: brand.audience, voice: brand.voice, selling_points: brand.selling_points, look: brand.look, palette: brand.palette, fonts: brand.fonts, logo: brand.logo, site: brand.site },
     features: (brand.features || []).map((f: any) => ({ name: f.name, detail: f.detail, benefit: f.benefit, evidence: f.evidence })),
     screens,
@@ -144,7 +119,7 @@ function firstMessage(o: { brand: any; cap: any; brandDir: string; lean?: boolea
     `CAPTURE INVENTORY (root "capture"; in the composition the same files are under capture/…; clones are used with data-clone ids; test_data_images are the capture agent's test data — product-demo content, never brand photos)`,
     JSON.stringify(inventory),
     ``,
-    `Use inspect_clone to look inside a clone (not read_file on its JSON). WORK DIR (root "work"): write brag-plan.md and composition/video.src.html there (then fix it with edit_file). composition/lib/gsap.min.js and lib/kit.js, composition/sfx/ (CC0 effects + sfx/sfx-analysis.md) and composition/capture/ are ready.`,
+    `WORK DIR (root "work"): write brag-plan.md and composition/video.src.html there. composition/lib/gsap.min.js and lib/kit.js, composition/sfx/ (CC0 effects + sfx/sfx-analysis.md) and composition/capture/ are ready.`,
     `Start with Inspect.`,
   ].filter((l) => l !== "").join("\n");
 }
