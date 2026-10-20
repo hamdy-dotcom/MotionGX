@@ -7,7 +7,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { chromium } from "playwright";
 import type { PostJob } from "../../live-engine/protocol";
-import { callTool, imageBlock, type Ledger } from "../../live-engine/worker/claude";
+import { callTool, imageBlock, MODELS, type Ledger } from "../../live-engine/worker/claude";
 import { LANGUAGE, type Canvas } from "./platforms";
 import { canvasKey, smallJpeg } from "./render";
 import { embedClones } from "../../live-engine/worker/steps/build";
@@ -102,13 +102,17 @@ export async function brandRefs(brand: any, brandDir: string, runDir: string) {
   const raw = await logoPng(brand, brandDir, path.join(dir, "logo-raw.png"));
   const logo = raw ? await logoTile(raw, brand.logo?.on_dark !== false, path.join(dir, "logo.png")) : null;
   const screens = (brand.screens ?? []).filter((s: any) => s.view && fs.existsSync(path.join(brandDir, s.view)));
-  const look = [screens.find((s: any) => !s.app && s.use === "hero") ?? screens.find((s: any) => !s.app), screens.find((s: any) => s.app && s.use === "hero") ?? screens.find((s: any) => s.app)].filter(Boolean);
+  // the brand's identity lives on its own website (app: false, not a customer page) — never on product screens, which show
+  // the product's content (a customer's store, a generated page) in someone else's theme
+  const site = screens.filter((s: any) => !s.app && !s.customer);
+  const look = [site.find((s: any) => s.use === "hero") ?? site[0], site.find((s: any) => s.use !== "hero" && s !== site[0])].filter(Boolean).slice(0, 2);
   const looks: Ref[] = [];
-  for (const s of [...new Set(look)] as any[]) { const f = await refJpeg(path.join(brandDir, s.view), path.join(dir, `look-${s.id}.jpg`)); if (f) looks.push({ file: f, role: `the brand's ${s.app ? "product" : "website"} (${s.id}) — take its visual language, not its content` }); }
+  for (const s of [...new Set(look)] as any[]) { const f = await refJpeg(path.join(brandDir, s.view), path.join(dir, `look-${s.id}.jpg`)); if (f) looks.push({ file: f, role: `the brand's own website (${s.id})` }); }
   // the brand's own imagery (its photos / illustrations, never the capture's demo products): the picture's style comes from it
-  const own = (brand.images ?? []).filter((i: any) => !i.demo && ["people", "lifestyle", "illustration", "background"].includes(i.kind) && i.w >= 400 && fs.existsSync(path.join(brandDir, i.file)));
+  const rank: Record<string, number> = { people: 0, lifestyle: 1, illustration: 2 };
+  const own = (brand.images ?? []).filter((i: any) => !i.demo && i.kind in rank && i.w >= 400 && fs.existsSync(path.join(brandDir, i.file)));
   const imagery: Ref[] = [];
-  for (const i of own.sort((a: any, b: any) => (b.w * b.h) - (a.w * a.h)).slice(0, 1)) { const f = await refJpeg(path.join(brandDir, i.file), path.join(dir, `imagery-${path.basename(i.file).replace(/\.\w+$/, "")}.jpg`)); if (f) imagery.push({ file: f, role: `the brand's own ${i.kind === "people" || i.kind === "lifestyle" ? "photography" : i.kind} — make the picture in this same style (subjects, light, colour grade, rendering)` }); }
+  for (const i of own.sort((a: any, b: any) => rank[a.kind] - rank[b.kind] || (b.w * b.h) - (a.w * a.h)).slice(0, 1)) { const f = await refJpeg(path.join(brandDir, i.file), path.join(dir, `imagery-${path.basename(i.file).replace(/\.\w+$/, "")}.jpg`)); if (f) imagery.push({ file: f, role: `the brand's own ${i.kind === "people" || i.kind === "lifestyle" ? "photography" : i.kind} — make the picture in this same style (subjects, light, colour grade, rendering)` }); }
   return { logo, looks, screens, imagery };
 }
 
@@ -131,7 +135,8 @@ async function slideRefs(slide: Slide, brand: any, brandDir: string, runDir: str
   return out;
 }
 
-function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs: { logo: boolean; roles: string[]; screen: boolean }, n: number, total: number, feedback?: string) {
+function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs: { logo: boolean; roles: string[]; screen: boolean; imagery: boolean }, n: number, total: number, feedback?: string) {
+  const imagery = refs.imagery;
   const [w, h] = SIZE[canvas].split("x");
   const words = [`Headline: «${slide.headline}»`, slide.sub ? `Second line: «${slide.sub}»` : "", slide.cta ? `Call to action (as a button or tag): «${slide.cta}»` : ""].filter(Boolean).join("\n  ");
   const rtl = post.dialect !== "en";
@@ -139,6 +144,7 @@ function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs
   return [
     `Create a finished, premium social media post image (${w}×${h}) for the brand ${brand.name}${brand.name_ar ? ` (${brand.name_ar})` : ""}${total > 1 ? ` — slide ${n} of ${total} of a carousel; keep one consistent design across the slides` : ""}.`,
     slide.scene ?? "",
+    `Make it alive: a real subject in a real moment — the brand's audience, or its product in real use — rendered in ${imagery ? "the brand's own imagery style (its reference image)" : "premium, natural lifestyle photography"}; depth, light and emotion, like a top brand's campaign — never a flat badge of icons on a plain background.`,
     `Text on the image — write EXACTLY these words and nothing else, in ${LANGUAGE[post.dialect] ?? post.dialect}${rtl ? " (Arabic script, right-to-left, every letter correctly joined, all dots in place, no extra or missing letters)" : ""}, large and crisp, in bold modern typography that matches the brand:\n  ${words}`,
     `THE BRAND IS THE BASE OF THIS IMAGE — it must feel like an extension of the brand itself, as if taken from its own website. Its colours dominate: ${palette}${brand.palette?.theme ? ` (a ${brand.palette.theme} brand: the image is ${brand.palette.theme})` : ""}. Its look: ${brand.look ?? ""}. Its type: ${brand.fonts?.display ?? ""} / ${brand.fonts?.body ?? ""} style. Any occasion or theme (a holiday, a season, an event) is expressed INSIDE this identity — its motifs drawn in the brand's own colours and style — never with the occasion's traditional stock palette or look, unless those are the brand's own colours.`,
     refs.roles.map((r, i) => `Reference image ${i + 1}: ${r}.`).join("\n"),
@@ -177,7 +183,7 @@ async function checkImage(post: PostJob, slide: Slide, file: string, logo: strin
   if (logo) { const buf = fs.readFileSync(logo); content.push({ type: "text", text: "THE BRAND'S LOGO (for comparison):" }, imageBlock(buf, mediaOf(buf))); }
   content.push({ type: "text", text: `The image must show exactly these words (and no other text):\n- «${slide.headline}»${slide.sub ? `\n- «${slide.sub}»` : ""}${slide.cta ? `\n- «${slide.cta}»` : ""}\nRead the image letter by letter. Not problems: a line break inside a phrase, an emoji drawn as a graphic or left out, equivalent spellings (tanween on or before the alif: مجانًا = مجاناً; hamza / taa marbuta forms the language allows), missing optional diacritics. Problems: a wrong, missing, extra or swapped letter or word. Compare the logo with the reference shape by shape and letter by letter (a re-spelled or redrawn logo is not the logo).${screenAllowed ? "" : " This image must not show any phone, laptop, tablet, app screen or user interface."} Report honestly.` });
   const tool = { name: "check_image", description: "What the image shows.", input_schema: { type: "object", required: ["words_exact", "logo_visible", "problems"], properties: { words_exact: { type: "boolean", description: "every required word is spelled exactly right (every letter, joined correctly)" }, logo_visible: { type: "boolean", description: "the brand's logo appears, recognisably the same" }, extra_text: { type: "boolean", description: "other text or gibberish appears" }, ui_shown: { type: "boolean", description: "a phone, laptop, tablet, app screen or interface appears" }, problems: { type: "array", items: { type: "string" }, description: "what is wrong, precisely (which word is misspelled and how)" } } } };
-  const r = (await callTool({ ledger, step: "post-check", model: post.model, system: "You check generated social media images against what they must show.", content, tool, maxTokens: 1500 })) as { words_exact: boolean; logo_visible: boolean; extra_text?: boolean; ui_shown?: boolean; problems: string[] };
+  const r = (await callTool({ ledger, step: "post-check", model: MODELS.haiku, system: "You check generated social media images against what they must show.", content, tool, maxTokens: 1500 })) as { words_exact: boolean; logo_visible: boolean; extra_text?: boolean; ui_shown?: boolean; problems: string[] };
   const badUi = !screenAllowed && Boolean(r.ui_shown);
   const ok = r.words_exact && r.logo_visible && !r.extra_text && !badUi;
   return { ok, problems: ok ? [] : [...(r.problems ?? []), !r.words_exact ? "the words are not exactly right" : "", !r.logo_visible ? "the logo is not exactly the brand's logo" : "", r.extra_text ? "there is other text" : "", badUi ? "it shows a device / app screen — remove it (no real screen for this image)" : ""].filter(Boolean) };
@@ -198,16 +204,15 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
       const prevFile = opts.prevRenders?.[canvas]?.[i] ? path.join(runDir, "prev", opts.prevRenders[canvas][i]) : null;
       const prev: Ref[] = prevFile && fs.existsSync(prevFile) ? [{ file: prevFile, role: `the current version of this slide — keep everything the client didn't ask to change (the change: ${post.request})` }] : [];
       // at most 4 references (each one is billed as image input): the logo, the current version, the slide's own, one brand look
-      const site = looks.find((l) => /website/.test(l.role)) ?? looks[0];
-      const style: Ref[] = [...(site ? [{ ...site, role: "the brand's own website — the image must look like a section of this site: its background colour, gradients, shapes, card style, type and mood (do not reproduce its interface or words)" }] : []), ...imagery];
+      const style: Ref[] = [...looks.slice(0, imagery.length ? 1 : 2).map((l) => ({ ...l, role: `${l.role} — the image must look like a section of this site: its background colour, gradients, shapes, card style, type and mood (do not reproduce its interface or words)` })), ...imagery];
       const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own, ...style].slice(0, own.length || prev.length ? 4 : 3);
-      if (refs.length < 4 && !own.length && !prev.length) { const app = looks.find((l) => l !== site); if (app) refs.push({ ...app, role: "the brand's product — for its colours and style only; do not reproduce its interface" }); }
+
       const roles = refs.map((r) => r.role);
       const hasScreen = own.some((r) => /real (phone )?(product )?screen/.test(r.role));
       const file = path.join(runDir, "slides", `${canvasKey(canvas)}-${i + 1}.jpg`);
       let feedback: string | undefined, last: string[] = [];
       for (let attempt = 0; attempt < 2; attempt++) {
-        const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles, screen: hasScreen }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
+        const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles, screen: hasScreen, imagery: imagery.length > 0 && refs.some((r) => imagery.includes(r)) }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
         fs.writeFileSync(file, jpg);
         const c = await checkImage(post, slide, file, logo, ledger, hasScreen);
         last = c.problems;

@@ -33,7 +33,10 @@ Hard rules:
   for that platform's habits (rules below) — not the same text pasted five times.
 - No links except the company's own site.
 - No dates or years unless the brief or the facts give them; if a year is needed, it is the current one (below).
-- Hashtags: real, relevant ones people search; the brand's name once at most.`;
+- Hashtags: real, relevant ones people search; the brand's name once at most.
+- Write like the brand's best copywriter: an idea, an emotion or an insight about the audience's life — not a label or
+  a pitch. Human, specific, a little surprising. Never address the audience by a category label ("dear customers"),
+  never stack slogans; an occasion post is about the people and the moment first, the product second (or not at all).`;
 
 export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledger; prev?: Written | null; log: (l: string) => void }): Promise<Written> {
   const { post, brand, ledger, prev } = opts;
@@ -72,7 +75,7 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
       headline: { type: "string", description: "the big line written ON the image — short (≤ 6 words), exactly as it must appear" },
       sub: { type: "string", description: "optional second line on the image (≤ 10 words)" },
       cta: { type: "string", description: "optional call to action on the image (≤ 4 words; usually the last slide)" },
-      scene: { type: "string", description: "in English, the whole image for the image model, built on THIS brand's identity (BRAND STYLE): its background (light or dark) and colours by hex, its shapes, its imagery style (its own kind of photos / illustrations), so the image feels like a section of the brand's own website. Then the subject, the composition (where the headline, the logo and any product screen sit), light and mood. An occasion is shown through motifs in the brand's colours, never the occasion's stock palette. Premium agency quality. No other words than the headline / sub / cta." },
+      scene: { type: "string", description: "in English, the whole image for the image model. Start from ONE concept specific to this brand and its audience (a real moment in their life the post speaks to). It is ALIVE: real people of the brand's audience in that moment, or the product in real use — photographed (or in the brand's own illustration style when BRAND STYLE's imagery is illustration) — with depth, light and emotion; never a flat badge of icons on a plain background. Built on THIS brand's identity (BRAND STYLE): its background (light or dark) and colours by hex, its shapes, so it feels like a section of the brand's own website. Then the composition (where the headline, the logo and any product screen sit). An occasion is shown through the moment and motifs in the brand's colours, never the occasion's stock palette. Premium campaign quality. No other words than the headline / sub / cta." },
       refs: { type: "array", items: { type: "string" }, description: "up to 2 references to show in or guide the image: a screen id from SCREENS (shown as it really is — on a phone or laptop) or a file from IMAGES" },
     },
   };
