@@ -24,10 +24,12 @@ export function PlatformPreview({ platform, device, image, text, hashtags, brand
   const b: MockBrand = { name: brand.name, handle: handleOf(brand.name, brand.site), logo: brand.logoUrl, dark: brand.logoOnDark === true, tagline: brand.tagline ?? null, palette: { primary: brand.colors[0]?.hex } };
   const html = mockupHtml(platform, device, { text, tags: hashtags, image }, b);
 
+  // the frames have fixed sizes (a phone 390×844, a browser 1280×800): scale them by those, never by a measurement
+  // taken before the styles arrive
   const fit = useCallback(() => {
-    const st = stage.current, sc = scaler.current, el = sc?.firstElementChild as HTMLElement | null;
-    if (!st || !sc || !el) return;
-    const w = el.offsetWidth, h = el.offsetHeight, avail = st.clientWidth;
+    const st = stage.current, sc = scaler.current;
+    if (!st || !sc) return;
+    const [w, h] = device === "mobile" ? [390, 844] : [1280, 800], avail = st.clientWidth;
     const s = Math.min(1, avail / w, device === "mobile" ? 760 / h : 1);
     sc.style.transform = `scale(${s})`;
     sc.style.left = `${(avail - w * s) / 2}px`;

@@ -114,7 +114,8 @@ body {
 .mgx-mock .browser .chrome { height: 44px; flex: none; background: #e9ebef; display: flex; align-items: center; gap: 8px; padding: 0 14px; font: 13px var(--ui) }
 .mgx-mock .browser .chrome i { width: 12px; height: 12px; border-radius: 50%; display: inline-block }
 .mgx-mock .browser .url { margin-left: 18px; flex: 1; max-width: 640px; background: #fff; border-radius: 999px; padding: 6px 14px; color: #5f6368 }
-.mgx-mock .browser .page { flex: 1; overflow: hidden; position: relative }
+.mgx-mock .browser .page { flex: 1; overflow: auto; position: relative }
+.mgx-mock .browser .page > .pf { height: auto; min-height: 100% }
 .mgx-mock .pf { font-family: var(--ui); direction: ltr; text-align: left; color: #0f1419; height: 100%; display: flex; flex-direction: column }
 .mgx-mock .pf .ar { font-family: var(--font-readex, "Readex Pro"), var(--ui) }
 .mgx-mock .pf svg { display: block }
