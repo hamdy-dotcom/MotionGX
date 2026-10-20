@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
 import { redirect } from "@/i18n/navigation";
-import { assertWithinRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
+import { assertPostRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { startPostGeneration } from "@/lib/live-engine/server/jobs";
 import { POST_AI_IMAGE, POST_PLATFORMS, POST_TYPES } from "@/lib/posts/config";
 import { DIALECTS, type Dialect } from "@/lib/types";
@@ -29,7 +29,7 @@ export async function createPost(_prev: CreatePostState, formData: FormData): Pr
   if (!type || !dialect || !companyId) return { error: "generic" };
 
   try {
-    await assertWithinRateLimit(workspace.id);
+    await assertPostRateLimit(workspace.id);
   } catch (err) {
     return { aiError: toAiErrorCode(err) };
   }

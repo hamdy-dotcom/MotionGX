@@ -28,7 +28,11 @@ export type AiKind =
   | "live_qa"
   | "live_repair"
   // director engine (VIDEO_ENGINE=director) — its agent's calls (outside the hourly limit, like live_capture)
-  | "director_agent";
+  | "director_agent"
+  // posts (lib/posts-engine): a post's calls are counted as one post, not call by call (assertPostRateLimit)
+  | "post_write"
+  | "post_design"
+  | "post_image";
 
 /** Price per million tokens (input, output) — Claude API list prices. */
 export const PRICES: Record<string, [number, number]> = {
@@ -113,13 +117,26 @@ export async function assertWithinRateLimit(workspaceId: string) {
     .from("ai_usage")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
-    .not("kind", "in", "(live_capture,director_agent)")
+    .not("kind", "in", "(live_capture,director_agent,post_write,post_design,post_image)")
     .gte("created_at", since);
   if (error) {
     console.error("[ai] rate-limit check failed", { workspaceId, code: error.code, message: error.message });
     throw new AiError("ai_failed", "usage table unavailable");
   }
   if ((count ?? 0) >= AI_CALLS_PER_HOUR) throw new AiError("rate_limited");
+}
+
+/** Posts: each post started (new, change, try again) counts once — one post makes ~3–6 calls (write, image, check).
+ *  Throws AiError("rate_limited") at POSTS_PER_HOUR post jobs in the last hour. */
+const POSTS_PER_HOUR = 30;
+export async function assertPostRateLimit(workspaceId: string) {
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count, error } = await createAdminClient().from("live_jobs").select("id", { count: "exact", head: true }).eq("workspace_id", workspaceId).eq("kind", "post").gte("created_at", since);
+  if (error) {
+    console.error("[ai] post rate-limit check failed", { workspaceId, code: error.code, message: error.message });
+    throw new AiError("ai_failed", "jobs table unavailable");
+  }
+  if ((count ?? 0) >= POSTS_PER_HOUR) throw new AiError("rate_limited");
 }
 
 /** `workspaceId` null = a system job (library seeding): logged, but outside every workspace's limit. */

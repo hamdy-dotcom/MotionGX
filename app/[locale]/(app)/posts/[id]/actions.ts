@@ -3,7 +3,7 @@
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
-import { assertWithinRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
+import { assertPostRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { startPostGeneration } from "@/lib/live-engine/server/jobs";
 import { LIVE_BUCKET } from "@/lib/live-engine/protocol";
 import { POST_PLATFORMS } from "@/lib/posts/config";
@@ -30,7 +30,7 @@ export async function requestPostChange(postId: string, version: number, request
   if (!isId(postId) || !text) return { ok: false, error: "generic" };
   const { supabase, workspace } = await getAppContext();
   try {
-    await assertWithinRateLimit(workspace.id);
+    await assertPostRateLimit(workspace.id);
   } catch (err) {
     return { ok: false, error: "generic", aiError: toAiErrorCode(err) };
   }
@@ -46,7 +46,7 @@ export async function retryPost(postId: string): Promise<Result> {
   if (!isId(postId)) return { ok: false, error: "generic" };
   const { supabase, workspace } = await getAppContext();
   try {
-    await assertWithinRateLimit(workspace.id);
+    await assertPostRateLimit(workspace.id);
   } catch (err) {
     return { ok: false, error: "generic", aiError: toAiErrorCode(err) };
   }
