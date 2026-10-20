@@ -32,9 +32,12 @@ export function CreatingStudio({ generation, imageUrl, brand, platforms, change,
   const t = useTranslations("posts.studio");
   const p = generation.progress ?? {};
   const stage = String(generation.stage ?? "queued");
-  const current = STEPS.indexOf(stage as StepKey);
+  // while the job starts, the first step is already the one at work
+  const current = stage === "queued" ? 0 : STEPS.indexOf(stage as StepKey);
   const state = (i: number) => (stage === "done" || (current >= 0 && i < current) ? "done" : i === current ? "active" : "pending");
-  const palette = Object.entries(p.brand?.palette ?? {}).filter(([, v]) => typeof v === "string" && /^#/.test(v));
+  const known = brand.colors.map((c, i) => [`c${i}`, c.hex] as [string, string]).filter(([, v]) => /^#/.test(v));
+  const read = Object.entries(p.brand?.palette ?? {}).filter(([, v]) => typeof v === "string" && /^#/.test(v)) as [string, string][];
+  const palette = read.length ? read : known;
 
   // the clock and the cost, ticking
   const started = generation.started_at ? new Date(generation.started_at).getTime() : null;
@@ -48,11 +51,19 @@ export function CreatingStudio({ generation, imageUrl, brand, platforms, change,
   const [sharp, setSharp] = useState(false);
   useEffect(() => { if (!imageUrl) return; const to = setTimeout(() => setSharp(true), 1400); return () => clearTimeout(to); }, [imageUrl]);
 
-  const forming = ["pst-forming", palette.length ? "pst-palette" : "", p.brand ? "pst-logo" : "", stage === "image" ? "pst-working" : "", imageUrl ? "pst-reveal" : "", sharp ? "pst-sharp" : ""].join(" ");
+  const forming = ["pst-forming", palette.length ? "pst-palette" : "", p.brand || brand.logoUrl ? "pst-logo" : "", stage === "image" ? "pst-working" : "", imageUrl ? "pst-reveal" : "", sharp ? "pst-sharp" : ""].join(" ");
   const checks = p.check ?? [], lastCheck = checks.at(-1), retried = checks.find((c) => !c.ok && c.attempt === 0);
 
   // the feed: newest first
   const events: ReactNode[] = [];
+  if (!p.brand)
+    events.push(
+      <Event key="start" icon="◐">
+        <p>{t.rich(stage === "queued" ? "starting" : "brandReading", { ...boldTag, name: brand.name })}</p>
+        <div className="pst-swatchRow">{known.map(([k, v], i) => <i key={k} style={{ background: v, animation: `pst-pop .4s ${i * 0.12}s both` }} />)}</div>
+        <span className="pst-dots" aria-hidden="true"><i /><i /><i /></span>
+      </Event>,
+    );
   if (p.brand)
     events.push(
       <Event key="brand" icon="◐">

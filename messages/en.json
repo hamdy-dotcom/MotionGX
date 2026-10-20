@@ -525,7 +525,9 @@
       "previewTitle": "Preview — exactly as the post will appear",
       "textOf": "{platform} text",
       "readyChip": "Ready",
-      "slide": "Slide {n} of {total}"
+      "slide": "Slide {n} of {total}",
+      "starting": "<b>Getting the studio ready</b> for {name}…",
+      "brandReading": "<b>Reading {name}'s identity</b> — logo, colours, fonts…"
     }
   }
 }

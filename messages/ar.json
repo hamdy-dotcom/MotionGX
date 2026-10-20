@@ -525,7 +525,9 @@
       "previewTitle": "المعاينة — كما سيظهر المنشور فعلاً",
       "textOf": "نص {platform}",
       "readyChip": "جاهز",
-      "slide": "الشريحة {n} من {total}"
+      "slide": "الشريحة {n} من {total}",
+      "starting": "<b>نجهّز الاستوديو</b> لـ {name}…",
+      "brandReading": "<b>نقرأ هوية {name}</b> — الشعار والألوان والخطوط…"
     }
   }
 }
