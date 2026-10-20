@@ -3,13 +3,12 @@
 // The live creation screen (the approved prototype), driven by the real job: each step lights up when the worker
 // reaches it, and what the step found appears as it happens — the brand's colours and logo, the copy being written,
 // the kind of picture chosen (the brand's recent ones crossed out), the image forming, the check, the exact sizes.
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Heading, boldTag } from "@/components/heading";
 import { PLATFORM_ICON } from "@/lib/posts/mockups";
 import type { PostPlatformKey } from "@/lib/posts/config";
 import type { PreviewBrand } from "./platform-preview";
-import styles from "../posts.module.css";
 
 const STEPS = ["brand", "write", "format", "image", "check", "sizes"] as const;
 type StepKey = (typeof STEPS)[number];
@@ -49,7 +48,7 @@ export function CreatingStudio({ generation, imageUrl, brand, platforms, change,
   const [sharp, setSharp] = useState(false);
   useEffect(() => { if (!imageUrl) return; const to = setTimeout(() => setSharp(true), 1400); return () => clearTimeout(to); }, [imageUrl]);
 
-  const forming = [styles.forming, palette.length ? styles.palette : "", p.brand ? styles.logo : "", stage === "image" ? styles.working : "", imageUrl ? styles.reveal : "", sharp ? styles.sharp : ""].join(" ");
+  const forming = ["pst-forming", palette.length ? "pst-palette" : "", p.brand ? "pst-logo" : "", stage === "image" ? "pst-working" : "", imageUrl ? "pst-reveal" : "", sharp ? "pst-sharp" : ""].join(" ");
   const checks = p.check ?? [], lastCheck = checks.at(-1), retried = checks.find((c) => !c.ok && c.attempt === 0);
 
   // the feed: newest first
@@ -58,7 +57,7 @@ export function CreatingStudio({ generation, imageUrl, brand, platforms, change,
     events.push(
       <Event key="brand" icon="◐">
         <p>{t.rich("brandRead", { ...boldTag, name: brand.name })}</p>
-        <div className={styles.swatchRow}>{palette.map(([k, v]) => <i key={k} title={`${k} ${v}`} style={{ background: v }} />)}</div>
+        <div className={"pst-swatchRow"}>{palette.map(([k, v]) => <i key={k} title={`${k} ${v}`} style={{ background: v }} />)}</div>
         <small dir="ltr" style={{ display: "block", marginBlockStart: 6 }}>{[p.brand.display, p.brand.theme].filter(Boolean).join(" · ")}</small>
       </Event>,
       <Event key="logo" icon="✓" ok>
@@ -69,11 +68,11 @@ export function CreatingStudio({ generation, imageUrl, brand, platforms, change,
     events.push(
       <Event key="write" icon="✎">
         <p>{t.rich("writing", boldTag)}</p>
-        <div className={styles.caps}>
+        <div className={"pst-caps"}>
           {platforms.map((pl, k) => (
-            <div key={pl} className={styles.cap}>
+            <div key={pl} className={"pst-cap"}>
               <b dir="ltr">{NAMES[pl]}</b>
-              {p.write?.texts?.[pl] ? <Type text={p.write.texts[pl]} speed={22} delay={k * 450} /> : <span className={styles.caret} />}
+              {p.write?.texts?.[pl] ? <Type text={p.write.texts[pl]} speed={22} delay={k * 450} /> : <span className={"pst-caret"} />}
             </div>
           ))}
         </div>
@@ -100,41 +99,41 @@ export function CreatingStudio({ generation, imageUrl, brand, platforms, change,
     <div>
       <Heading as="h1" className="mt-2 text-3xl sm:text-4xl">{t.rich(change ? "titleChange" : "title", boldTag)}</Heading>
       <p className="mt-2 mb-5 leading-relaxed text-ink-2">{t("sub")}</p>
-      <div className={styles.rail}>
+      <div className={"pst-rail"}>
         {STEPS.map((s, i) => (
-          <div key={s} className={`${styles.step} ${state(i) === "active" ? styles.active : state(i) === "done" ? styles.done : ""}`} style={{ ["--dur" as string]: `${DUR[s]}s` }}>
+          <div key={s} className={`pst-step ${state(i) === "active" ? "pst-active" : state(i) === "done" ? "pst-done" : ""}`} style={{ ["--dur" as string]: `${DUR[s]}s` }}>
             <span>{t(`stepsSub.${s}`)}</span>
             <b>{t(`steps.${s}`)}</b>
-            <span className={styles.bar} />
+            <span className={"pst-bar"} />
           </div>
         ))}
       </div>
-      <div className={styles.studio}>
-        <div className={styles.stageCard}>
-          <div className={styles.canvasWrap}>
+      <div className={"pst-studio"}>
+        <div className={"pst-stageCard"}>
+          <div className={"pst-canvasWrap"}>
             <div className={forming}>
-              <div className={styles.swatches}>{palette.map(([k, v]) => <i key={k} style={{ background: v }} />)}</div>
-              <div className={styles.img} style={imageUrl ? { backgroundImage: `url(${JSON.stringify(imageUrl)})` } : undefined} />
-              <div className={styles.sweep} />
-              <div className={`${styles.logoIn} ${brand.logoOnDark ? styles.dark : ""}`}>
+              <div className={"pst-swatches"}>{palette.map(([k, v]) => <i key={k} style={{ background: v }} />)}</div>
+              <div className={"pst-img"} style={imageUrl ? { backgroundImage: `url(${JSON.stringify(imageUrl)})` } : undefined} />
+              <div className={"pst-sweep"} />
+              <div className={`pst-logoIn ${brand.logoOnDark ? "pst-dark" : ""}`}>
                 {brand.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- a signed storage URL
                   <img src={brand.logoUrl} alt="" />
                 ) : null}
               </div>
-              <div className={styles.head} dir="auto">{p.write?.headline ? <Type text={p.write.headline} speed={70} delay={300} /> : null}</div>
+              <div className={"pst-head"} dir="auto">{p.write?.headline ? <Type text={p.write.headline} speed={70} delay={300} /> : null}</div>
             </div>
           </div>
-          <div className={styles.meters}>
-            <div className={styles.meter}><span>{t("time")}</span><b>{t("seconds", { n: started ? ((now - started) / 1000).toFixed(1) : "0.0" })}</b></div>
-            <div className={styles.meter}><span>{t("cost")}</span><b dir="ltr">${cost.toFixed(3)}</b></div>
-            <div className={styles.meter}><span>{t("step")}</span><b style={{ fontSize: 15 }}>{current >= 0 ? t(`steps.${STEPS[current]}`) : t("queued")}</b></div>
+          <div className={"pst-meters"}>
+            <div className={"pst-meter"}><span>{t("time")}</span><b>{t("seconds", { n: started ? ((now - started) / 1000).toFixed(1) : "0.0" })}</b></div>
+            <div className={"pst-meter"}><span>{t("cost")}</span><b dir="ltr">${cost.toFixed(3)}</b></div>
+            <div className={"pst-meter"}><span>{t("step")}</span><b style={{ fontSize: 15 }}>{current >= 0 ? t(`steps.${STEPS[current]}`) : t("queued")}</b></div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <button type="button" onClick={onCancel} disabled={cancelling} className="btn btn-white">{t("cancel")}</button>
           </div>
         </div>
-        <div className={styles.feed} aria-live="polite">{events.reverse()}</div>
+        <div className={"pst-feed"} aria-live="polite">{events.reverse()}</div>
       </div>
     </div>
   );
@@ -142,8 +141,8 @@ export function CreatingStudio({ generation, imageUrl, brand, platforms, change,
 
 function Event({ icon, ok, children }: { icon: string; ok?: boolean; children: ReactNode }) {
   return (
-    <div className={`${styles.event} ${ok ? styles.ok : ""}`}>
-      <span className={styles.dot}>{icon}</span>
+    <div className={`pst-event ${ok ? "pst-ok" : ""}`}>
+      <span className={"pst-dot"}>{icon}</span>
       <div>{children}</div>
     </div>
   );
@@ -152,15 +151,13 @@ function Event({ icon, ok, children }: { icon: string; ok?: boolean; children: R
 /** text typed out once (it never restarts when the page re-reads the post) */
 function Type({ text, speed = 38, delay = 0 }: { text: string; speed?: number; delay?: number }) {
   const [n, setN] = useState(0);
-  const started = useRef(false);
+  // runs again only when the text changes (a page refresh with the same text keeps what is typed)
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
     let i = 0, iv: ReturnType<typeof setInterval> | undefined;
     const to = setTimeout(() => { iv = setInterval(() => { i += 1; setN(i); if (i >= text.length && iv) clearInterval(iv); }, speed); }, delay);
     return () => { clearTimeout(to); if (iv) clearInterval(iv); };
   }, [text, speed, delay]);
-  return <span className={n < text.length ? styles.caret : undefined}>{text.slice(0, n)}</span>;
+  return <span className={n < text.length ? "pst-caret" : undefined}>{text.slice(0, n)}</span>;
 }
 
 /** the nine kinds of picture: the brand's recent ones crossed out, a short scan, then the one the writer chose */
@@ -179,9 +176,9 @@ function FormatEvent({ picked, recent }: { picked: string | null; recent: string
   return (
     <Event icon="◇">
       <p>{t.rich(recent.length ? "format" : "formatFirst", boldTag)}</p>
-      <div className={styles.formats}>
+      <div className={"pst-formats"}>
         {FORMATS.map((f, i) => (
-          <span key={f} className={recent.includes(f) ? styles.used : scan === null && f === picked ? styles.pick : scan === i ? styles.scan : ""}>
+          <span key={f} className={recent.includes(f) ? "pst-used" : scan === null && f === picked ? "pst-pick" : scan === i ? "pst-scan" : ""}>
             {t(`formats.${f}`)}
           </span>
         ))}
@@ -204,9 +201,9 @@ function CheckEvent({ done, ok, problems }: { done: boolean; ok: boolean; proble
   return (
     <Event icon="⌕" ok={done && ok}>
       <p>{t.rich("check", boldTag)}</p>
-      <div className={styles.checks}>
+      <div className={"pst-checks"}>
         {items.map((k, i) => (
-          <div key={k} className={i < shown ? (bad(k) ? styles.badItem : styles.okItem) : ""}>
+          <div key={k} className={i < shown ? (bad(k) ? "pst-badItem" : "pst-okItem") : ""}>
             <i>{i < shown && bad(k) ? "!" : "✓"}</i>
             {t(`checks.${k}`)}
           </div>

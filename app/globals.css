@@ -122,3 +122,74 @@ body {
 .mgx-mock .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
 .mgx-mock .clamp3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden }
 .mgx-mock [hidden] { display: none !important }
+
+/* Posts studio (the live creation screen + the preview stage) — global, prefixed pst- */
+.pst-rail { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-block-end: 18px }
+@media (max-width: 640px) { .pst-rail { grid-template-columns: repeat(3, minmax(0, 1fr)) } }
+.pst-step { text-align: start; background: var(--field); border-radius: 16px; padding: 10px 12px; color: var(--ink-muted); font-size: 12px; position: relative; overflow: hidden }
+.pst-step b { display: block; font-size: 13px; color: inherit; margin-block-start: 2px; font-weight: 600 }
+.pst-bar { position: absolute; inset-inline-start: 0; bottom: 0; height: 3px; background: var(--primary); width: 0 }
+.pst-active { background: var(--primary-light); color: var(--primary-dark) }
+.pst-active .pst-bar { animation: fill var(--dur, 4s) linear forwards }
+@keyframes fill { to { width: 92% } }
+.pst-done { background: var(--success-bg); color: var(--success-ink) }
+.pst-done .pst-bar { width: 100%; background: var(--success-ink) }
+.pst-studio { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; align-items: start }
+@media (max-width: 900px) { .pst-studio { grid-template-columns: 1fr } }
+.pst-stageCard { background: var(--field); border-radius: 26px; padding: 18px; position: relative }
+.pst-canvasWrap { display: grid; place-items: center; padding-block: 8px }
+.pst-forming { width: min(100%, 420px); aspect-ratio: 4 / 5; border-radius: 22px; position: relative; overflow: hidden; background: #e9eaf6; box-shadow: 0 18px 50px rgba(29, 31, 74, .15) }
+.pst-forming .pst-img { position: absolute; inset: 0; background-size: cover; background-position: center; filter: blur(28px) saturate(.6); transform: scale(1.1); opacity: 0; transition: filter 2.6s ease, opacity .8s ease, transform 2.6s ease }
+.pst-reveal .pst-img { opacity: 1 }
+.pst-sharp .pst-img { filter: none; transform: none }
+.pst-sweep { position: absolute; inset-inline: 0; height: 120px; top: -120px; background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, .55), transparent); opacity: 0 }
+.pst-working .pst-sweep { animation: sweep 1.6s ease-in-out infinite; opacity: 1 }
+.pst-sharp .pst-sweep { animation: none; opacity: 0 }
+@keyframes sweep { from { top: -120px } to { top: 100% } }
+.pst-swatches { position: absolute; inset: 0; display: flex }
+.pst-swatches i { flex: 1; transform: scaleY(0); transform-origin: bottom; transition: transform .5s ease }
+.pst-palette .pst-swatches i { transform: scaleY(1) }
+.pst-reveal .pst-swatches { opacity: 0; transition: opacity 1s .4s }
+.pst-logoIn { position: absolute; top: 16px; inset-inline-end: 16px; width: 64px; height: 64px; border-radius: 16px; background: rgba(255, 255, 255, .92); display: grid; place-items: center; opacity: 0; transform: scale(.7); transition: .4s }
+.pst-logoIn.pst-dark { background: #15161c }
+.pst-logoIn img { width: 80%; height: 80%; object-fit: contain }
+.pst-logo .pst-logoIn { opacity: 1; transform: none }
+.pst-reveal .pst-logoIn { opacity: 0 }
+.pst-head { position: absolute; inset-inline: 18px; bottom: 22px; color: #fff; font-size: 30px; font-weight: 700; text-shadow: 0 2px 18px rgba(0, 0, 0, .35) }
+.pst-reveal .pst-head { opacity: 0; transition: opacity .6s .6s }
+.pst-caret::after { content: "▍"; animation: blink 1s steps(1) infinite; margin-inline-start: 2px }
+@keyframes blink { 50% { opacity: 0 } }
+.pst-meters { display: flex; gap: 10px; flex-wrap: wrap; margin-block-start: 14px }
+.pst-meter { flex: 1; min-width: 120px; background: #fff; border-radius: 16px; padding: 10px 14px }
+.pst-meter span { font-size: 12px; color: var(--ink-muted) }
+.pst-meter b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; margin-block-start: 2px }
+.pst-feed { background: var(--field); border-radius: 26px; padding: 18px; display: flex; flex-direction: column; gap: 12px; max-height: 720px; overflow: auto }
+.pst-event { background: #fff; border-radius: 18px; padding: 12px 14px; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; animation: rise .35s ease both }
+@keyframes rise { from { opacity: 0; transform: translateY(8px) } }
+.pst-dot { width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; background: var(--primary-light); color: var(--primary-dark); font-size: 13px }
+.pst-ok .pst-dot { background: var(--success-bg); color: var(--success-ink) }
+.pst-event p { margin: 0; line-height: 1.65 }
+.pst-event small { color: var(--ink-muted) }
+.pst-swatchRow { display: flex; gap: 6px; margin-block-start: 8px; flex-wrap: wrap }
+.pst-swatchRow i { width: 26px; height: 26px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08) }
+.pst-formats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-block-start: 8px }
+.pst-formats span { font-size: 11px; border-radius: 10px; padding: 7px 8px; background: var(--field); text-align: center; transition: .25s }
+.pst-formats .pst-used { text-decoration: line-through; opacity: .45 }
+.pst-formats .pst-scan { background: var(--primary-lavender) }
+.pst-formats .pst-pick { background: var(--primary); color: #fff; font-weight: 600 }
+.pst-caps { display: grid; gap: 8px; margin-block-start: 8px }
+.pst-cap { background: var(--field); border-radius: 12px; padding: 9px 11px; font-size: 13px; line-height: 1.6 }
+.pst-cap b { font-size: 11px; color: var(--ink-muted); display: block; margin-block-end: 2px; font-weight: 600 }
+.pst-checks { display: grid; gap: 6px; margin-block-start: 8px }
+.pst-checks div { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-muted) }
+.pst-checks div.pst-okItem { color: var(--success-ink) }
+.pst-checks i { width: 18px; height: 18px; border-radius: 999px; background: #e7e8f3; display: grid; place-items: center; font-style: normal; font-size: 11px }
+.pst-checks .pst-okItem i { background: var(--success-ink); color: #fff }
+.pst-checks .pst-badItem { color: #b7791f }
+.pst-checks .pst-badItem i { background: #b7791f; color: #fff }
+
+
+.pst-stage { position: relative; width: 100%; overflow: hidden }
+.pst-scaler { transform-origin: top left; position: absolute; top: 0; left: 0 }
+
+@media (prefers-reduced-motion: reduce) { .pst-studio *, .pst-rail *, .pst-forming * { animation: none !important; transition: none !important } }

@@ -48,6 +48,8 @@ export async function proxy(request: NextRequest) {
   // 3. Guard: everything except /login needs a session.
   const [, locale = routing.defaultLocale, ...rest] = request.nextUrl.pathname.split("/");
   const isLogin = rest[0] === "login";
+  // development only: /<locale>/dev/… renders components with sample data, without a session (never in production)
+  if (process.env.NODE_ENV === "development" && rest[0] === "dev") return response;
 
   if (!signedIn && !isLogin) return redirectKeepingCookies(request, response, `/${locale}/login`);
   if (signedIn && isLogin) return redirectKeepingCookies(request, response, `/${locale}`);

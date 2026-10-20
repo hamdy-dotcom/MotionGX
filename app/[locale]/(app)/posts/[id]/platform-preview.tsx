@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef } from "react";
 import { Grand_Hotel, Inter } from "next/font/google";
 import { mockupHtml, type MockBrand } from "@/lib/posts/mockups";
 import type { PostPlatformKey } from "@/lib/posts/config";
-import styles from "../posts.module.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--ui", display: "swap" });
 const grand = Grand_Hotel({ subsets: ["latin"], weight: "400", variable: "--grand", display: "swap" });
@@ -54,9 +53,9 @@ export function PlatformPreview({ platform, device, image, text, hashtags, brand
   };
 
   return (
-    <div ref={stage} className={`${styles.stage} mgx-mock ${inter.variable} ${grand.variable}`} onClick={onClick} dir="ltr">
+    <div ref={stage} className={`pst-stage mgx-mock ${inter.variable} ${grand.variable}`} onClick={onClick} dir="ltr">
       {/* the mockup is built from escaped strings (lib/posts/mockups.ts) */}
-      <div ref={scaler} className={styles.scaler} dangerouslySetInnerHTML={{ __html: html }} />
+      <div ref={scaler} className={"pst-scaler"} dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
 }
