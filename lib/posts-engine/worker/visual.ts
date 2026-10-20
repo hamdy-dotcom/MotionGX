@@ -142,8 +142,23 @@ async function slideRefs(slide: Slide, brand: any, brandDir: string, runDir: str
   return out;
 }
 
-function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs: { logo: boolean; roles: string[]; screen: boolean; imagery: boolean }, n: number, total: number, feedback?: string) {
-  const imagery = refs.imagery;
+/**
+ * The brand's visual style in words, from its own website page and imagery (Haiku looks at them). Style images are never
+ * sent to the image model: the edits endpoint reuses whatever it is given (the same people, the same page in every post).
+ */
+async function styleBrief(post: PostJob, brand: any, looks: Ref[], imagery: Ref[], ledger: Ledger) {
+  const shots = [...looks, ...imagery];
+  if (!shots.length) return "";
+  const content: any[] = [];
+  for (const r of shots) { const buf = fs.readFileSync(r.file); content.push({ type: "text", text: r.role.split(" — ")[0] + ":" }, imageBlock(buf, mediaOf(buf))); }
+  content.push({ type: "text", text: `Describe this brand's VISUAL STYLE so an image model can create brand-new images that clearly belong to it — without copying anything shown. Cover: how the palette is used (${JSON.stringify(brand.palette ?? {})}), backgrounds and surfaces, graphic elements and shapes, the photography or illustration style (kinds of subjects in general terms, wardrobe and setting genre, light, colour grade, depth, framing), composition habits, and the typography feel. Never describe specific people, faces, a specific photo or page; 120–180 words, one paragraph, English.` });
+  const tool = { name: "style_brief", description: "The brand's visual style.", input_schema: { type: "object", required: ["style"], properties: { style: { type: "string" } } } };
+  const r = (await callTool({ ledger, step: "post-check", model: MODELS.haiku, system: "You are a brand art director.", content, tool, maxTokens: 1200 })) as { style: string };
+  return String(r.style ?? "").trim();
+}
+
+function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs: { logo: boolean; roles: string[]; screen: boolean; style: string }, n: number, total: number, feedback?: string) {
+  const imagery = Boolean(refs.style);
   const [w, h] = SIZE[canvas].split("x");
   const words = [`Headline: «${slide.headline}»`, slide.sub ? `Second line: «${slide.sub}»` : "", slide.cta ? `Call to action (as a button or tag): «${slide.cta}»` : ""].filter(Boolean).join("\n  ");
   const rtl = post.dialect !== "en";
@@ -152,8 +167,9 @@ function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs
     `Create a finished, premium social media post image (${w}×${h}) for the brand ${brand.name}${brand.name_ar ? ` (${brand.name_ar})` : ""}${total > 1 ? ` — slide ${n} of ${total} of a carousel; keep one consistent design across the slides` : ""}.`,
     slide.scene ?? "",
     `Everything in the picture is newly made for this post: style references set the look, never the content.`,
-    `Make it alive: a real subject in a real moment — the brand's audience, or its product in real use — rendered in ${imagery ? "the brand's own imagery style (its reference image)" : "premium, natural lifestyle photography"}; depth, light and emotion, like a top brand's campaign — never a flat badge of icons on a plain background.`,
+    `Make it alive: a real subject in a real moment — the brand's audience, or its product in real use — rendered in ${imagery ? "the brand's visual style above — with new people / subjects and a new scene" : "premium, natural lifestyle photography"}; depth, light and emotion, like a top brand's campaign — never a flat badge of icons on a plain background.`,
     `Text on the image — write EXACTLY these words and nothing else, in ${LANGUAGE[post.dialect] ?? post.dialect}${rtl ? " (Arabic script, right-to-left, every letter correctly joined, all dots in place, no extra or missing letters)" : ""}, large and crisp, in bold modern typography that matches the brand:\n  ${words}`,
+    refs.style ? `THE BRAND'S VISUAL STYLE (from its own website and imagery): ${refs.style}` : "",
     `THE BRAND IS THE BASE OF THIS IMAGE — it must feel like an extension of the brand itself, as if taken from its own website. Its colours dominate: ${palette}${brand.palette?.theme ? ` (a ${brand.palette.theme} brand: the image is ${brand.palette.theme})` : ""}. Its look: ${brand.look ?? ""}. Its type: ${brand.fonts?.display ?? ""} / ${brand.fonts?.body ?? ""} style. Any occasion or theme (a holiday, a season, an event) is expressed INSIDE this identity — its motifs drawn in the brand's own colours and style — never with the occasion's traditional stock palette or look, unless those are the brand's own colours.`,
     refs.roles.map((r, i) => `Reference image ${i + 1}: ${r}.`).join("\n"),
     refs.logo ? `Reference image 1 is the brand's logo (shown on a plain tile — the tile is not part of the logo): reproduce the mark and its lettering exactly as given — same shapes, letters, colours and proportions, never redrawn, re-spelled, recoloured or altered — clearly visible and well sized, like a signature.` : "",
@@ -190,10 +206,10 @@ async function checkImage(post: PostJob, slide: Slide, file: string, logo: strin
   const content: any[] = [{ type: "text", text: "THE POST IMAGE:" }, imageBlock(small)];
   if (logo) { const buf = fs.readFileSync(logo); content.push({ type: "text", text: "THE BRAND'S LOGO (for comparison):" }, imageBlock(buf, mediaOf(buf))); }
   content.push({ type: "text", text: `The image must show exactly these words (and no other text):\n- «${slide.headline}»${slide.sub ? `\n- «${slide.sub}»` : ""}${slide.cta ? `\n- «${slide.cta}»` : ""}\nRead the image letter by letter. Not problems: a line break inside a phrase, an emoji drawn as a graphic or left out, equivalent spellings (tanween on or before the alif: مجانًا = مجاناً; hamza / taa marbuta forms the language allows), missing optional diacritics. Problems: a wrong, missing, extra or swapped letter or word. Compare the logo with the reference shape by shape and letter by letter (a re-spelled or redrawn logo is not the logo). Look for anything physically impossible: a screen seen from the front while the person using it looks at it from the other side, wrong hands or faces, impossible perspective.${screenAllowed ? "" : " This image must not show any phone, laptop, tablet, app screen or user interface."} Report honestly.` });
-  const tool = { name: "check_image", description: "What the image shows.", input_schema: { type: "object", required: ["words_exact", "logo_visible", "problems"], properties: { words_exact: { type: "boolean", description: "every required word is spelled exactly right (every letter, joined correctly)" }, logo_visible: { type: "boolean", description: "the brand's logo appears, recognisably the same" }, extra_text: { type: "boolean", description: "other text or gibberish appears" }, ui_shown: { type: "boolean", description: "a phone, laptop, tablet, app screen or interface appears" }, impossible: { type: "string", description: "what is physically impossible, if anything (empty when the scene is real)" }, problems: { type: "array", items: { type: "string" }, description: "what is wrong, precisely (which word is misspelled and how)" } } } };
-  const r = (await callTool({ ledger, step: "post-check", model: MODELS.haiku, system: "You check generated social media images against what they must show.", content, tool, maxTokens: 1500 })) as { words_exact: boolean; logo_visible: boolean; extra_text?: boolean; ui_shown?: boolean; impossible?: string; problems: string[] };
+  const tool = { name: "check_image", description: "What the image shows.", input_schema: { type: "object", required: ["words_exact", "logo_visible", "problems"], properties: { words_exact: { type: "boolean", description: "every required word is spelled exactly right (every letter, joined correctly)" }, logo_visible: { type: "boolean", description: "the brand's logo appears, recognisably the same" }, extra_text: { type: "boolean", description: "other text or gibberish appears" }, ui_shown: { type: "boolean", description: "a phone, laptop, tablet, app screen or interface appears" }, impossible: { type: "string", description: "what is physically impossible, if anything (empty when the scene is real)" }, device_ok: { type: "boolean", description: "true when no laptop / phone screen is visible; or when a visible screen faces the viewer AND every person looking at it is on the viewer's side of it (beside or behind it, looking the same way). false when anyone looks at a screen we can see from its front (they would be seeing its back)." }, problems: { type: "array", items: { type: "string" }, description: "what is wrong, precisely (which word is misspelled and how)" } } } };
+  const r = (await callTool({ ledger, step: "post-check", model: MODELS.haiku, system: "You check generated social media images against what they must show.", content, tool, maxTokens: 1500 })) as { words_exact: boolean; logo_visible: boolean; extra_text?: boolean; ui_shown?: boolean; impossible?: string; device_ok?: boolean; problems: string[] };
   const badUi = !screenAllowed && Boolean(r.ui_shown);
-  const impossible = String(r.impossible ?? "").trim();
+  const impossible = [String(r.impossible ?? "").trim(), r.device_ok === false ? "people look at a screen that faces the viewer — they would see its back: turn the device toward them and show it over their shoulder, or nobody behind it" : ""].filter(Boolean).join("; ");
   const ok = r.words_exact && r.logo_visible && !r.extra_text && !badUi && !impossible;
   return { ok, problems: ok ? [] : [...(r.problems ?? []), !r.words_exact ? "the words are not exactly right" : "", !r.logo_visible ? "the logo is not exactly the brand's logo" : "", r.extra_text ? "there is other text" : "", badUi ? "it shows a device / app screen — remove it (no real screen for this image)" : "", impossible ? `physically impossible: ${impossible}` : ""].filter(Boolean) };
 }
@@ -201,6 +217,8 @@ async function checkImage(post: PostJob, slide: Slide, file: string, logo: strin
 export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: string; runDir: string; slides: Slide[]; canvases: Canvas[]; ledger: Ledger; prevRenders?: Record<string, string[]> | null; log: (l: string) => void }) {
   const { post, brand, brandDir, runDir, slides, canvases, ledger, log } = opts;
   const { logo, looks, screens, imagery } = await brandRefs(brand, brandDir, runDir, post.postId);
+  const style = await styleBrief(post, brand, looks, imagery, ledger).catch(() => "");
+  if (style) log(`✓ style: ${style.slice(0, 160)}…`);
   const renders: Record<string, string[]> = {}, check: Record<string, string[][]> = {};
   fs.mkdirSync(path.join(runDir, "slides"), { recursive: true });
   for (const canvas of canvases) {
@@ -212,16 +230,14 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
       // "Request a change": the current slide goes in as a reference, so what wasn't asked to change stays
       const prevFile = opts.prevRenders?.[canvas]?.[i] ? path.join(runDir, "prev", opts.prevRenders[canvas][i]) : null;
       const prev: Ref[] = prevFile && fs.existsSync(prevFile) ? [{ file: prevFile, role: `the current version of this slide — keep everything the client didn't ask to change (the change: ${post.request})` }] : [];
-      // at most 4 references (each one is billed as image input): the logo, the current version, the slide's own, one brand look
-      const style: Ref[] = [...looks, ...imagery];
-      const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own, ...style].slice(0, own.length || prev.length ? 4 : 3);
-
+      // only what the image must reproduce goes in as an image: the logo, the current version, the slide's real screen
+      const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own].slice(0, 3);
       const roles = refs.map((r) => r.role);
       const hasScreen = own.some((r) => /real (phone )?(product )?screen/.test(r.role));
       const file = path.join(runDir, "slides", `${canvasKey(canvas)}-${i + 1}.jpg`);
       let feedback: string | undefined, last: string[] = [];
       for (let attempt = 0; attempt < 2; attempt++) {
-        const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles, screen: hasScreen, imagery: imagery.length > 0 && refs.some((r) => imagery.includes(r)) }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
+        const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles, screen: hasScreen, style }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
         fs.writeFileSync(file, jpg);
         const c = await checkImage(post, slide, file, logo, ledger, hasScreen);
         last = c.problems;

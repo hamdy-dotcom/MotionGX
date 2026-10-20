@@ -72,11 +72,11 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
     type: "object",
     required: ["headline", "scene"],
     properties: {
-      headline: { type: "string", description: "the big line written ON the image — short (≤ 6 words), exactly as it must appear" },
-      sub: { type: "string", description: "optional second line on the image (≤ 10 words)" },
-      cta: { type: "string", description: "optional call to action on the image (≤ 4 words; usually the last slide)" },
+      headline: { type: "string", description: "the big line written ON the image, in the post's language — short (≤ 6 words), exactly as it must appear" },
+      sub: { type: "string", description: "optional second line on the image, in the post's language (≤ 10 words)" },
+      cta: { type: "string", description: "optional call to action on the image, in the post's language (≤ 4 words; usually the last slide)" },
       scene: { type: "string", description: "in English, the whole image for the image model. Start from ONE concept specific to this brand and its audience (a real moment in their life the post speaks to). It is ALIVE: real people of the brand's audience in that moment, or the product in real use — photographed (or in the brand's own illustration style when BRAND STYLE's imagery is illustration) — with depth, light and emotion; never a flat badge of icons on a plain background. Built on THIS brand's identity (BRAND STYLE): its background (light or dark) and colours by hex, its shapes, so it feels like a section of the brand's own website. Then the composition (where the headline, the logo and any product screen sit). An occasion is shown through the moment and motifs in the brand's colours, never the occasion's stock palette. Premium campaign quality. No other words than the headline / sub / cta." },
-      refs: { type: "array", items: { type: "string" }, description: "up to 2 references to show in or guide the image: a screen id from SCREENS (shown as it really is — on a phone or laptop) or a file from IMAGES" },
+      refs: { type: "array", items: { type: "string" }, description: "optional, at most 1: the id of a PRODUCT screen from SCREENS (app: true) to show on a phone or laptop, as it really is — only when the post is about the product. Never a website page, never an image." },
     },
   };
   const tool = {
@@ -116,7 +116,8 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
   for (const s of out.slides) {
     if (imageMode) {
       s.visual = { kind: "none" };
-      s.refs = (s.refs ?? []).filter((r) => screens.some((x: any) => x.id === r) || images.some((x: any) => x.file === r)).slice(0, 2);
+      // only a real product screen goes into an image as content; the brand's website and photos are style, never content
+      s.refs = (s.refs ?? []).filter((r) => screens.some((x: any) => x.id === r && x.app)).slice(0, 1);
       continue;
     }
     const v = s.visual ?? { kind: "none" };
