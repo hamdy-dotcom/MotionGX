@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { chromium } from "playwright";
 import type { PostJob } from "../../live-engine/protocol";
 import { callTool, imageBlock, type Ledger } from "../../live-engine/worker/claude";
@@ -18,11 +19,21 @@ const PRICE: Record<string, [number, number, number]> = { default: [5, 8, 30], "
 
 type Ref = { file: string; role: string };
 
+/** an image's type from its bytes (a file's name can lie: a .png that is really WebP) */
+const mediaOf = (buf: Buffer) => (buf[0] === 0x89 && buf[1] === 0x50 ? "image/png" : buf[0] === 0xff && buf[1] === 0xd8 ? "image/jpeg" : buf.subarray(0, 4).toString() === "RIFF" && buf.subarray(8, 12).toString() === "WEBP" ? "image/webp" : buf.subarray(0, 3).toString() === "GIF" ? "image/gif" : "image/png");
+
+/** any raster image → a real PNG (ffmpeg keeps transparency) */
+async function toPng(src: string, out: string) {
+  const ff = process.env.FFMPEG_PATH || ((await import("ffmpeg-static").then((m: any) => m.default).catch(() => null)) as string | null) || "ffmpeg";
+  const r = spawnSync(ff, ["-v", "error", "-y", "-i", src, "-frames:v", "1", out]);
+  return r.status === 0 && fs.existsSync(out) ? out : null;
+}
+
 /** the logo as a PNG reference: an SVG is cropped to its mark and rasterised (transparent background) */
 async function logoPng(brand: any, brandDir: string, out: string): Promise<string | null> {
   const file = brand.logo?.file ? path.join(brandDir, brand.logo.file) : null;
   if (!file || !fs.existsSync(file)) return null;
-  if (!/\.svg$/i.test(file)) { fs.copyFileSync(file, out); return out; }
+  if (!/\.svg$/i.test(file)) return toPng(file, out);
   const svg = fs.readFileSync(file, "utf8").replace(/<\?xml[^>]*>/, "").replace(/<script[\s\S]*?<\/script>/gi, "");
   const browser = await chromium.launch();
   try {
@@ -97,7 +108,7 @@ async function generate(post: PostJob, prompt: string, size: string, files: stri
   form.append("quality", post.image.quality);
   form.append("output_format", "jpeg");
   form.append("output_compression", "92");
-  for (const f of files) form.append("image[]", new Blob([fs.readFileSync(f)], { type: f.endsWith(".png") ? "image/png" : "image/jpeg" }), path.basename(f));
+  for (const f of files) { const buf = fs.readFileSync(f); form.append("image[]", new Blob([buf], { type: mediaOf(buf) }), path.basename(f)); }
   const t0 = Date.now();
   const res = await fetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { authorization: `Bearer ${key}` }, body: form });
   const body = (await res.json().catch(() => null)) as { data?: { b64_json?: string }[]; usage?: { input_tokens?: number; output_tokens?: number; input_tokens_details?: { text_tokens?: number; image_tokens?: number } }; error?: { message?: string } } | null;
@@ -112,7 +123,7 @@ async function generate(post: PostJob, prompt: string, size: string, files: stri
 async function checkImage(post: PostJob, slide: Slide, file: string, logo: string | null, ledger: Ledger) {
   const small = (await smallJpeg(file, 900)) ?? fs.readFileSync(file);
   const content: any[] = [{ type: "text", text: "THE POST IMAGE:" }, imageBlock(small)];
-  if (logo) content.push({ type: "text", text: "THE BRAND'S LOGO (for comparison):" }, imageBlock(fs.readFileSync(logo), "image/png"));
+  if (logo) { const buf = fs.readFileSync(logo); content.push({ type: "text", text: "THE BRAND'S LOGO (for comparison):" }, imageBlock(buf, mediaOf(buf))); }
   content.push({ type: "text", text: `The image must show exactly these words (and no other text):\n- «${slide.headline}»${slide.sub ? `\n- «${slide.sub}»` : ""}${slide.cta ? `\n- «${slide.cta}»` : ""}\nRead the image letter by letter. Report honestly.` });
   const tool = { name: "check_image", description: "What the image shows.", input_schema: { type: "object", required: ["words_exact", "logo_visible", "problems"], properties: { words_exact: { type: "boolean", description: "every required word is spelled exactly right (every letter, joined correctly)" }, logo_visible: { type: "boolean", description: "the brand's logo appears, recognisably the same" }, extra_text: { type: "boolean", description: "other text or gibberish appears" }, problems: { type: "array", items: { type: "string" }, description: "what is wrong, precisely (which word is misspelled and how)" } } } };
   const r = (await callTool({ ledger, step: "post-check", model: post.model, system: "You check generated social media images against what they must show.", content, tool, maxTokens: 1500 })) as { words_exact: boolean; logo_visible: boolean; extra_text?: boolean; problems: string[] };
