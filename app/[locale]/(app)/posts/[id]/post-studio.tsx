@@ -10,13 +10,14 @@ import type { PostContent } from "@/lib/posts/server/versions";
 import { Heading } from "@/components/heading";
 import { ArrowIcon, CheckIcon, ChevronIcon, DownloadIcon, SendIcon, SpinnerIcon } from "@/components/icons";
 import { downloadPost, requestPostChange, retryPost, savePostText, undoPost } from "./actions";
+import { PlatformPreview, type PreviewBrand } from "./platform-preview";
 
 type Post = { id: string; title: string; brief: string; type: string; platforms: string[]; status: "generating" | "ready" | "failed"; generation: Record<string, unknown>; createdAt: string; company: string };
 type Version = { version: number; content: PostContent; parent: number | null; origin: string; request: string | null };
 
 const STATUS_STYLE = { generating: "bg-primary-lavender text-primary-dark", ready: "bg-success-bg text-success-ink", failed: "bg-danger-bg text-danger-ink" };
 
-export function PostStudio({ post, version, versions, images, priceUsd, charged, fxRate, currency, locale }: { post: Post; version: Version | null; versions: number[]; images: Record<string, string[]>; priceUsd: number; charged: boolean; fxRate: number; currency: string; locale: string }) {
+export function PostStudio({ post, brand, version, versions, images, priceUsd, charged, fxRate, currency, locale }: { post: Post; brand: PreviewBrand; version: Version | null; versions: number[]; images: Record<string, string[]>; priceUsd: number; charged: boolean; fxRate: number; currency: string; locale: string }) {
   const t = useTranslations("posts");
   const tc = useTranslations("common");
   const te = useTranslations("aiErrors");
@@ -26,6 +27,7 @@ export function PostStudio({ post, version, versions, images, priceUsd, charged,
   const platforms = (version ? Object.keys(version.content.platforms ?? {}) : post.platforms) as PostPlatformKey[];
   const [tab, setTab] = useState<PostPlatformKey>(platforms[0]);
   const [request, setRequest] = useState("");
+  const [device, setDevice] = useState<"mobile" | "desktop">("mobile");
   const generating = post.status === "generating";
   const stage = String(post.generation.stage ?? "queued");
   const money = (usd: number) => formatMoney(toLocal(usd, fxRate), currency, locale);
@@ -136,25 +138,40 @@ export function PostStudio({ post, version, versions, images, priceUsd, charged,
         ))}
       </div>
 
-      <div role="tabpanel" className={`grid gap-6 ${slides.length ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : ""} lg:items-start`}>
-        {slides.length ? (
-          <SlideViewer
-            key={`${tab}-${version.version}`}
-            urls={slides}
-            canvas={current.canvas!}
-            alt={content.alt_text}
-            onDownload={() =>
-              run(async () => {
-                const r = await downloadPost(post.id, version.version, current.canvas);
-                if (r.ok) await saveFiles(r.files);
-                return r;
-              })
-            }
-            pending={pending}
-            label={slides.length > 1 ? t("downloadAll") : t("download")}
-            priceNote={charged ? t("chargedNote") : `${t("price")}: ${money(priceUsd)} — ${t("priceNote")}`}
-          />
-        ) : null}
+      <div role="tabpanel" className={`grid gap-6 ${device === "desktop" ? "" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"} lg:items-start`}>
+        <section className="panel">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="label">{t("preview.title")}</p>
+            <div role="radiogroup" aria-label={t("preview.title")} className="flex gap-1.5">
+              {(["mobile", "desktop"] as const).map((d) => (
+                <button key={d} type="button" role="radio" aria-checked={device === d} onClick={() => setDevice(d)} className="chip chip-white">
+                  {t(`preview.${d}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <PlatformPreview key={`${tab}-${version.version}-${device}`} platform={tab} device={device} images={slides} text={current.text} hashtags={current.hashtags} brand={brand} alt={content.alt_text} />
+          {slides.length ? (
+            <>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  run(async () => {
+                    const r = await downloadPost(post.id, version.version, current.canvas);
+                    if (r.ok) await saveFiles(r.files);
+                    return r;
+                  })
+                }
+                className="btn btn-primary mt-5 w-full"
+              >
+                {pending ? <SpinnerIcon className="size-4" /> : <DownloadIcon className="size-4" />}
+                {pending ? t("downloading") : slides.length > 1 ? t("downloadAll") : t("download")}
+              </button>
+              <p className="mt-2 text-center text-xs text-ink-muted">{charged ? t("chargedNote") : `${t("price")}: ${money(priceUsd)} — ${t("priceNote")}`}</p>
+            </>
+          ) : null}
+        </section>
         <TextPanel key={`${tab}-${version.version}`} platform={tab} text={current.text} hashtags={current.hashtags} disabled={generating || pending} onSave={(text, tags) => run(() => savePostText(post.id, version.version, tab, text, tags))} />
       </div>
 
@@ -187,39 +204,6 @@ function Notice({ tone, text }: { tone: "error" | "info" | "ok"; text: string })
     <p role={tone === "error" ? "alert" : "status"} className={`rounded-2xl px-4 py-3 text-sm ${style}`}>
       {text}
     </p>
-  );
-}
-
-/** the slides of one canvas, one at a time, with the download button */
-function SlideViewer({ urls, canvas, alt, onDownload, pending, label, priceNote }: { urls: string[]; canvas: string; alt: string; onDownload: () => void; pending: boolean; label: string; priceNote: string }) {
-  const t = useTranslations("posts");
-  const [i, setI] = useState(0);
-  const ratio = canvas === "9:16" ? "aspect-[9/16]" : canvas === "16:9" ? "aspect-[16/9]" : "aspect-[4/5]";
-  return (
-    <section className="panel">
-      <div className={`relative mx-auto w-full overflow-hidden rounded-2xl bg-navy ${ratio} ${canvas === "9:16" ? "max-w-sm" : ""}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- signed storage URLs, shown as they are */}
-        <img src={urls[i]} alt={alt} className="size-full object-contain" />
-      </div>
-      {urls.length > 1 ? (
-        <div className="mt-3 flex items-center justify-center gap-3">
-          <button type="button" onClick={() => setI((n) => Math.max(0, n - 1))} disabled={i === 0} className="btn btn-white px-3" aria-label="‹">
-            <ChevronIcon className="size-4 rotate-180" />
-          </button>
-          <span className="text-sm text-ink-muted" aria-live="polite">
-            {t("slideOf", { n: i + 1, total: urls.length })}
-          </span>
-          <button type="button" onClick={() => setI((n) => Math.min(urls.length - 1, n + 1))} disabled={i === urls.length - 1} className="btn btn-white px-3" aria-label="›">
-            <ChevronIcon className="size-4" />
-          </button>
-        </div>
-      ) : null}
-      <button type="button" onClick={onDownload} disabled={pending} className="btn btn-primary mt-4 w-full">
-        {pending ? <SpinnerIcon className="size-4" /> : <DownloadIcon className="size-4" />}
-        {pending ? t("downloading") : label}
-      </button>
-      <p className="mt-2 text-center text-xs text-ink-muted">{priceNote}</p>
-    </section>
   );
 }
 

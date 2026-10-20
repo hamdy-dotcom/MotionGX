@@ -447,6 +447,26 @@
       "ready": "جاهز",
       "failed": "تعذّر"
     },
-    "allPosts": "كل المنشورات"
+    "allPosts": "كل المنشورات",
+    "preview": {
+      "title": "المعاينة",
+      "mobile": "موبايل",
+      "desktop": "كمبيوتر",
+      "more": "المزيد",
+      "seeMore": "عرض المزيد",
+      "seeMoreLinkedIn": "…عرض المزيد",
+      "now": "الآن",
+      "nowShort": "الآن",
+      "like": "أعجبني",
+      "comment": "تعليق",
+      "comments": "تعليقات",
+      "share": "مشاركة",
+      "send": "إرسال",
+      "repost": "إعادة نشر",
+      "follow": "متابعة",
+      "followers": "متابعون",
+      "addComment": "أضف تعليقاً…",
+      "home": "الرئيسية"
+    }
   }
 }

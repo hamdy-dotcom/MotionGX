@@ -447,6 +447,26 @@
       "ready": "Ready",
       "failed": "Failed"
     },
-    "allPosts": "All posts"
+    "allPosts": "All posts",
+    "preview": {
+      "title": "Preview",
+      "mobile": "Mobile",
+      "desktop": "Desktop",
+      "more": "more",
+      "seeMore": "See more",
+      "seeMoreLinkedIn": "…see more",
+      "now": "Just now",
+      "nowShort": "now",
+      "like": "Like",
+      "comment": "Comment",
+      "comments": "comments",
+      "share": "Share",
+      "send": "Send",
+      "repost": "Repost",
+      "follow": "Follow",
+      "followers": "Followers",
+      "addComment": "Add a comment…",
+      "home": "Home"
+    }
   }
 }

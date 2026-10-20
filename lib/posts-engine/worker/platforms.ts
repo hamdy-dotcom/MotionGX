@@ -21,7 +21,7 @@ export const PLATFORM: Record<PostPlatform, { name: string; canvas: Canvas; maxC
   tiktok: {
     name: "TikTok",
     canvas: "9:16",
-    maxChars: 2200,
+    maxChars: 4000,
     rules: "a very short caption (ideally under 150 characters): a hook and one line of value; 3–6 relevant hashtags",
   },
   linkedin: {

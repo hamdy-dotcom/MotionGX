@@ -21,7 +21,7 @@ export type PostPlatformKey = (typeof POST_PLATFORMS)[number];
 export const POST_PLATFORM_INFO: Record<PostPlatformKey, { canvas: "4:5" | "9:16" | "16:9"; maxChars: number }> = {
   instagram: { canvas: "4:5", maxChars: 2200 },
   facebook: { canvas: "4:5", maxChars: 2000 },
-  tiktok: { canvas: "9:16", maxChars: 2200 },
+  tiktok: { canvas: "9:16", maxChars: 4000 },
   linkedin: { canvas: "4:5", maxChars: 3000 },
   x: { canvas: "16:9", maxChars: 280 },
 };

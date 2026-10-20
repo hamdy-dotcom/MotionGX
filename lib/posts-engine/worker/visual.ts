@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import { chromium } from "playwright";
 import type { PostJob } from "../../live-engine/protocol";
 import { callTool, imageBlock, MODELS, type Ledger } from "../../live-engine/worker/claude";
-import { LANGUAGE, type Canvas } from "./platforms";
+import { CANVAS, LANGUAGE, type Canvas } from "./platforms";
 import { canvasKey, smallJpeg } from "./render";
 import { embedClones } from "../../live-engine/worker/steps/build";
 import type { Slide } from "./write";
@@ -48,6 +48,15 @@ async function logoPng(brand: any, brandDir: string, out: string): Promise<strin
   } finally {
     await browser.close().catch(() => {});
   }
+}
+
+/** the slide at the platform's exact pixels (the image model works in multiples of 16): scaled to cover, centre-cropped */
+async function exactSize(file: string, canvas: Canvas) {
+  const [W, H] = CANVAS[canvas];
+  const ff = process.env.FFMPEG_PATH || ((await import("ffmpeg-static").then((m: any) => m.default).catch(() => null)) as string | null) || "ffmpeg";
+  const tmp = file.replace(/\.jpg$/, ".exact.jpg");
+  const r = spawnSync(ff, ["-v", "error", "-y", "-i", file, "-vf", `scale=${W}:${H}:force_original_aspect_ratio=increase:flags=lanczos,crop=${W}:${H}`, "-q:v", "2", tmp]);
+  if (r.status === 0 && fs.existsSync(tmp)) fs.renameSync(tmp, file);
 }
 
 /** a reference as a JPEG ≤ 1024 px wide (cheaper image input) */
@@ -246,6 +255,7 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
         feedback = c.problems.join("; ");
         if (ledger.total() >= post.maxUsd) break;
       }
+      await exactSize(file, canvas);
       renders[canvas].push(path.relative(runDir, file));
       check[canvas].push(last);
     }

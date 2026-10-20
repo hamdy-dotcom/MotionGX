@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
 import { getFxRate } from "@/lib/pricing";
+import { listCompanies } from "@/lib/data/companies";
 import { getPostPriceUsd } from "@/lib/posts/price";
 import { LIVE_BUCKET } from "@/lib/live-engine/protocol";
 import type { PostContent } from "@/lib/posts/server/versions";
@@ -15,7 +16,8 @@ export default async function PostPage({ params, searchParams }: { params: Promi
   setRequestLocale(locale);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const { v } = await searchParams;
-  const { supabase, workspace } = await getAppContext();
+  const ctx = await getAppContext();
+  const { supabase, workspace } = ctx;
 
   const [postRes, versionsRes, priceUsd, fx, chargedRes] = await Promise.all([
     supabase.from("posts").select("*, companies(name)").eq("id", id).maybeSingle(),
@@ -24,7 +26,7 @@ export default async function PostPage({ params, searchParams }: { params: Promi
     getFxRate(supabase, workspace.currency_code),
     supabase.from("wallet_ledger").select("id", { count: "exact", head: true }).eq("ref_post_id", id).eq("kind", "export"),
   ]);
-  const post = postRes.data as { id: string; title: string; brief: string; type: string; platforms: string[]; status: "generating" | "ready" | "failed"; generation: Record<string, unknown> | null; created_at: string; companies: { name: string } | null } | null;
+  const post = postRes.data as { id: string; company_id: string; title: string; brief: string; type: string; platforms: string[]; status: "generating" | "ready" | "failed"; generation: Record<string, unknown> | null; created_at: string; companies: { name: string } | null } | null;
   if (!post) notFound();
   type Row = { version: number; content: PostContent; origin: string; parent_version: number | null; request: string | null; created_at: string };
   const versions = (versionsRes.data ?? []) as Row[];
@@ -37,8 +39,11 @@ export default async function PostPage({ params, searchParams }: { params: Promi
     images[canvas] = (data ?? []).map((d) => d.signedUrl ?? "").filter(Boolean);
   }
 
+  const company = (await listCompanies(ctx)).find((c) => c.id === post.company_id);
+  const brand = { name: company?.name ?? post.companies?.name ?? "", logoUrl: company?.logo_url ?? null, logoOnDark: company?.logo_on_dark ?? null, colors: company?.brand_profiles?.colors ?? [] };
   return (
     <PostStudio
+      brand={brand}
       key={`${post.id}-${shown?.version ?? 0}-${post.status}`}
       post={{ id: post.id, title: post.title, brief: post.brief, type: post.type, platforms: post.platforms, status: post.status, generation: post.generation ?? {}, createdAt: post.created_at, company: post.companies?.name ?? "" }}
       version={shown ? { version: shown.version, content: shown.content, parent: shown.parent_version, origin: shown.origin, request: shown.request } : null}
