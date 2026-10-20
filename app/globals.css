@@ -80,7 +80,8 @@ body {
     @apply bg-white;
   }
   .chip[aria-pressed="true"],
-  .chip[aria-checked="true"] {
+  .chip[aria-checked="true"],
+  .chip[aria-selected="true"] {
     @apply bg-white text-primary-dark shadow-[inset_0_0_0_1.5px_var(--primary)];
   }
   .chip-solid[aria-pressed="true"],

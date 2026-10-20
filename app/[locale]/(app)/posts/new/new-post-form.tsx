@@ -5,7 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { createPost, type CreatePostState } from "./actions";
 import { toLocal } from "@/lib/pricing";
 import { formatMoney } from "@/lib/format";
-import { POST_AI_IMAGE, POST_PLATFORMS, POST_TYPES, type PostPlatformKey } from "@/lib/posts/config";
+import { POST_AI_IMAGE, POST_PLATFORM_INFO, POST_PLATFORMS, POST_TYPES, type PostPlatformKey } from "@/lib/posts/config";
+import { PLATFORM_ICON } from "@/lib/posts/mockups";
 import { DIALECTS, type BrandColor, type Dialect } from "@/lib/types";
 import { Heading, boldTag } from "@/components/heading";
 import { CompanyMark } from "@/components/company-mark";
@@ -72,8 +73,10 @@ export function NewPostForm({ companies, initialCompanyId, priceUsd, fxRate, cur
         <Section label={t("platforms")} hint={t("platformsHint")}>
           <div role="group" aria-label={t("platforms")} className="flex flex-wrap gap-2">
             {POST_PLATFORMS.map((p) => (
-              <button key={p} type="button" role="checkbox" aria-checked={platforms.includes(p)} onClick={() => toggle(p)} className="chip chip-white" dir="ltr">
+              <button key={p} type="button" role="checkbox" aria-checked={platforms.includes(p)} onClick={() => toggle(p)} className="chip chip-white">
+                <span aria-hidden="true" className="inline-flex" dangerouslySetInnerHTML={{ __html: PLATFORM_ICON(p, 16) }} />
                 {t(`platform.${p}`)}
+                <small className="opacity-70" dir="ltr">{POST_PLATFORM_INFO[p].canvas}</small>
               </button>
             ))}
           </div>

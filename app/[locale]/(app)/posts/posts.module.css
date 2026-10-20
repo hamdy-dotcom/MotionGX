@@ -1,0 +1,90 @@
+/* The Posts studio, as in the approved prototype: the live creation screen and the platform previews.
+   The platform mockups are HTML strings (lib/posts/mockups.ts): their classes are :global inside .mock. */
+
+/* ── creating ── */
+.rail { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-block-end: 18px }
+@media (max-width: 640px) { .rail { grid-template-columns: repeat(3, minmax(0, 1fr)) } }
+.step { text-align: start; background: var(--field); border-radius: 16px; padding: 10px 12px; color: var(--ink-muted); font-size: 12px; position: relative; overflow: hidden }
+.step b { display: block; font-size: 13px; color: inherit; margin-block-start: 2px; font-weight: 600 }
+.bar { position: absolute; inset-inline-start: 0; bottom: 0; height: 3px; background: var(--primary); width: 0 }
+.active { background: var(--primary-light); color: var(--primary-dark) }
+.active .bar { animation: fill var(--dur, 4s) linear forwards }
+@keyframes fill { to { width: 92% } }
+.done { background: var(--success-bg); color: var(--success-ink) }
+.done .bar { width: 100%; background: var(--success-ink) }
+.studio { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; align-items: start }
+@media (max-width: 900px) { .studio { grid-template-columns: 1fr } }
+.stageCard { background: var(--field); border-radius: 26px; padding: 18px; position: relative }
+.canvasWrap { display: grid; place-items: center; padding-block: 8px }
+.forming { width: min(100%, 420px); aspect-ratio: 4 / 5; border-radius: 22px; position: relative; overflow: hidden; background: #e9eaf6; box-shadow: 0 18px 50px rgba(29, 31, 74, .15) }
+.forming .img { position: absolute; inset: 0; background-size: cover; background-position: center; filter: blur(28px) saturate(.6); transform: scale(1.1); opacity: 0; transition: filter 2.6s ease, opacity .8s ease, transform 2.6s ease }
+.reveal .img { opacity: 1 }
+.sharp .img { filter: none; transform: none }
+.sweep { position: absolute; inset-inline: 0; height: 120px; top: -120px; background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, .55), transparent); opacity: 0 }
+.working .sweep { animation: sweep 1.6s ease-in-out infinite; opacity: 1 }
+.sharp .sweep { animation: none; opacity: 0 }
+@keyframes sweep { from { top: -120px } to { top: 100% } }
+.swatches { position: absolute; inset: 0; display: flex }
+.swatches i { flex: 1; transform: scaleY(0); transform-origin: bottom; transition: transform .5s ease }
+.palette .swatches i { transform: scaleY(1) }
+.reveal .swatches { opacity: 0; transition: opacity 1s .4s }
+.logoIn { position: absolute; top: 16px; inset-inline-end: 16px; width: 64px; height: 64px; border-radius: 16px; background: rgba(255, 255, 255, .92); display: grid; place-items: center; opacity: 0; transform: scale(.7); transition: .4s }
+.logoIn.dark { background: #15161c }
+.logoIn img { width: 80%; height: 80%; object-fit: contain }
+.logo .logoIn { opacity: 1; transform: none }
+.reveal .logoIn { opacity: 0 }
+.head { position: absolute; inset-inline: 18px; bottom: 22px; color: #fff; font-size: 30px; font-weight: 700; text-shadow: 0 2px 18px rgba(0, 0, 0, .35) }
+.reveal .head { opacity: 0; transition: opacity .6s .6s }
+.caret::after { content: "▍"; animation: blink 1s steps(1) infinite; margin-inline-start: 2px }
+@keyframes blink { 50% { opacity: 0 } }
+.meters { display: flex; gap: 10px; flex-wrap: wrap; margin-block-start: 14px }
+.meter { flex: 1; min-width: 120px; background: #fff; border-radius: 16px; padding: 10px 14px }
+.meter span { font-size: 12px; color: var(--ink-muted) }
+.meter b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; margin-block-start: 2px }
+.feed { background: var(--field); border-radius: 26px; padding: 18px; display: flex; flex-direction: column; gap: 12px; max-height: 720px; overflow: auto }
+.event { background: #fff; border-radius: 18px; padding: 12px 14px; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; animation: rise .35s ease both }
+@keyframes rise { from { opacity: 0; transform: translateY(8px) } }
+.dot { width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; background: var(--primary-light); color: var(--primary-dark); font-size: 13px }
+.ok .dot { background: var(--success-bg); color: var(--success-ink) }
+.event p { margin: 0; line-height: 1.65 }
+.event small { color: var(--ink-muted) }
+.swatchRow { display: flex; gap: 6px; margin-block-start: 8px; flex-wrap: wrap }
+.swatchRow i { width: 26px; height: 26px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08) }
+.formats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-block-start: 8px }
+.formats span { font-size: 11px; border-radius: 10px; padding: 7px 8px; background: var(--field); text-align: center; transition: .25s }
+.formats .used { text-decoration: line-through; opacity: .45 }
+.formats .scan { background: var(--primary-lavender) }
+.formats .pick { background: var(--primary); color: #fff; font-weight: 600 }
+.caps { display: grid; gap: 8px; margin-block-start: 8px }
+.cap { background: var(--field); border-radius: 12px; padding: 9px 11px; font-size: 13px; line-height: 1.6 }
+.cap b { font-size: 11px; color: var(--ink-muted); display: block; margin-block-end: 2px; font-weight: 600 }
+.checks { display: grid; gap: 6px; margin-block-start: 8px }
+.checks div { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-muted) }
+.checks div.okItem { color: var(--success-ink) }
+.checks i { width: 18px; height: 18px; border-radius: 999px; background: #e7e8f3; display: grid; place-items: center; font-style: normal; font-size: 11px }
+.checks .okItem i { background: var(--success-ink); color: #fff }
+.checks .badItem { color: #b7791f }
+.checks .badItem i { background: #b7791f; color: #fff }
+
+/* ── the platform previews (device frames at real size, scaled by the component) ── */
+.stage { position: relative; width: 100%; overflow: hidden }
+.scaler { transform-origin: top left; position: absolute; top: 0; left: 0 }
+.mock :global(.phone) { width: 390px; height: 844px; border-radius: 56px; background: #1b1c22; padding: 12px; box-shadow: 0 30px 80px rgba(20, 22, 50, .28), inset 0 0 0 2px #3a3c46 }
+.mock :global(.phone .screen-in) { width: 366px; height: 820px; border-radius: 46px; overflow: hidden; position: relative; background: #fff; display: flex; flex-direction: column }
+.mock :global(.phone .island) { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; border-radius: 20px; background: #000; z-index: 5 }
+.mock :global(.phone .status) { height: 50px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 6px 30px 0; font: 600 15px var(--ui); z-index: 4 }
+.mock :global(.phone .home-ind) { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: #111; z-index: 6 }
+.mock :global(.phone .app) { flex: 1; overflow: hidden; position: relative; display: flex; flex-direction: column }
+.mock :global(.browser) { width: 1280px; height: 800px; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 24px 70px rgba(20, 22, 50, .22), 0 0 0 1px rgba(0, 0, 0, .08); display: flex; flex-direction: column }
+.mock :global(.browser .chrome) { height: 44px; flex: none; background: #e9ebef; display: flex; align-items: center; gap: 8px; padding: 0 14px; font: 13px var(--ui) }
+.mock :global(.browser .chrome i) { width: 12px; height: 12px; border-radius: 50%; display: inline-block }
+.mock :global(.browser .url) { margin-left: 18px; flex: 1; max-width: 640px; background: #fff; border-radius: 999px; padding: 6px 14px; color: #5f6368 }
+.mock :global(.browser .page) { flex: 1; overflow: hidden; position: relative }
+.mock :global(.pf) { font-family: var(--ui); direction: ltr; text-align: left; color: #0f1419; height: 100%; display: flex; flex-direction: column }
+.mock :global(.pf .ar) { font-family: var(--font-readex, "Readex Pro"), var(--ui) }
+.mock :global(.pf svg) { display: block }
+.mock :global(.clamp2) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+.mock :global(.clamp3) { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden }
+.mock :global([hidden]) { display: none !important }
+
+@media (prefers-reduced-motion: reduce) { .studio *, .rail *, .forming * { animation: none !important; transition: none !important } }

@@ -40,7 +40,13 @@ export default async function PostPage({ params, searchParams }: { params: Promi
   }
 
   const company = (await listCompanies(ctx)).find((c) => c.id === post.company_id);
-  const brand = { name: company?.name ?? post.companies?.name ?? "", logoUrl: company?.logo_url ?? null, logoOnDark: company?.logo_on_dark ?? null, colors: company?.brand_profiles?.colors ?? [] };
+  const brand = { name: company?.name ?? post.companies?.name ?? "", logoUrl: company?.logo_url ?? null, logoOnDark: company?.logo_on_dark ?? null, colors: company?.brand_profiles?.colors ?? [], tagline: company?.brand_profiles?.tagline ?? null };
+
+  // while the post is being made: its newest image, the moment the worker uploads it (the studio shows it forming)
+  let liveImage: string | null = null;
+  const g = (post.generation ?? {}) as { job_id?: string; progress?: { image?: { path: string }[] } };
+  const latest = g.progress?.image?.at(-1)?.path;
+  if (post.status === "generating" && g.job_id && latest) liveImage = (await supabase.storage.from(LIVE_BUCKET).createSignedUrl(`${workspace.id}/posts/${post.id}/${g.job_id}/${latest}`, 3600)).data?.signedUrl ?? null;
   return (
     <PostStudio
       brand={brand}
@@ -49,6 +55,7 @@ export default async function PostPage({ params, searchParams }: { params: Promi
       version={shown ? { version: shown.version, content: shown.content, parent: shown.parent_version, origin: shown.origin, request: shown.request } : null}
       versions={versions.map((x) => x.version)}
       images={images}
+      liveImage={liveImage}
       priceUsd={priceUsd}
       charged={(chargedRes.count ?? 0) > 0}
       fxRate={fx}

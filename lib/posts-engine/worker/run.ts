@@ -12,7 +12,8 @@ import { writePost, type Written } from "./write";
 import { makeImages } from "./images";
 import { designCanvas, repairCanvas, reviewCanvas, screenInfo, type Design, type Looks } from "./design";
 import { buildSlidePage, canvasKey, SlideRenderer, smallJpeg } from "./render";
-import { imageSlides } from "./visual";
+import { imageSlides, prepareBrand, type Prepared } from "./visual";
+import { CANVAS as SIZES_OF } from "./platforms";
 
 /** the brand's own look for the designer: its homepage and one app screen (screenshots), and each slide's AI scene */
 async function brandLooks(brand: any, brandDir: string, runDir: string, slides: { ai_file?: string }[]): Promise<Looks> {
@@ -39,22 +40,38 @@ export async function runPosts(job: JobFile, dirs: { root: string; brandDir: str
   log(`■ post ${post.postId} (${post.type} · ${post.platforms.join(", ")}${post.request ? " · change" : ""}) · ${post.model} · cap $${post.maxUsd}`);
   const cap$ = () => { if (ledger.total() >= post.maxUsd) throw new Error(`cost cap reached ($${ledger.total().toFixed(2)} of $${post.maxUsd})`); };
 
+  const canvases = post.type === "text" ? [] : canvasesFor(post.platforms);
+  const imageMode = canvases.length > 0 && (post.visual ?? "image") === "image";
+  // 0 — the brand (image mode): its logo, references and visual style, shown live on the post page
+  let prepared: Prepared | undefined;
+  if (imageMode) {
+    await sync.stage("brand");
+    prepared = await prepareBrand(post, brand, brandDir, runDir, ledger, log);
+    await sync.stepDone("brand", { palette: brand.palette ?? null, display: brand.fonts?.display ?? null, theme: brand.palette?.theme ?? null, style: prepared.style.slice(0, 400) });
+  }
   // 1 — write
   await sync.stage("write");
   const written = await writePost({ post, brand, ledger, prev, log });
-  await sync.stepDone("write");
-
-  const canvases = post.type === "text" ? [] : canvasesFor(post.platforms);
+  await sync.stepDone("write", { angle: written.angle, headline: written.slides[0]?.headline ?? null, sub: written.slides[0]?.sub ?? null, texts: Object.fromEntries(Object.entries(written.platforms).map(([p, t]) => [p, String(t?.text ?? "").split("\n").find((l) => l.trim()) ?? ""])) });
+  if (imageMode) {
+    await sync.stage("format");
+    await sync.stepDone("format", { format: written.slides[0]?.format ?? null, formats: written.slides.map((s) => s.format ?? null), recent: (post.history ?? []).map((h) => h.format ?? null).filter(Boolean).slice(0, 3) });
+  }
   const design: Design = {};
   const renders: Record<string, string[]> = {};
   const remaining: Record<string, string[][]> = {};
   if (canvases.length && (post.visual ?? "image") === "image") {
     // image mode: one GPT Image call per slide and canvas, from the brand's logo + screenshots, checked by reading it back
-    await sync.stage("images");
-    const r = await imageSlides({ post, brand, brandDir, runDir, slides: written.slides, canvases, ledger, prevRenders: (prev as any)?.renders ?? null, log });
+    const on = {
+      stage: (s: "image" | "check" | "sizes") => sync.stage(s),
+      // each image goes up as soon as it exists: the post page shows it forming
+      image: async (rel: string, canvas: string, n: number) => { await sync.uploadRun([rel]); await sync.stepDone("image", { path: rel, canvas, n }); },
+      check: (c: { canvas: string; n: number; ok: boolean; problems: string[]; attempt: number }) => sync.stepDone("check", c),
+    };
+    const r = await imageSlides({ post, brand, brandDir, runDir, slides: written.slides, canvases, ledger, prevRenders: (prev as any)?.renders ?? null, log, prepared, on });
     Object.assign(renders, r.renders);
     Object.assign(remaining, r.check);
-    await sync.stepDone("images");
+    await sync.stepDone("sizes", { sizes: Object.fromEntries(canvases.map((c) => [c, SIZES_OF[c]])) });
   } else if (canvases.length) {
     // 2 — AI images
     await sync.stage("images");

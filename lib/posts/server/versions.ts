@@ -36,3 +36,13 @@ export async function insertPostVersion(job: { id: string; workspace_id: string;
   if (error) throw new Error(`post_versions insert: ${error.message}`);
   return version;
 }
+
+/** merge into a post's generation (progress reports add to it; they never replace what earlier steps found) */
+export async function mergePostGeneration(postId: string, patch: Record<string, unknown>, fn?: (g: Record<string, unknown>) => Record<string, unknown>) {
+  const db = createAdminClient();
+  const { data } = await db.from("posts").select("generation").eq("id", postId).maybeSingle();
+  const g = ((data?.generation as Record<string, unknown> | null) ?? {}) as Record<string, unknown>;
+  const next = { ...g, ...patch, ...(fn ? fn(g) : {}), updated_at: now() };
+  const { error } = await db.from("posts").update({ generation: next }).eq("id", postId);
+  if (error) console.error("[posts] progress merge failed", { postId, message: error.message });
+}

@@ -17,7 +17,7 @@ import { startLocal } from "./runner-local";
 import { startSandbox } from "./runner-sandbox";
 import { insertLiveVersion } from "./versions";
 import { postsSettings } from "@/lib/posts/config";
-import { insertPostVersion, setPostGeneration } from "@/lib/posts/server/versions";
+import { insertPostVersion, mergePostGeneration, setPostGeneration } from "@/lib/posts/server/versions";
 
 export type LiveMode = { kind: "new" } | { kind: "direction" } | { kind: "lines"; beats: ScriptBeat[] } | { kind: "edit"; instruction: string };
 
@@ -227,8 +227,18 @@ export async function startPostGeneration(postId: string, opts: { request?: stri
     console.error("[posts] could not create the post job", { postId, message: error?.message });
     return setPostGeneration(postId, { stage: "error", mode, error: "could not start" }, opts.request ? "ready" : "failed");
   }
-  await setPostGeneration(postId, { stage: "queued", mode }, "generating");
+  await setPostGeneration(postId, { stage: "queued", mode, job_id: job.id, started_at: now(), progress: {} }, "generating");
   return launch(job.id);
+}
+
+/** "Cancel" on a post that is being made: its job stops counting (later reports change nothing); a post with an
+ *  earlier version goes back to it, a new one is marked failed */
+export async function cancelPostJob(postId: string) {
+  const db = admin();
+  const { data: jobs } = await db.from("live_jobs").select("id").eq("post_id", postId).in("status", ["queued", "running"]);
+  for (const j of jobs ?? []) await patchJob(j.id, { status: "failed", error: "cancelled by the user" });
+  const { count } = await db.from("post_versions").select("id", { count: "exact", head: true }).eq("post_id", postId);
+  await setPostGeneration(postId, { stage: "cancelled" }, count ? "ready" : "failed");
 }
 
 /** one capture job per company at a time; the video job(s) wait for it */
@@ -434,6 +444,7 @@ const videoStage = (job: JobRow, step: Step) => (job.kind === "capture" ? "plan"
 
 export async function handleReport(job: JobRow, r: Report): Promise<unknown> {
   const db = admin();
+  if (job.kind === "post" && job.status === "failed" && r.type !== "log" && r.type !== "upload") return { ok: true, cancelled: true };
   switch (r.type) {
     case "log": {
       await patchJob(job.id, { log: [...(job.log ?? []), ...r.lines].slice(-600) });
@@ -441,7 +452,7 @@ export async function handleReport(job: JobRow, r: Report): Promise<unknown> {
     }
     case "stage": {
       await patchJob(job.id, { stage: r.stage });
-      if (job.kind === "post") { await setPostGeneration(job.post_id!, { stage: r.stage, mode: job.mode ?? "new" }); return { ok: true }; }
+      if (job.kind === "post") { await mergePostGeneration(job.post_id!, { stage: r.stage, [`at_${r.stage}`]: now() }); return { ok: true }; }
       for (const vid of await videosFor(job)) await setGeneration(vid, { stage: videoStage(job, r.stage), mode: job.mode ?? "new", first: job.kind === "capture" || job.input.first });
       return { ok: true };
     }
@@ -452,6 +463,7 @@ export async function handleReport(job: JobRow, r: Report): Promise<unknown> {
       const { error } = await db.from("ai_usage").insert({ workspace_id: job.workspace_id, video_id: job.video_id, ...(job.post_id ? { post_id: job.post_id } : {}), kind: aiKind(row.step), model: row.model, input_tokens: row.in, output_tokens: row.out, cache_read_tokens: row.cacheRead, cache_write_tokens: row.cacheWrite });
       if (error) console.error("[live] ai_usage insert failed", { message: error.message });
       if (job.capture_id && job.kind === "capture") await db.from("live_brand_captures").update({ cost_usd: cost, updated_at: now() }).eq("id", job.capture_id);
+      if (job.kind === "post" && job.post_id) await mergePostGeneration(job.post_id, { cost_usd: cost });
       return { ok: true };
     }
     case "upload": {
@@ -468,6 +480,13 @@ export async function handleReport(job: JobRow, r: Report): Promise<unknown> {
     }
     case "step_done": {
       await patchJob(job.id, { done_steps: [...new Set([...(job.done_steps ?? []), r.step])] });
+      // a post's live progress: what each step found (the post page shows it as it happens)
+      if (job.kind === "post" && job.post_id && r.info) await mergePostGeneration(job.post_id, {}, (g) => {
+        const progress = { ...((g.progress as Record<string, unknown>) ?? {}) };
+        if (r.step === "image" || r.step === "check") progress[r.step] = [...(((progress[r.step] as unknown[]) ?? [])), r.info];
+        else progress[r.step] = r.info;
+        return { progress };
+      });
       if (job.kind === "capture" && job.capture_id) {
         const i = (r.info ?? {}) as Record<string, unknown>;
         if (r.step === "capture") await db.from("live_brand_captures").update({ manifest: i.manifest ?? null, pages: i.pages ?? null, app_screens: i.app_screens ?? null, app_status: i.app_status ?? null, steps: i.steps ?? null, identity_email: i.identity_email ?? null, updated_at: now() }).eq("id", job.capture_id);

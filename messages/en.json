@@ -467,6 +467,65 @@
       "followers": "Followers",
       "addComment": "Add a comment…",
       "home": "Home"
+    },
+    "studio": {
+      "title": "<b>Making</b> your post",
+      "titleChange": "<b>Changing</b> your post",
+      "sub": "We read your brand, write for each platform and design the image — follow every step.",
+      "steps": {
+        "brand": "Reading the brand",
+        "write": "Writing",
+        "format": "Choosing the format",
+        "image": "Making the image",
+        "check": "Checking",
+        "sizes": "Sizes"
+      },
+      "stepsSub": {
+        "brand": "Logo, colours, fonts",
+        "write": "For each platform",
+        "format": "Never repeated",
+        "image": "In the brand's style",
+        "check": "Spelling and logo",
+        "sizes": "Exact pixels"
+      },
+      "time": "Time",
+      "cost": "Cost so far",
+      "step": "Step",
+      "seconds": "{n} s",
+      "cancel": "Cancel",
+      "cancelled": "Cancelled — nothing was charged",
+      "queued": "Getting ready…",
+      "brandRead": "<b>We read {name}'s identity</b> from its website",
+      "logoReady": "The real logo is ready — used as it is, never redrawn",
+      "writing": "<b>Writing for each platform</b> in the brand's voice",
+      "format": "<b>Choosing the kind of picture</b> — the brand's last posts used the crossed-out ones",
+      "formatFirst": "<b>Choosing the kind of picture</b> that fits this idea",
+      "formats": {
+        "people_moment": "People moment",
+        "product_in_use": "Product in use",
+        "object_metaphor": "Object metaphor",
+        "typographic": "Typographic poster",
+        "illustration": "Illustration",
+        "fact_highlight": "Fact highlight",
+        "detail_closeup": "Close-up detail",
+        "place_scene": "Place & scene",
+        "brand_pattern": "Brand pattern"
+      },
+      "image": "<b>Making the image</b> in the brand's style — a new scene, the words written exactly",
+      "check": "<b>Reading the image back</b>",
+      "checks": {
+        "words": "Every letter of the headline is right",
+        "logo": "The logo matches the original",
+        "ui": "No extra text, no invented interface",
+        "real": "The scene is physically real"
+      },
+      "retry": "Found something and made it again: {problem}",
+      "sizes": "<b>The exact size for each platform</b>",
+      "ready": "<b>Your post is ready</b> in {n} seconds",
+      "previewTitle": "Preview — exactly as the post will appear",
+      "textOf": "{platform} text",
+      "readyChip": "Ready",
+      "slide": "Slide {n} of {total}"
     }
   }
 }

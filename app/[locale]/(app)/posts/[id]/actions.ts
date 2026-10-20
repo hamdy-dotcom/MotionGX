@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
 import { assertPostRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
-import { startPostGeneration } from "@/lib/live-engine/server/jobs";
+import { cancelPostJob, startPostGeneration } from "@/lib/live-engine/server/jobs";
 import { LIVE_BUCKET } from "@/lib/live-engine/protocol";
 import { POST_PLATFORMS } from "@/lib/posts/config";
 import type { PostContent } from "@/lib/posts/server/versions";
@@ -37,6 +37,17 @@ export async function requestPostChange(postId: string, version: number, request
   const { error } = await supabase.from("posts").update({ status: "generating", generation: { stage: "queued", mode: "edit", updated_at: new Date().toISOString() } }).eq("id", postId);
   if (error) return { ok: false, error: "generic" };
   after(() => startPostGeneration(postId, { request: text, fromVersion: version }));
+  revalidatePath(`/posts/${postId}`);
+  return { ok: true };
+}
+
+/** stop a post that is being made (nothing is charged: creating is free) */
+export async function cancelPost(postId: string): Promise<Result> {
+  if (!isId(postId)) return { ok: false, error: "generic" };
+  const { supabase } = await getAppContext();
+  const { data } = await supabase.from("posts").select("id").eq("id", postId).maybeSingle(); // RLS: the user's own workspace
+  if (!data) return { ok: false, error: "generic" };
+  await cancelPostJob(postId);
   revalidatePath(`/posts/${postId}`);
   return { ok: true };
 }

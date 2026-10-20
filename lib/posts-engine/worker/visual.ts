@@ -223,11 +223,21 @@ async function checkImage(post: PostJob, slide: Slide, file: string, logo: strin
   return { ok, problems: ok ? [] : [...(r.problems ?? []), !r.words_exact ? "the words are not exactly right" : "", !r.logo_visible ? "the logo is not exactly the brand's logo" : "", r.extra_text ? "there is other text" : "", badUi ? "it shows a device / app screen — remove it (no real screen for this image)" : "", impossible ? `physically impossible: ${impossible}` : ""].filter(Boolean) };
 }
 
-export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: string; runDir: string; slides: Slide[]; canvases: Canvas[]; ledger: Ledger; prevRenders?: Record<string, string[]> | null; log: (l: string) => void }) {
-  const { post, brand, brandDir, runDir, slides, canvases, ledger, log } = opts;
-  const { logo, looks, screens, imagery } = await brandRefs(brand, brandDir, runDir, post.postId);
-  const style = await styleBrief(post, brand, looks, imagery, ledger).catch(() => "");
+/** the brand, read once per post: its logo, the references and its visual style in words */
+export async function prepareBrand(post: PostJob, brand: any, brandDir: string, runDir: string, ledger: Ledger, log: (l: string) => void) {
+  const refs = await brandRefs(brand, brandDir, runDir, post.postId);
+  const style = await styleBrief(post, brand, refs.looks, refs.imagery, ledger).catch(() => "");
   if (style) log(`✓ style: ${style.slice(0, 160)}…`);
+  return { ...refs, style };
+}
+export type Prepared = Awaited<ReturnType<typeof prepareBrand>>;
+/** progress the post page shows live: a step started, an image exists, a check result */
+export type Progress = { stage: (s: "image" | "check" | "sizes") => Promise<unknown>; image: (rel: string, canvas: Canvas, n: number) => Promise<unknown>; check: (r: { canvas: Canvas; n: number; ok: boolean; problems: string[]; attempt: number }) => Promise<unknown> };
+
+export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: string; runDir: string; slides: Slide[]; canvases: Canvas[]; ledger: Ledger; prevRenders?: Record<string, string[]> | null; log: (l: string) => void; prepared?: Prepared; on?: Progress }) {
+  const { post, brand, brandDir, runDir, slides, canvases, ledger, log, on } = opts;
+  const { logo, screens, style } = opts.prepared ?? (await prepareBrand(post, brand, brandDir, runDir, ledger, log));
+  let started = false, checking = false;
   const renders: Record<string, string[]> = {}, check: Record<string, string[][]> = {};
   fs.mkdirSync(path.join(runDir, "slides"), { recursive: true });
   for (const canvas of canvases) {
@@ -246,9 +256,13 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
       const file = path.join(runDir, "slides", `${canvasKey(canvas)}-${i + 1}.jpg`);
       let feedback: string | undefined, last: string[] = [];
       for (let attempt = 0; attempt < 2; attempt++) {
+        if (!started) { started = true; await on?.stage("image"); }
         const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles, screen: hasScreen, style }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
         fs.writeFileSync(file, jpg);
+        await on?.image(path.relative(runDir, file), canvas, i + 1);
+        if (!checking) { checking = true; await on?.stage("check"); }
         const c = await checkImage(post, slide, file, logo, ledger, hasScreen);
+        await on?.check({ canvas, n: i + 1, ok: c.ok, problems: c.problems, attempt });
         last = c.problems;
         if (c.ok) break;
         log(`  check ${canvas} slide ${i + 1}: ${c.problems.join(" | ")}${attempt === 0 ? " — retrying" : ""}`);
@@ -261,5 +275,6 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
     }
     log(`✓ slides ${canvas}: ${slides.length} image(s) · ${SIZE[canvas]}${check[canvas].some((l) => l.length) ? ` · left: ${check[canvas].flat().join(" | ").slice(0, 200)}` : " · check passed"}`);
   }
+  await on?.stage("sizes");
   return { renders, check };
 }

@@ -5,7 +5,7 @@
 export const CAPTURE_STEPS = ["capture", "profile"] as const;
 export const VIDEO_STEPS = ["script", "build", "music", "qa", "render"] as const;
 /** a post job (lib/posts-engine): the text, the AI images, the slide designs, the rendered slides */
-export const POST_STEPS = ["write", "images", "design", "slides"] as const;
+export const POST_STEPS = ["brand", "write", "format", "image", "check", "sizes", "images", "design", "slides"] as const;
 export type Step = (typeof CAPTURE_STEPS)[number] | (typeof VIDEO_STEPS)[number] | (typeof POST_STEPS)[number];
 
 /** sandbox brief (pipeline.mjs) */
