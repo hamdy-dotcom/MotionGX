@@ -152,3 +152,19 @@ video.
 
 Rollback: the same switches as round 2 — `DIRECTOR_LEAN=0` turns off rounds 2 and 3 together (round-1 trimming on
 every call, short edit results, the full plan), and `DIRECTOR_MODEL` returns to Opus by default.
+
+## Watchability gate (lean mode)
+
+Round 3's Mantoog video passed the check with 0 errors yet showed tiny, unreadable UI, 4–6 s frozen shots, an
+overlay blurring half a phone, and near-empty frames: the check only measured the agent's own text. It now also measures
+the rendered frames, whatever the layout (renderer.ts MEASURE / SIGNATURE, agent.ts `watchable`), as errors:
+
+| Code | Measured at | Passes when |
+|---|---|---|
+| ui-small | each scene's main moment | the largest real UI on screen shows its text at ≥ 20 px on the 1080 frame (clones: CSS size × on-screen scale; screenshots/clip frames: 14 CSS px × scale) |
+| ui-fill | the same | the real UI covers ≥ 25% of the frame |
+| empty | the same, no UI on screen | ≥ 8% of the frame carries text or media |
+| blur | the same | no blur overlay sits on the real UI (personal data: `data-pii="a|b"` on the clone placeholder blurs only those words) |
+| hold | every 0.5 s, up to the last scene | the picture changes at least every 3 s |
+
+review returns the failing frames full size (up to 3). `DIRECTOR_LEAN=0` turns the gate off with the rest of lean mode.

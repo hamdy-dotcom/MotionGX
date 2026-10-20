@@ -40,7 +40,7 @@ export function prepare(opts: { compDir: string; brandDir: string; root: string;
   embedClones({ runDir: compDir, brandDir, layout });
   // personal data inside the pasted real UI: phones, e-mails and the test identity are blurred before any frame
   const html = fs.readFileSync(path.join(compDir, "video.html"), "utf8");
-  const guard = `<style>.pii,.pii-auto{filter:blur(9px)!important}</style><script>(()=>{const ID=${JSON.stringify(opts.identity.filter((s) => s && s.length >= 4))};const RE=/(\\+?\\d[\\d\\s().-]{7,}\\d)|([\\w.+-]+@[\\w-]+\\.[\\w.-]+)/;for(const root of document.querySelectorAll(".ui-cam")){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const hits=[];for(let n=w.nextNode();n;n=w.nextNode()){const t=n.textContent||"";if(RE.test(t)||ID.some((s)=>t.includes(s)))hits.push(n)}for(const n of hits){const s=document.createElement("span");s.className="pii-auto";n.parentNode.insertBefore(s,n);s.appendChild(n)}}})();</script>`;
+  const guard = `<style>.pii,.pii-auto{filter:blur(9px)!important}</style><script>(()=>{const ID=${JSON.stringify(opts.identity.filter((s) => s && s.length >= 4))};const RE=/(\\+?\\d[\\d\\s().-]{7,}\\d)|([\\w.+-]+@[\\w-]+\\.[\\w.-]+)/;for(const root of document.querySelectorAll(".ui-cam")){const own=((root.closest("[data-pii]")||{dataset:{}}).dataset.pii||"").split("|").map((s)=>s.trim()).filter((s)=>s.length>=2);const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const hits=[];for(let n=w.nextNode();n;n=w.nextNode()){const t=n.textContent||"";if(RE.test(t)||ID.some((s)=>t.includes(s))||own.some((s)=>t.includes(s)))hits.push(n)}for(const n of hits){const s=document.createElement("span");s.className="pii-auto";n.parentNode.insertBefore(s,n);s.appendChild(n)}}})();</script>`;
   fs.writeFileSync(path.join(compDir, "video.html"), /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${guard}</body>`) : html + guard);
   return { ok: true };
 }
@@ -86,6 +86,83 @@ const ANALYZER = `(() => {
   return out.slice(0, 40);
 })()`;
 
+// The watchability measures, in the page at a given time (plain JS, like ANALYZER): how large the real UI is shown and
+// how readable its text is on this frame, how much of the frame carries anything, and blur laid over the real UI.
+// cssW: each capture id's width in CSS px (screenshots are 2× captures; clip frames are at the clip's own px).
+const MEASURE = `((cssW) => {
+  const W = innerWidth, H = innerHeight, CELL = 40 * Math.min(W, H) / 1080, GX = Math.ceil(W / CELL), GY = Math.ceil(H / CELL);
+  const opacity = (el) => { let o = 1; for (let e = el; e && e.nodeType === 1; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.display === "none" || cs.visibility === "hidden") return 0; o *= +cs.opacity; } return o; };
+  const blurred = (el) => { for (let e = el; e && e.nodeType === 1; e = e.parentElement) if (/blur\\(/.test(getComputedStyle(e).filter) || e.classList.contains("pii") || e.classList.contains("pii-auto")) return true; return false; };
+  const label = (el) => (el.id ? "#" + el.id : el.tagName.toLowerCase() + (el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\\s+/).slice(0, 2).join(".") : ""));
+  const memo = new Map(), full = { l: 0, t: 0, r: W, b: H };
+  const cut = (a, b) => ({ l: Math.max(a.l, b.l), t: Math.max(a.t, b.t), r: Math.min(a.r, b.r), b: Math.min(a.b, b.b) });
+  const clipOf = (e) => { if (!e || e === document.body || e.nodeType !== 1) return full; if (memo.has(e)) return memo.get(e); let c = clipOf(e.parentElement); const cs = getComputedStyle(e); if (cs.overflowX !== "visible" || cs.overflowY !== "visible") { const r = e.getBoundingClientRect(); c = cut(c, { l: r.left, t: r.top, r: r.right, b: r.bottom }); } memo.set(e, c); return c; };
+  const seen = (el) => { const r = el.getBoundingClientRect(), v = cut(clipOf(el.parentElement), { l: r.left, t: r.top, r: r.right, b: r.bottom }); return v.r - v.l > 1 && v.b - v.t > 1 ? v : null; };
+  const area = (v) => (v ? (v.r - v.l) * (v.b - v.t) / (W * H) : 0);
+  const grid = new Uint8Array(GX * GY), uiGrid = new Uint8Array(GX * GY);
+  const mark = (g, v) => { if (!v) return; for (let y = Math.floor(v.t / CELL); y < Math.ceil(v.b / CELL); y++) for (let x = Math.floor(v.l / CELL); x < Math.ceil(v.r / CELL); x++) if (x >= 0 && y >= 0 && x < GX && y < GY) g[y * GX + x] = 1; };
+  const med = (a) => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+  const ui = [];
+  // the pasted real UI (clones): text size = its CSS size × the clone's total on-screen scale
+  for (const c of document.querySelectorAll(".ui-clone")) {
+    if (opacity(c) < 0.5 || !c.offsetWidth) continue;
+    const v = seen(c); if (!v || area(v) < 0.01) continue;
+    const scale = c.getBoundingClientRect().width / c.offsetWidth, sizes = [];
+    for (const el of c.querySelectorAll("*")) {
+      const own = Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim();
+      if (own.length < 2 || blurred(el) || !seen(el)) continue;
+      sizes.push(parseFloat(getComputedStyle(el).fontSize) * scale);
+    }
+    const ph = c.closest("[data-clone]");
+    ui.push({ label: (ph ? label(ph) + " (" + ph.getAttribute("data-clone") + ")" : label(c)), v, area: area(v), text: med(sizes) });
+  }
+  // captured screenshots, parts and clip frames shown as images: body text is ~14 CSS px in the capture
+  for (const img of document.images) {
+    const src = img.getAttribute("src") || "", m = src.match(/(?:capture\\/(?:library\\/)?(?:screens|parts)\\/|clipframes\\/)([^/]+?)(?:\\.(?:full|view))?(?:\\/|\\.(?:jpe?g|png|webp)$)/i);
+    if (!m || !img.naturalWidth || opacity(img) < 0.5) continue;
+    const v = seen(img); if (!v || area(v) < 0.01) continue;
+    const css = cssW[m[1]] || (/clipframes\\//.test(src) ? img.naturalWidth : img.naturalWidth / 2);
+    ui.push({ label: label(img) + " (" + m[1] + ")", v, area: area(v), text: 14 * img.getBoundingClientRect().width / css });
+  }
+  for (const u of ui) { mark(grid, u.v); mark(uiGrid, u.v); }
+  // everything else that carries something: the composition's own text and media
+  for (const el of document.querySelectorAll("body *")) {
+    if (el.closest(".ui-clone")) continue;
+    const own = Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim();
+    const isMedia = el.matches("img, video, canvas, svg");
+    if (!own && !isMedia) continue;
+    if (opacity(el) < 0.5) continue;
+    const v = seen(el); if (v && (own || area(v) > 0.005)) mark(grid, v);
+  }
+  // blur laid over the real UI (overlays with backdrop-filter or filter: blur), other than the personal-data blur
+  const blur = [];
+  for (const el of document.querySelectorAll("body *")) {
+    if (el.closest(".ui-clone") || el.classList.contains("pii") || el.classList.contains("pii-auto")) continue;
+    const cs = getComputedStyle(el), bd = cs.backdropFilter || cs.webkitBackdropFilter || "";
+    if (!/blur\\(/.test(bd) && !/blur\\(/.test(cs.filter)) continue;
+    if (el.querySelector(".ui-clone") || opacity(el) < 0.3) continue; // blurring a whole screen behind another is a choice, not a cover-up
+    const v = seen(el); if (!v) continue;
+    const over = ui.reduce((n, u) => n + area(cut(u.v, v).r > cut(u.v, v).l && cut(u.v, v).b > cut(u.v, v).t ? cut(u.v, v) : null), 0);
+    if (over > 0.02) blur.push({ label: label(el), frac: over });
+  }
+  const sum = (g) => g.reduce((n, x) => n + x, 0) / (GX * GY);
+  const main = ui.slice().sort((a, b) => b.area - a.area)[0] || null;
+  return { cover: sum(grid), uiCover: sum(uiGrid), main: main && { label: main.label, area: main.area, text: main.text }, blur };
+})`;
+// What the frame shows, as a short hash: two moments with the same hash look the same (the hold check).
+const SIGNATURE = `(() => {
+  let h = 5381; const add = (s) => { for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; };
+  for (const el of document.querySelectorAll("body *")) {
+    const inClone = !!el.parentElement && !!el.parentElement.closest(".ui-clone"); if (inClone) continue;
+    const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2 || r.right < 0 || r.bottom < 0 || r.left > innerWidth || r.top > innerHeight) continue;
+    const cs = getComputedStyle(el); if (cs.display === "none" || cs.visibility === "hidden") continue;
+    add([r.left, r.top, r.width, r.height].map((x) => Math.round(x / 3)).join(",") + "|" + Math.round(+cs.opacity * 20) + "|" + cs.filter + "|" + (el.tagName === "IMG" ? el.currentSrc : "") + "|" + Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(""));
+    if (el.classList.contains("ui-clone")) { add(String(el.textContent.length)); for (const f of el.querySelectorAll("input, textarea")) add(String(f.value)); }
+  }
+  return h;
+})()`;
+export type Measure = { cover: number; uiCover: number; main: { label: string; area: number; text: number | null } | null; blur: { label: string; frac: number }[] };
+
 export class Session {
   browser!: Browser; page!: Page; errors: string[] = [];
   constructor(private html: string, private W: number, private H: number) {}
@@ -106,6 +183,8 @@ export class Session {
   async seek(t: number, page = this.page) { await page.evaluate(`Promise.resolve(window.__seek(${t})).then(() => Promise.all(Array.from(document.images).filter((i) => !i.complete).map((i) => i.decode().catch(() => null))))`); }
   async still(t: number, page = this.page) { await this.seek(t, page); return page.screenshot({ type: "jpeg", quality: 82 }); }
   async analyze(t: number) { await this.seek(t); return (await this.page.evaluate(ANALYZER)) as { sev: string; code: string; msg: string }[]; }
+  async measure(t: number, cssW: Record<string, number>) { await this.seek(t); return (await this.page.evaluate(`(${MEASURE})(${JSON.stringify(cssW)})`)) as Measure; }
+  async signature(t: number) { await this.seek(t); return (await this.page.evaluate(SIGNATURE)) as number; }
   async frames(from: number, to: number, onFrame: (jpg: Buffer) => Promise<void>) {
     const page = await this.newPage();
     for (let i = from; i < to; i++) await onFrame(await this.still(i / FPS, page));

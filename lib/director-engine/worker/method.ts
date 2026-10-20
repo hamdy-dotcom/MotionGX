@@ -20,7 +20,12 @@ export const LEAN = `
   a specific moment, and full: [t] when a detail is too small to judge in the grid.
 - Batch: several independent tool calls in one turn (e.g. inspect 3 clones at once; edit then review).
 - brag-plan.md: every section of the format, as terse notes, at most ~500 words in all — decisions, not prose.
-- edit_file shows each changed line with its context: don't read the composition back to confirm an edit.`;
+- edit_file shows each changed line with its context: don't read the composition back to confirm an edit.
+- The check also measures watchability, at each scene's main moment: the real UI's text must render ≥ 20 px on the
+  1080 frame (a desktop screen needs a zoom into its part — K.focus), the real UI must cover ≥ 25% of the frame, no
+  near-empty frames, and nothing may freeze for more than 3 s (but the last scene). Plan the layout for this up front.
+- Personal data inside a clone: never lay a blur over the UI — list its strings on the placeholder,
+  data-pii="name one|name two", and only those words are blurred.`;
 
 export const METHOD = `You are the director: you make the whole video yourself — story, visuals, sound cues, render — the /brag way.
 Whatever the tone, it must feel like a modern, slick, polished launch video for this exact product: nothing on screen or
