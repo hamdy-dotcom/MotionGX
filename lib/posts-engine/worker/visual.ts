@@ -1,0 +1,158 @@
+// Image mode (POSTS_VISUAL=image, the default): each slide is ONE GPT Image call that sees the brand — its logo, its
+// website and product screenshots, the slide's own references — and gets the exact words to write. A cheap check
+// (Haiku, looking at the result) compares the words and the logo; one retry with what was wrong.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import fs from "node:fs";
+import path from "node:path";
+import { chromium } from "playwright";
+import type { PostJob } from "../../live-engine/protocol";
+import { callTool, imageBlock, type Ledger } from "../../live-engine/worker/claude";
+import { LANGUAGE, type Canvas } from "./platforms";
+import { canvasKey, smallJpeg } from "./render";
+import type { Slide } from "./write";
+
+// sizes GPT Image accepts (multiples of 16) closest to each platform's canvas
+const SIZE: Record<Canvas, string> = { "4:5": "1088x1360", "9:16": "1088x1920", "16:9": "1600x896" };
+// OpenAI's GPT Image price per 1M tokens: text in, image in, image out (developers.openai.com/api/docs/pricing)
+const PRICE: Record<string, [number, number, number]> = { default: [5, 8, 30], "gpt-image-1.5": [5, 8, 32], "gpt-image-1": [5, 10, 40], "gpt-image-1-mini": [2, 2.5, 8] };
+
+type Ref = { file: string; role: string };
+
+/** the logo as a PNG reference: an SVG is cropped to its mark and rasterised (transparent background) */
+async function logoPng(brand: any, brandDir: string, out: string): Promise<string | null> {
+  const file = brand.logo?.file ? path.join(brandDir, brand.logo.file) : null;
+  if (!file || !fs.existsSync(file)) return null;
+  if (!/\.svg$/i.test(file)) { fs.copyFileSync(file, out); return out; }
+  const svg = fs.readFileSync(file, "utf8").replace(/<\?xml[^>]*>/, "").replace(/<script[\s\S]*?<\/script>/gi, "");
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1200, height: 1200 } });
+    await page.route("**/*", (r) => (r.request().url().startsWith("data:") || r.request().url() === "about:blank" ? r.continue() : r.abort()));
+    await page.setContent(`<html><body style="margin:0;background:transparent"><div id="l">${svg}</div></body></html>`);
+    const ok = await page.evaluate(`(() => { const s = document.querySelector("#l svg"); if (!s) return false; const b = s.getBBox(); if (!(b.width > 0)) return false; const h = 480, w = Math.round(h * b.width / b.height); s.setAttribute("viewBox", [b.x, b.y, b.width, b.height].join(" ")); s.setAttribute("width", w); s.setAttribute("height", h); s.style.display = "block"; return true; })()`);
+    if (!ok) return null;
+    await (await page.$("#l svg"))!.screenshot({ path: out, omitBackground: true });
+    return out;
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+/** a reference as a JPEG ≤ 1024 px wide (cheaper image input) */
+async function refJpeg(file: string, out: string) {
+  const jpg = await smallJpeg(file, 1024);
+  if (!jpg) return null;
+  fs.writeFileSync(out, jpg);
+  return out;
+}
+
+export async function brandRefs(brand: any, brandDir: string, runDir: string) {
+  const dir = path.join(runDir, "refs");
+  fs.mkdirSync(dir, { recursive: true });
+  const logo = await logoPng(brand, brandDir, path.join(dir, "logo.png"));
+  const screens = (brand.screens ?? []).filter((s: any) => s.view && fs.existsSync(path.join(brandDir, s.view)));
+  const look = [screens.find((s: any) => !s.app && s.use === "hero") ?? screens.find((s: any) => !s.app), screens.find((s: any) => s.app && s.use === "hero") ?? screens.find((s: any) => s.app)].filter(Boolean);
+  const looks: Ref[] = [];
+  for (const s of [...new Set(look)] as any[]) { const f = await refJpeg(path.join(brandDir, s.view), path.join(dir, `look-${s.id}.jpg`)); if (f) looks.push({ file: f, role: `the brand's ${s.app ? "product" : "website"} (${s.id}) — take its visual language, not its content` }); }
+  return { logo, looks, screens };
+}
+
+/** one slide's references: a screen id → its real screenshot; a captured image file → itself */
+async function slideRefs(slide: Slide, brand: any, brandDir: string, runDir: string, screens: any[]): Promise<Ref[]> {
+  const out: Ref[] = [];
+  for (const r of slide.refs ?? []) {
+    const sc = screens.find((s: any) => s.id === r);
+    const src = sc ? path.join(brandDir, sc.view) : path.join(brandDir, r);
+    if (!fs.existsSync(src)) continue;
+    const f = await refJpeg(src, path.join(runDir, "refs", `ref-${path.basename(r).replace(/\.\w+$/, "")}.jpg`));
+    if (f) out.push({ file: f, role: sc ? `a real product screen (${sc.shows ?? sc.id}) — show it as it is, on a device; never change its UI, text or numbers` : `a captured image (${r}) — use it as it is` });
+  }
+  return out;
+}
+
+function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs: { logo: boolean; roles: string[] }, n: number, total: number, feedback?: string) {
+  const [w, h] = SIZE[canvas].split("x");
+  const words = [`Headline: «${slide.headline}»`, slide.sub ? `Second line: «${slide.sub}»` : "", slide.cta ? `Call to action (as a button or tag): «${slide.cta}»` : ""].filter(Boolean).join("\n  ");
+  const rtl = post.dialect !== "en";
+  const palette = brand.palette ? Object.entries(brand.palette).filter(([, v]) => typeof v === "string").map(([k, v]) => `${k} ${v}`).join(", ") : "";
+  return [
+    `Create a finished, premium social media post image (${w}×${h}) for the brand ${brand.name}${brand.name_ar ? ` (${brand.name_ar})` : ""}${total > 1 ? ` — slide ${n} of ${total} of a carousel; keep one consistent design across the slides` : ""}.`,
+    slide.scene ?? "",
+    `Text on the image — write EXACTLY these words and nothing else, in ${LANGUAGE[post.dialect] ?? post.dialect}${rtl ? " (Arabic script, right-to-left, every letter correctly joined, all dots in place, no extra or missing letters)" : ""}, large and crisp, in bold modern typography that matches the brand:\n  ${words}`,
+    `Brand: colours ${palette}. Look: ${brand.look ?? ""}. Fonts: ${brand.fonts?.display ?? ""} / ${brand.fonts?.body ?? ""} style.`,
+    refs.roles.map((r, i) => `Reference image ${i + 1}: ${r}.`).join("\n"),
+    refs.logo ? `Reference image 1 is the brand's logo: place it exactly as given — same shape, colours and proportions, never redrawn, recoloured or altered — clearly visible and well sized, like a signature.` : "",
+    `No other text, letters, numbers, watermarks or made-up interface anywhere. Keep all text well inside the edges.`,
+    feedback ? `The previous attempt had these problems — fix them: ${feedback}` : "",
+  ].filter(Boolean).join("\n\n");
+}
+
+async function generate(post: PostJob, prompt: string, size: string, files: string[], ledger: Ledger) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OPENAI_API_KEY is not set — image posts need it");
+  const form = new FormData();
+  form.append("model", post.image.model);
+  form.append("prompt", prompt);
+  form.append("size", size);
+  form.append("quality", post.image.quality);
+  form.append("output_format", "jpeg");
+  form.append("output_compression", "92");
+  for (const f of files) form.append("image[]", new Blob([fs.readFileSync(f)], { type: f.endsWith(".png") ? "image/png" : "image/jpeg" }), path.basename(f));
+  const t0 = Date.now();
+  const res = await fetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { authorization: `Bearer ${key}` }, body: form });
+  const body = (await res.json().catch(() => null)) as { data?: { b64_json?: string }[]; usage?: { input_tokens?: number; output_tokens?: number; input_tokens_details?: { text_tokens?: number; image_tokens?: number } }; error?: { message?: string } } | null;
+  const u = body?.usage, [pt, pi, po] = PRICE[post.image.model] ?? PRICE.default;
+  const tin = u?.input_tokens ?? 0, timg = u?.input_tokens_details?.image_tokens ?? 0, ttxt = u?.input_tokens_details?.text_tokens ?? Math.max(0, tin - timg), tout = u?.output_tokens ?? 0;
+  if (u) ledger.addPriced("post-image", post.image.model, { in: tin, out: tout }, (ttxt * pt + timg * pi + tout * po) / 1e6, Date.now() - t0);
+  if (!res.ok || !body?.data?.[0]?.b64_json) throw new Error(`OpenAI ${res.status}: ${body?.error?.message?.slice(0, 300) ?? "no image"}`);
+  return Buffer.from(body.data[0].b64_json, "base64");
+}
+
+/** Haiku reads the image: are the words exactly right, is the logo there, is there any other text? */
+async function checkImage(post: PostJob, slide: Slide, file: string, logo: string | null, ledger: Ledger) {
+  const small = (await smallJpeg(file, 900)) ?? fs.readFileSync(file);
+  const content: any[] = [{ type: "text", text: "THE POST IMAGE:" }, imageBlock(small)];
+  if (logo) content.push({ type: "text", text: "THE BRAND'S LOGO (for comparison):" }, imageBlock(fs.readFileSync(logo), "image/png"));
+  content.push({ type: "text", text: `The image must show exactly these words (and no other text):\n- «${slide.headline}»${slide.sub ? `\n- «${slide.sub}»` : ""}${slide.cta ? `\n- «${slide.cta}»` : ""}\nRead the image letter by letter. Report honestly.` });
+  const tool = { name: "check_image", description: "What the image shows.", input_schema: { type: "object", required: ["words_exact", "logo_visible", "problems"], properties: { words_exact: { type: "boolean", description: "every required word is spelled exactly right (every letter, joined correctly)" }, logo_visible: { type: "boolean", description: "the brand's logo appears, recognisably the same" }, extra_text: { type: "boolean", description: "other text or gibberish appears" }, problems: { type: "array", items: { type: "string" }, description: "what is wrong, precisely (which word is misspelled and how)" } } } };
+  const r = (await callTool({ ledger, step: "post-check", model: post.model, system: "You check generated social media images against what they must show.", content, tool, maxTokens: 1500 })) as { words_exact: boolean; logo_visible: boolean; extra_text?: boolean; problems: string[] };
+  const ok = r.words_exact && r.logo_visible && !r.extra_text;
+  return { ok, problems: ok ? [] : (r.problems?.length ? r.problems : [!r.words_exact ? "the words are not exactly right" : "", !r.logo_visible ? "the logo is missing" : "", r.extra_text ? "there is other text" : ""].filter(Boolean)) };
+}
+
+export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: string; runDir: string; slides: Slide[]; canvases: Canvas[]; ledger: Ledger; prevRenders?: Record<string, string[]> | null; log: (l: string) => void }) {
+  const { post, brand, brandDir, runDir, slides, canvases, ledger, log } = opts;
+  const { logo, looks, screens } = await brandRefs(brand, brandDir, runDir);
+  const renders: Record<string, string[]> = {}, check: Record<string, string[][]> = {};
+  fs.mkdirSync(path.join(runDir, "slides"), { recursive: true });
+  for (const canvas of canvases) {
+    renders[canvas] = [];
+    check[canvas] = [];
+    for (const [i, slide] of slides.entries()) {
+      if (ledger.total() >= post.maxUsd) throw new Error(`cost cap reached ($${ledger.total().toFixed(2)} of $${post.maxUsd})`);
+      const own = await slideRefs(slide, brand, brandDir, runDir, screens);
+      // "Request a change": the current slide goes in as a reference, so what wasn't asked to change stays
+      const prevFile = opts.prevRenders?.[canvas]?.[i] ? path.join(runDir, "prev", opts.prevRenders[canvas][i]) : null;
+      const prev: Ref[] = prevFile && fs.existsSync(prevFile) ? [{ file: prevFile, role: `the current version of this slide — keep everything the client didn't ask to change (the change: ${post.request})` }] : [];
+      // at most 4 references (each one is billed as image input): the logo, the current version, the slide's own, one brand look
+      const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own, ...looks.slice(0, own.length ? 1 : 2)].slice(0, 4);
+      const roles = refs.map((r) => r.role);
+      const file = path.join(runDir, "slides", `${canvasKey(canvas)}-${i + 1}.jpg`);
+      let feedback: string | undefined, last: string[] = [];
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
+        fs.writeFileSync(file, jpg);
+        const c = await checkImage(post, slide, file, logo, ledger);
+        last = c.problems;
+        if (c.ok) break;
+        log(`  check ${canvas} slide ${i + 1}: ${c.problems.join(" | ")}${attempt === 0 ? " — retrying" : ""}`);
+        feedback = c.problems.join("; ");
+        if (ledger.total() >= post.maxUsd) break;
+      }
+      renders[canvas].push(path.relative(runDir, file));
+      check[canvas].push(last);
+    }
+    log(`✓ slides ${canvas}: ${slides.length} image(s) · ${SIZE[canvas]}${check[canvas].some((l) => l.length) ? ` · left: ${check[canvas].flat().join(" | ").slice(0, 200)}` : " · check passed"}`);
+  }
+  return { renders, check };
+}

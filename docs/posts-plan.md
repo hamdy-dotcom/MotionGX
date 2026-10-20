@@ -86,3 +86,12 @@ already does them).
   (gpt-image-2.5-flare), `POSTS_IMAGE_QUALITY` (medium), `OPENAI_API_KEY`. The post price is the `prices` row
   `post` ($0.50 seeded — change it there).
 - Carousel downloads save each slide as its own PNG (no zip).
+
+## Image mode (default since this commit)
+
+Each slide is one OpenAI GPT Image call (`/v1/images/edits`) that sees the brand: its logo (an SVG cropped to its mark
+and rasterised), one or two of its own screenshots (website / product) and the slide's references (a real screen, a
+captured photo), plus the exact on-image words. Haiku writes the text and each slide's scene, then reads every
+generated image back: words exact, logo there, no other text — one retry with what was wrong. "Request a change"
+sends the current slide as a reference so what wasn't asked to change stays. Expected ≈ $0.02–0.04 per image.
+`POSTS_VISUAL=html` brings back the HTML designer (Sonnet, references, art-director review).

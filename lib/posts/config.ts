@@ -1,11 +1,13 @@
 // Posts switches (env):
-//   POSTS_MODEL           the writer and designer (default claude-sonnet-5-5)
+//   POSTS_VISUAL          image (default: one GPT Image call per slide, from the brand's logo + screenshots) | html (designed in HTML)
+//   POSTS_MODEL           the writer (and, in html mode, the designer) — default claude-haiku-5-5 (image mode), claude-sonnet-5-5 (html)
 //   POSTS_MAX_USD         the cost cap per post job (default 2)
 //   POSTS_IMAGE_MODEL     OpenAI GPT Image model for AI scenes (default gpt-image-2.5-flare)
 //   POSTS_IMAGE_QUALITY   low | medium | high (default medium)
 //   OPENAI_API_KEY        needed for AI images; without it, AI-image slides fall back to type only
 export const postsSettings = () => ({
-  model: process.env.POSTS_MODEL || "claude-sonnet-5-5",
+  visual: (process.env.POSTS_VISUAL === "html" ? "html" : "image") as "image" | "html",
+  model: process.env.POSTS_MODEL || (process.env.POSTS_VISUAL === "html" ? "claude-sonnet-5-5" : "claude-haiku-5-5"),
   maxUsd: Number(process.env.POSTS_MAX_USD) > 0 ? Number(process.env.POSTS_MAX_USD) : 2,
   image: { model: process.env.POSTS_IMAGE_MODEL || "gpt-image-2.5-flare", quality: ["low", "medium", "high"].includes(process.env.POSTS_IMAGE_QUALITY ?? "") ? process.env.POSTS_IMAGE_QUALITY! : "medium" },
 });

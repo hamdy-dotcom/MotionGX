@@ -12,6 +12,7 @@ import { writePost, type Written } from "./write";
 import { makeImages } from "./images";
 import { designCanvas, repairCanvas, reviewCanvas, screenInfo, type Design, type Looks } from "./design";
 import { buildSlidePage, canvasKey, SlideRenderer, smallJpeg } from "./render";
+import { imageSlides } from "./visual";
 
 /** the brand's own look for the designer: its homepage and one app screen (screenshots), and each slide's AI scene */
 async function brandLooks(brand: any, brandDir: string, runDir: string, slides: { ai_file?: string }[]): Promise<Looks> {
@@ -47,7 +48,14 @@ export async function runPosts(job: JobFile, dirs: { root: string; brandDir: str
   const design: Design = {};
   const renders: Record<string, string[]> = {};
   const remaining: Record<string, string[][]> = {};
-  if (canvases.length) {
+  if (canvases.length && (post.visual ?? "image") === "image") {
+    // image mode: one GPT Image call per slide and canvas, from the brand's logo + screenshots, checked by reading it back
+    await sync.stage("images");
+    const r = await imageSlides({ post, brand, brandDir, runDir, slides: written.slides, canvases, ledger, prevRenders: (prev as any)?.renders ?? null, log });
+    Object.assign(renders, r.renders);
+    Object.assign(remaining, r.check);
+    await sync.stepDone("images");
+  } else if (canvases.length) {
     // 2 — AI images
     await sync.stage("images");
     cap$();

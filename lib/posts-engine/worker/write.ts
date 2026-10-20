@@ -7,7 +7,7 @@ import { callTool, type Ledger } from "../../live-engine/worker/claude";
 import { LANGUAGE, PLATFORM } from "./platforms";
 
 export type Visual = { kind: "screen" | "image" | "ai_image" | "logo" | "none"; screen?: string; device?: "phone" | "laptop"; at?: string; image?: string; prompt?: string };
-export type Slide = { headline: string; sub?: string; points?: string[]; cta?: string; visual: Visual; ai_file?: string };
+export type Slide = { headline: string; sub?: string; points?: string[]; cta?: string; visual: Visual; ai_file?: string; scene?: string; refs?: string[] };
 export type PostText = { text: string; hashtags: string[] };
 export type Written = { angle: string; alt_text: string; platforms: Partial<Record<PostPlatform, PostText>>; slides: Slide[] };
 
@@ -37,6 +37,7 @@ Hard rules:
 
 export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledger; prev?: Written | null; log: (l: string) => void }): Promise<Written> {
   const { post, brand, ledger, prev } = opts;
+  const imageMode = (post.visual ?? "image") === "image";
   const { facts, screens, images } = brandBrief(brand);
   const visualPost = post.type !== "text";
   const count = post.type === "single" ? 1 : post.slides ?? null;
@@ -63,6 +64,18 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
       },
     },
   };
+  // image mode: each slide is one generated image — its exact words, and the whole picture described for the image model
+  const imageSlide = {
+    type: "object",
+    required: ["headline", "scene"],
+    properties: {
+      headline: { type: "string", description: "the big line written ON the image — short (≤ 6 words), exactly as it must appear" },
+      sub: { type: "string", description: "optional second line on the image (≤ 10 words)" },
+      cta: { type: "string", description: "optional call to action on the image (≤ 4 words; usually the last slide)" },
+      scene: { type: "string", description: "in English, the whole image for the image model: the subject and setting, the composition (where the headline, the logo and any product screen sit), light, mood and the brand's visual style (its colours, shapes, look). Premium agency quality, unmistakably this brand. No other words than the headline / sub / cta." },
+      refs: { type: "array", items: { type: "string" }, description: "up to 2 references to show in or guide the image: a screen id from SCREENS (shown as it really is — on a phone or laptop) or a file from IMAGES" },
+    },
+  };
   const tool = {
     name: "write_post",
     description: "The post: its angle, each platform's text, and the slides.",
@@ -73,7 +86,7 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
         angle: { type: "string", description: "the one idea this post is about (one sentence)" },
         alt_text: { type: "string", description: "accessibility description of the visual(s), in the post's language" },
         platforms: { type: "object", required: post.platforms, properties: platforms },
-        ...(visualPost ? { slides: { type: "array", items: slide, description: count ? `exactly ${count} slide(s)` : "3–7 slides" } } : {}),
+        ...(visualPost ? { slides: { type: "array", items: imageMode ? imageSlide : slide, description: count ? `exactly ${count} slide(s)` : "3–7 slides" } } : {}),
       },
     },
   };
@@ -82,7 +95,7 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
     `COMPANY FACTS\n${JSON.stringify(facts)}`,
     visualPost ? `SCREENS (real captured screens; show them whole in their device)\n${JSON.stringify(screens)}\nIMAGES (captured; test_data ones are the capture's demo content — products shown as an example of a store's catalogue, never as the company's own photos)\n${JSON.stringify(images)}` : "",
     `TODAY: ${new Date().toISOString().slice(0, 10)}`,
-    `THE POST\n- What the client wants: ${post.brief}\n- Type: ${post.type === "single" ? "one image + text" : post.type === "carousel" ? `carousel${count ? ` of ${count} slides` : ""} + text — slide 1 hooks, the middle slides deliver, the last slide closes with the call to action` : "text only (no image)"}\n- Language: ${LANGUAGE[post.dialect] ?? post.dialect}\n- Platforms and their rules:\n${post.platforms.map((p) => `  - ${PLATFORM[p].name}: ${PLATFORM[p].rules} (max ${PLATFORM[p].maxChars} characters)`).join("\n")}${visualPost ? `\n- Visuals: ${ai} On-image text is short (the platform text carries the detail).` : ""}`,
+    `THE POST\n- What the client wants: ${post.brief}\n- Type: ${post.type === "single" ? "one image + text" : post.type === "carousel" ? `carousel${count ? ` of ${count} slides` : ""} + text — slide 1 hooks, the middle slides deliver, the last slide closes with the call to action` : "text only (no image)"}\n- Language: ${LANGUAGE[post.dialect] ?? post.dialect}\n- Platforms and their rules:\n${post.platforms.map((p) => `  - ${PLATFORM[p].name}: ${PLATFORM[p].rules} (max ${PLATFORM[p].maxChars} characters)`).join("\n")}${visualPost ? (imageMode ? `\n- Visuals: each slide is ONE image made by an image model that sees the brand's logo, its website and product screenshots. Describe it fully in scene; when the post is about the product, put a real screen in it (refs). On-image words are short (the platform text carries the detail).` : `\n- Visuals: ${ai} On-image text is short (the platform text carries the detail).`) : ""}`,
     prev ? `THE CURRENT VERSION\n${JSON.stringify(prev)}\n\nTHE CLIENT ASKS FOR THIS CHANGE: ${post.request}\nChange what they ask for and keep everything else as it is.` : "",
   ].filter(Boolean).join("\n\n");
   const out = (await callTool({ ledger, step: "post-write", model: post.model, system: `${SYSTEM}`, content, tool, maxTokens: 8000, effort: "medium" })) as Written;
@@ -96,6 +109,11 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
     if (len() > 280) x.text = `${x.text.slice(0, 277).replace(/\s+\S*$/, "")}…`;
   }
   for (const s of out.slides) {
+    if (imageMode) {
+      s.visual = { kind: "none" };
+      s.refs = (s.refs ?? []).filter((r) => screens.some((x: any) => x.id === r) || images.some((x: any) => x.file === r)).slice(0, 2);
+      continue;
+    }
     const v = s.visual ?? { kind: "none" };
     // only what exists: an unknown screen / image falls back to type only
     if (v.kind === "screen" && !screens.some((x: any) => x.id === v.screen && x.devices.includes(v.device ?? (x.devices[0] as string)))) s.visual = { kind: "none" };
@@ -103,6 +121,6 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
     if (v.kind === "image" && !images.some((x: any) => x.file === v.image)) s.visual = { kind: "none" };
     if (v.kind === "ai_image" && (post.aiImage === "no" || !v.prompt)) s.visual = { kind: "none" };
   }
-  opts.log(`✓ write: "${out.angle}" · ${post.platforms.join(", ")} · ${out.slides.length} slide(s)${out.slides.length ? ` (${out.slides.map((s) => s.visual.kind).join(", ")})` : ""}`);
+  opts.log(`✓ write: "${out.angle}" · ${post.platforms.join(", ")} · ${out.slides.length} slide(s)${out.slides.length ? ` (${out.slides.map((s) => (imageMode ? `refs: ${(s.refs ?? []).join("+") || "none"}` : s.visual.kind)).join(", ")})` : ""}`);
   return out;
 }

@@ -95,7 +95,7 @@ export async function downloadPost(postId: string, version: number, canvas: stri
   const files: { url: string; name: string }[] = [];
   for (const [c, paths] of want) {
     for (const [i, p] of paths.entries()) {
-      const name = `post-${c.replace(":", "x")}-${i + 1}.png`;
+      const name = `post-${c.replace(":", "x")}-${i + 1}.${p.split(".").pop() || "png"}`;
       const { data } = await supabase.storage.from(LIVE_BUCKET).createSignedUrl(p, 600, { download: name });
       if (data?.signedUrl) files.push({ url: data.signedUrl, name });
     }
