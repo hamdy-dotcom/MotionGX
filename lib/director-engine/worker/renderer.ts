@@ -114,6 +114,24 @@ export class Session {
   async close() { await this.browser?.close().catch(() => {}); }
 }
 
+/**
+ * Lean mode: several images as ONE labeled grid — the capture's contact sheet, or a snapshot's frames — so the agent
+ * looks at them in one image (~1.5k tokens) instead of one image each. Drawn in a headless page (no network).
+ */
+export async function gridImage(tiles: { jpg: Buffer; label: string }[], opts: { cols: number; tileW: number; aspect: number }) {
+  if (!tiles.length) return null;
+  const { cols, tileW, aspect } = opts, tileH = Math.round(tileW * aspect), rows = Math.ceil(tiles.length / cols);
+  const small = await Promise.all(tiles.map((t) => smallJpeg(t.jpg, tileW * 2)));
+  const html = `<html><body style="margin:0;background:#16181d;font:600 13px/1.2 system-ui,sans-serif;color:#fff"><div style="display:grid;grid-template-columns:repeat(${cols},${tileW}px);gap:6px;padding:6px">${tiles.map((t, i) => `<div><div style="width:${tileW}px;height:${tileH}px;background:#000 url(data:image/jpeg;base64,${small[i].toString("base64")}) center/contain no-repeat"></div><div style="padding:3px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.label.replace(/[<&]/g, "")}</div></div>`).join("")}</div></body></html>`;
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: cols * (tileW + 6) + 6, height: rows * (tileH + 26) + 12 } });
+    await page.route("**/*", (r) => (r.request().url().startsWith("data:") || r.request().url() === "about:blank" ? r.continue() : r.abort()));
+    await page.setContent(html, { waitUntil: "load" });
+    return await page.screenshot({ type: "jpeg", quality: 72, fullPage: true });
+  } finally { await browser.close(); }
+}
+
 /** a still scaled down for the agent to look at (≈540 px wide) */
 export async function smallJpeg(jpg: Buffer, width = 540): Promise<Buffer> {
   const r = spawnSync(await ffmpegPath(), ["-loglevel", "error", "-f", "image2pipe", "-i", "-", "-vf", `scale=${width}:-2`, "-q:v", "5", "-f", "image2", "-c:v", "mjpeg", "-"], { input: jpg, maxBuffer: 1 << 26 });
