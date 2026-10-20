@@ -96,7 +96,10 @@ async function phoneShot(cloneId: string, brandDir: string, out: string) {
   }
 }
 
-export async function brandRefs(brand: any, brandDir: string, runDir: string) {
+/** a stable pick per post: each post leans on a different one of the brand's pages / images */
+const pick = <T,>(list: T[], seed: string, salt: string) => { if (!list.length) return null; let h = 2166136261; for (const c of seed + salt) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0; return list[h % list.length]; };
+
+export async function brandRefs(brand: any, brandDir: string, runDir: string, seed = "") {
   const dir = path.join(runDir, "refs");
   fs.mkdirSync(dir, { recursive: true });
   const raw = await logoPng(brand, brandDir, path.join(dir, "logo-raw.png"));
@@ -105,14 +108,18 @@ export async function brandRefs(brand: any, brandDir: string, runDir: string) {
   // the brand's identity lives on its own website (app: false, not a customer page) — never on product screens, which show
   // the product's content (a customer's store, a generated page) in someone else's theme
   const site = screens.filter((s: any) => !s.app && !s.customer);
-  const look = [site.find((s: any) => s.use === "hero") ?? site[0], site.find((s: any) => s.use !== "hero" && s !== site[0])].filter(Boolean).slice(0, 2);
+  // one of the brand's own pages per post (rotated), so no single page becomes every post's picture
+  const page: any = pick(site, seed, "page");
   const looks: Ref[] = [];
-  for (const s of [...new Set(look)] as any[]) { const f = await refJpeg(path.join(brandDir, s.view), path.join(dir, `look-${s.id}.jpg`)); if (f) looks.push({ file: f, role: `the brand's own website (${s.id})` }); }
+  if (page) { const f = await refJpeg(path.join(brandDir, page.view), path.join(dir, `look-${page.id}.jpg`)); if (f) looks.push({ file: f, role: `the brand's own website (${page.id}) — STYLE REFERENCE ONLY — take its colours, light, mood and visual language; never reproduce it: not these people, not this photo, not this page or its layout, and never show it on a screen` }); }
   // the brand's own imagery (its photos / illustrations, never the capture's demo products): the picture's style comes from it
   const rank: Record<string, number> = { people: 0, lifestyle: 1, illustration: 2 };
   const own = (brand.images ?? []).filter((i: any) => !i.demo && i.kind in rank && i.w >= 400 && fs.existsSync(path.join(brandDir, i.file)));
   const imagery: Ref[] = [];
-  for (const i of own.sort((a: any, b: any) => rank[a.kind] - rank[b.kind] || (b.w * b.h) - (a.w * a.h)).slice(0, 1)) { const f = await refJpeg(path.join(brandDir, i.file), path.join(dir, `imagery-${path.basename(i.file).replace(/\.\w+$/, "")}.jpg`)); if (f) imagery.push({ file: f, role: `the brand's own ${i.kind === "people" || i.kind === "lifestyle" ? "photography" : i.kind} — make the picture in this same style (subjects, light, colour grade, rendering)` }); }
+  // one of the brand's own images per post (rotated among its best), for the style of the picture — never its content
+  const best = own.sort((a: any, b: any) => rank[a.kind] - rank[b.kind] || (b.w * b.h) - (a.w * a.h)).slice(0, 6);
+  const img: any = pick(best, seed, "imagery");
+  if (img) { const f = await refJpeg(path.join(brandDir, img.file), path.join(dir, `imagery-${path.basename(img.file).replace(/\.\w+$/, "")}.jpg`)); if (f) imagery.push({ file: f, role: `the brand's own ${img.kind === "people" || img.kind === "lifestyle" ? "photography" : img.kind} — STYLE REFERENCE ONLY — take its colours, light, mood and visual language; never reproduce it: not these people, not this photo, not this page or its layout, and never show it on a screen; create NEW people / subjects and a NEW scene in this style (its kind of subjects, light, colour grade, rendering)` }); }
   return { logo, looks, screens, imagery };
 }
 
@@ -144,6 +151,7 @@ function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs
   return [
     `Create a finished, premium social media post image (${w}×${h}) for the brand ${brand.name}${brand.name_ar ? ` (${brand.name_ar})` : ""}${total > 1 ? ` — slide ${n} of ${total} of a carousel; keep one consistent design across the slides` : ""}.`,
     slide.scene ?? "",
+    `Everything in the picture is newly made for this post: style references set the look, never the content.`,
     `Make it alive: a real subject in a real moment — the brand's audience, or its product in real use — rendered in ${imagery ? "the brand's own imagery style (its reference image)" : "premium, natural lifestyle photography"}; depth, light and emotion, like a top brand's campaign — never a flat badge of icons on a plain background.`,
     `Text on the image — write EXACTLY these words and nothing else, in ${LANGUAGE[post.dialect] ?? post.dialect}${rtl ? " (Arabic script, right-to-left, every letter correctly joined, all dots in place, no extra or missing letters)" : ""}, large and crisp, in bold modern typography that matches the brand:\n  ${words}`,
     `THE BRAND IS THE BASE OF THIS IMAGE — it must feel like an extension of the brand itself, as if taken from its own website. Its colours dominate: ${palette}${brand.palette?.theme ? ` (a ${brand.palette.theme} brand: the image is ${brand.palette.theme})` : ""}. Its look: ${brand.look ?? ""}. Its type: ${brand.fonts?.display ?? ""} / ${brand.fonts?.body ?? ""} style. Any occasion or theme (a holiday, a season, an event) is expressed INSIDE this identity — its motifs drawn in the brand's own colours and style — never with the occasion's traditional stock palette or look, unless those are the brand's own colours.`,
@@ -192,7 +200,7 @@ async function checkImage(post: PostJob, slide: Slide, file: string, logo: strin
 
 export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: string; runDir: string; slides: Slide[]; canvases: Canvas[]; ledger: Ledger; prevRenders?: Record<string, string[]> | null; log: (l: string) => void }) {
   const { post, brand, brandDir, runDir, slides, canvases, ledger, log } = opts;
-  const { logo, looks, screens, imagery } = await brandRefs(brand, brandDir, runDir);
+  const { logo, looks, screens, imagery } = await brandRefs(brand, brandDir, runDir, post.postId);
   const renders: Record<string, string[]> = {}, check: Record<string, string[][]> = {};
   fs.mkdirSync(path.join(runDir, "slides"), { recursive: true });
   for (const canvas of canvases) {
@@ -205,7 +213,7 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
       const prevFile = opts.prevRenders?.[canvas]?.[i] ? path.join(runDir, "prev", opts.prevRenders[canvas][i]) : null;
       const prev: Ref[] = prevFile && fs.existsSync(prevFile) ? [{ file: prevFile, role: `the current version of this slide — keep everything the client didn't ask to change (the change: ${post.request})` }] : [];
       // at most 4 references (each one is billed as image input): the logo, the current version, the slide's own, one brand look
-      const style: Ref[] = [...looks.slice(0, imagery.length ? 1 : 2).map((l) => ({ ...l, role: `${l.role} — the image must look like a section of this site: its background colour, gradients, shapes, card style, type and mood (do not reproduce its interface or words)` })), ...imagery];
+      const style: Ref[] = [...looks, ...imagery];
       const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own, ...style].slice(0, own.length || prev.length ? 4 : 3);
 
       const roles = refs.map((r) => r.role);

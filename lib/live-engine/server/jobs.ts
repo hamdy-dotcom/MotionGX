@@ -310,6 +310,18 @@ export async function launch(jobId: string) {
   }
 
   // "Request a change" of a post: the version it changes (its content, design and AI images) as run/prev/…
+  // the company's recent posts: a daily feed keeps one identity but never repeats a concept, subject or layout
+  const postHistory: { angle: string; headline: string; scene: string }[] = [];
+  if (job.kind === "post" && !job.input.request) {
+    const { data: recent } = await db.from("post_versions").select("content, post_id, posts!inner(company_id)").eq("posts.company_id", job.company_id!).neq("post_id", job.post_id!).order("created_at", { ascending: false }).limit(20);
+    const seen = new Set<string>();
+    for (const r of (recent ?? []) as { content: { angle?: string; slides?: { headline?: string; scene?: string }[] } | null; post_id: string }[]) {
+      if (seen.has(r.post_id) || !r.content?.angle) continue;
+      seen.add(r.post_id);
+      postHistory.push({ angle: r.content.angle, headline: r.content.slides?.[0]?.headline ?? "", scene: String(r.content.slides?.[0]?.scene ?? "").slice(0, 400) });
+      if (postHistory.length >= 8) break;
+    }
+  }
   if (job.kind === "post" && job.input.prevJobId) {
     const prevRun = `${job.workspace_id}/posts/${job.post_id}/${job.input.prevJobId}`;
     for (const f of await listFiles(prevRun)) if (/\/(post|design)\.json$/.test(f)) await add(f, `run/prev/${f.split("/").pop()}`);
@@ -341,7 +353,7 @@ export async function launch(jobId: string) {
     history,
     settings: job.input.settings,
     ...(job.input.engine === "director" ? { engine: "director" as const, director: directorSettings() } : {}),
-    ...(post ? { post: { postId: post.id, type: post.type, platforms: post.platforms, brief: post.brief, dialect: post.dialect, aiImage: post.ai_image, slides: post.slides ?? null, ...(job.input.request ? { request: job.input.request } : {}), ...postsSettings() } } : {}),
+    ...(post ? { post: { postId: post.id, type: post.type, platforms: post.platforms, brief: post.brief, dialect: post.dialect, aiImage: post.ai_image, slides: post.slides ?? null, ...(job.input.request ? { request: job.input.request } : {}), ...(postHistory.length ? { history: postHistory } : {}), ...postsSettings() } } : {}),
   };
   // local runner: a capture whose agent already finished on this machine (but whose upload never reached the app) resumes
   // from that folder at the upload — a relaunch never repeats the agent and its model calls

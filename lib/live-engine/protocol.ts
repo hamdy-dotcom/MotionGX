@@ -64,6 +64,8 @@ export type PostJob = {
   image: { model: string; quality: string };
   /** how slides are made: "image" = one GPT Image call per slide from the brand's references (default), "html" = designed in HTML */
   visual?: "image" | "html";
+  /** the company's recent posts (newest first): the new one must not repeat their concept, subject or layout */
+  history?: { angle: string; headline: string; scene: string }[];
 };
 
 export type LedgerRow = { step: string; model: string; in: number; out: number; cacheRead: number; cacheWrite: number; usd: number; ms: number };
