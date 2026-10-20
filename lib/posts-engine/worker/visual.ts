@@ -10,6 +10,7 @@ import type { PostJob } from "../../live-engine/protocol";
 import { callTool, imageBlock, type Ledger } from "../../live-engine/worker/claude";
 import { LANGUAGE, type Canvas } from "./platforms";
 import { canvasKey, smallJpeg } from "./render";
+import { embedClones } from "../../live-engine/worker/steps/build";
 import type { Slide } from "./write";
 
 // sizes GPT Image accepts (multiples of 16) closest to each platform's canvas
@@ -57,10 +58,49 @@ async function refJpeg(file: string, out: string) {
   return out;
 }
 
+/** the logo on a tile that shows it: a light logo (made for dark backgrounds) on near-black, a dark one on white —
+ *  a white logo on a transparent PNG is invisible to the image model and to the check */
+async function logoTile(png: string, onDark: boolean, out: string) {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+    await page.route("**/*", (r) => (r.request().url().startsWith("data:") || r.request().url() === "about:blank" ? r.continue() : r.abort()));
+    await page.setContent(`<html><body style="margin:0;background:${onDark ? "#121318" : "#ffffff"}"><div id="t" style="display:inline-block;padding:80px;background:${onDark ? "#121318" : "#ffffff"}"><img src="data:image/png;base64,${fs.readFileSync(png).toString("base64")}" style="display:block;height:360px;width:auto"></div></body></html>`, { waitUntil: "load" });
+    await (await page.$("#t"))!.screenshot({ path: out });
+    return out;
+  } catch {
+    return png;
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+/** a phone screen as it really is: the screen's mobile clone (the real UI), rendered at the capture's 390×844 viewport */
+async function phoneShot(cloneId: string, brandDir: string, out: string) {
+  const dir = path.join(path.dirname(out), `phone-${cloneId}`);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "video.src.html"), `<!doctype html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0}html,body{width:390px;height:844px;overflow:hidden;background:#fff}</style></head><body><div data-clone="${cloneId}" data-w="390" data-h="844" data-frame="none" style="position:absolute;left:0;top:0"></div></body></html>`);
+  embedClones({ runDir: dir, brandDir, layout: "9:16" });
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+    await page.route("**/*", (r) => (r.request().url().startsWith("file://") || r.request().url().startsWith("data:") ? r.continue() : r.abort()));
+    await page.goto("file://" + path.join(dir, "video.html"), { waitUntil: "load", timeout: 60000 });
+    await page.evaluate("Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 8000))])");
+    await page.screenshot({ path: out, type: "jpeg", quality: 90 });
+    return out;
+  } catch {
+    return null;
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
 export async function brandRefs(brand: any, brandDir: string, runDir: string) {
   const dir = path.join(runDir, "refs");
   fs.mkdirSync(dir, { recursive: true });
-  const logo = await logoPng(brand, brandDir, path.join(dir, "logo.png"));
+  const raw = await logoPng(brand, brandDir, path.join(dir, "logo-raw.png"));
+  const logo = raw ? await logoTile(raw, brand.logo?.on_dark !== false, path.join(dir, "logo.png")) : null;
   const screens = (brand.screens ?? []).filter((s: any) => s.view && fs.existsSync(path.join(brandDir, s.view)));
   const look = [screens.find((s: any) => !s.app && s.use === "hero") ?? screens.find((s: any) => !s.app), screens.find((s: any) => s.app && s.use === "hero") ?? screens.find((s: any) => s.app)].filter(Boolean);
   const looks: Ref[] = [];
@@ -73,15 +113,21 @@ async function slideRefs(slide: Slide, brand: any, brandDir: string, runDir: str
   const out: Ref[] = [];
   for (const r of slide.refs ?? []) {
     const sc = screens.find((s: any) => s.id === r);
+    // a phone in the scene shows the screen's real mobile UI; otherwise its desktop screenshot on a laptop
+    const mobile = sc?.clones?.mobile?.id && /phone|mobile|smartphone|هاتف|موبايل/i.test(slide.scene ?? "") ? sc.clones.mobile.id : null;
+    if (mobile) {
+      const f = await phoneShot(mobile, brandDir, path.join(runDir, "refs", `phone-${mobile}.jpg`));
+      if (f) { out.push({ file: f, role: `the real phone screen of the product (${sc.shows ?? sc.id}) — put exactly this screen on the phone, as it is; never change, redraw or invent its UI, text or numbers` }); continue; }
+    }
     const src = sc ? path.join(brandDir, sc.view) : path.join(brandDir, r);
     if (!fs.existsSync(src)) continue;
     const f = await refJpeg(src, path.join(runDir, "refs", `ref-${path.basename(r).replace(/\.\w+$/, "")}.jpg`));
-    if (f) out.push({ file: f, role: sc ? `a real product screen (${sc.shows ?? sc.id}) — show it as it is, on a device; never change its UI, text or numbers` : `a captured image (${r}) — use it as it is` });
+    if (f) out.push({ file: f, role: sc ? `a real product screen (${sc.shows ?? sc.id}) — show exactly this screen on a laptop, as it is; never change, redraw or invent its UI, text or numbers` : `a captured image (${r}) — use it as it is` });
   }
   return out;
 }
 
-function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs: { logo: boolean; roles: string[] }, n: number, total: number, feedback?: string) {
+function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs: { logo: boolean; roles: string[]; screen: boolean }, n: number, total: number, feedback?: string) {
   const [w, h] = SIZE[canvas].split("x");
   const words = [`Headline: «${slide.headline}»`, slide.sub ? `Second line: «${slide.sub}»` : "", slide.cta ? `Call to action (as a button or tag): «${slide.cta}»` : ""].filter(Boolean).join("\n  ");
   const rtl = post.dialect !== "en";
@@ -92,7 +138,8 @@ function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs
     `Text on the image — write EXACTLY these words and nothing else, in ${LANGUAGE[post.dialect] ?? post.dialect}${rtl ? " (Arabic script, right-to-left, every letter correctly joined, all dots in place, no extra or missing letters)" : ""}, large and crisp, in bold modern typography that matches the brand:\n  ${words}`,
     `Brand: colours ${palette}. Look: ${brand.look ?? ""}. Fonts: ${brand.fonts?.display ?? ""} / ${brand.fonts?.body ?? ""} style.`,
     refs.roles.map((r, i) => `Reference image ${i + 1}: ${r}.`).join("\n"),
-    refs.logo ? `Reference image 1 is the brand's logo: place it exactly as given — same shape, colours and proportions, never redrawn, recoloured or altered — clearly visible and well sized, like a signature.` : "",
+    refs.logo ? `Reference image 1 is the brand's logo (shown on a plain tile — the tile is not part of the logo): reproduce the mark and its lettering exactly as given — same shapes, letters, colours and proportions, never redrawn, re-spelled, recoloured or altered — clearly visible and well sized, like a signature.` : "",
+    refs.screen ? "Any phone or laptop in the image shows ONLY the real screen given as a reference, exactly as it is." : "Do NOT show any phone, laptop, tablet, app screen or user interface — there is no real screen for this image.",
     `No other text, letters, numbers, watermarks or made-up interface anywhere. Keep all text well inside the edges.`,
     feedback ? `The previous attempt had these problems — fix them: ${feedback}` : "",
   ].filter(Boolean).join("\n\n");
@@ -120,15 +167,16 @@ async function generate(post: PostJob, prompt: string, size: string, files: stri
 }
 
 /** Haiku reads the image: are the words exactly right, is the logo there, is there any other text? */
-async function checkImage(post: PostJob, slide: Slide, file: string, logo: string | null, ledger: Ledger) {
+async function checkImage(post: PostJob, slide: Slide, file: string, logo: string | null, ledger: Ledger, screenAllowed: boolean) {
   const small = (await smallJpeg(file, 900)) ?? fs.readFileSync(file);
   const content: any[] = [{ type: "text", text: "THE POST IMAGE:" }, imageBlock(small)];
   if (logo) { const buf = fs.readFileSync(logo); content.push({ type: "text", text: "THE BRAND'S LOGO (for comparison):" }, imageBlock(buf, mediaOf(buf))); }
-  content.push({ type: "text", text: `The image must show exactly these words (and no other text):\n- «${slide.headline}»${slide.sub ? `\n- «${slide.sub}»` : ""}${slide.cta ? `\n- «${slide.cta}»` : ""}\nRead the image letter by letter. Report honestly.` });
-  const tool = { name: "check_image", description: "What the image shows.", input_schema: { type: "object", required: ["words_exact", "logo_visible", "problems"], properties: { words_exact: { type: "boolean", description: "every required word is spelled exactly right (every letter, joined correctly)" }, logo_visible: { type: "boolean", description: "the brand's logo appears, recognisably the same" }, extra_text: { type: "boolean", description: "other text or gibberish appears" }, problems: { type: "array", items: { type: "string" }, description: "what is wrong, precisely (which word is misspelled and how)" } } } };
-  const r = (await callTool({ ledger, step: "post-check", model: post.model, system: "You check generated social media images against what they must show.", content, tool, maxTokens: 1500 })) as { words_exact: boolean; logo_visible: boolean; extra_text?: boolean; problems: string[] };
-  const ok = r.words_exact && r.logo_visible && !r.extra_text;
-  return { ok, problems: ok ? [] : (r.problems?.length ? r.problems : [!r.words_exact ? "the words are not exactly right" : "", !r.logo_visible ? "the logo is missing" : "", r.extra_text ? "there is other text" : ""].filter(Boolean)) };
+  content.push({ type: "text", text: `The image must show exactly these words (and no other text):\n- «${slide.headline}»${slide.sub ? `\n- «${slide.sub}»` : ""}${slide.cta ? `\n- «${slide.cta}»` : ""}\nRead the image letter by letter. Compare the logo with the reference shape by shape and letter by letter (a re-spelled or redrawn logo is not the logo).${screenAllowed ? "" : " This image must not show any phone, laptop, tablet, app screen or user interface."} Report honestly.` });
+  const tool = { name: "check_image", description: "What the image shows.", input_schema: { type: "object", required: ["words_exact", "logo_visible", "problems"], properties: { words_exact: { type: "boolean", description: "every required word is spelled exactly right (every letter, joined correctly)" }, logo_visible: { type: "boolean", description: "the brand's logo appears, recognisably the same" }, extra_text: { type: "boolean", description: "other text or gibberish appears" }, ui_shown: { type: "boolean", description: "a phone, laptop, tablet, app screen or interface appears" }, problems: { type: "array", items: { type: "string" }, description: "what is wrong, precisely (which word is misspelled and how)" } } } };
+  const r = (await callTool({ ledger, step: "post-check", model: post.model, system: "You check generated social media images against what they must show.", content, tool, maxTokens: 1500 })) as { words_exact: boolean; logo_visible: boolean; extra_text?: boolean; ui_shown?: boolean; problems: string[] };
+  const badUi = !screenAllowed && Boolean(r.ui_shown);
+  const ok = r.words_exact && r.logo_visible && !r.extra_text && !badUi;
+  return { ok, problems: ok ? [] : [...(r.problems ?? []), !r.words_exact ? "the words are not exactly right" : "", !r.logo_visible ? "the logo is not exactly the brand's logo" : "", r.extra_text ? "there is other text" : "", badUi ? "it shows a device / app screen — remove it (no real screen for this image)" : ""].filter(Boolean) };
 }
 
 export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: string; runDir: string; slides: Slide[]; canvases: Canvas[]; ledger: Ledger; prevRenders?: Record<string, string[]> | null; log: (l: string) => void }) {
@@ -146,14 +194,15 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
       const prevFile = opts.prevRenders?.[canvas]?.[i] ? path.join(runDir, "prev", opts.prevRenders[canvas][i]) : null;
       const prev: Ref[] = prevFile && fs.existsSync(prevFile) ? [{ file: prevFile, role: `the current version of this slide — keep everything the client didn't ask to change (the change: ${post.request})` }] : [];
       // at most 4 references (each one is billed as image input): the logo, the current version, the slide's own, one brand look
-      const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own, ...looks.slice(0, own.length ? 1 : 2)].slice(0, 4);
+      const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own, ...looks.slice(0, own.length ? 1 : 2).map((l) => ({ ...l, role: `${l.role} — for its colours, shapes and style only; do not reproduce its interface` }))].slice(0, 4);
       const roles = refs.map((r) => r.role);
+      const hasScreen = own.some((r) => /real (phone )?(product )?screen/.test(r.role));
       const file = path.join(runDir, "slides", `${canvasKey(canvas)}-${i + 1}.jpg`);
       let feedback: string | undefined, last: string[] = [];
       for (let attempt = 0; attempt < 2; attempt++) {
-        const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
+        const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles, screen: hasScreen }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
         fs.writeFileSync(file, jpg);
-        const c = await checkImage(post, slide, file, logo, ledger);
+        const c = await checkImage(post, slide, file, logo, ledger, hasScreen);
         last = c.problems;
         if (c.ok) break;
         log(`  check ${canvas} slide ${i + 1}: ${c.problems.join(" | ")}${attempt === 0 ? " — retrying" : ""}`);
