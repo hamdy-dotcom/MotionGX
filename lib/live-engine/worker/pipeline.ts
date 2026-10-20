@@ -19,10 +19,13 @@ import { render } from "./steps/render";
 import { safetyNet } from "./steps/qa";
 import type { Sync } from "./sync";
 import { runDirector } from "../../director-engine/worker/run";
+import { runPosts } from "../../posts-engine/worker/run";
 
 export const DEFAULT_MODELS = { agent: "sonnet", profile: "sonnet", script: "sonnet", build: "sonnet", qa: "haiku", repair: "haiku", repair2: "sonnet" };
 
 export async function runJob(job: JobFile, dirs: { root: string; brandDir: string; runDir: string }, sync: Sync) {
+  // a post (lib/posts-engine): text + slides for the social platforms
+  if (job.kind === "post") return runPosts(job, dirs, sync);
   const { brandDir, runDir } = dirs;
   const log = sync.log;
   const done = new Set<Step>(job.doneSteps);

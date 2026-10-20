@@ -58,7 +58,7 @@ const walk = (d: string): string[] => fs.readdirSync(d, { withFileTypes: true })
 export async function startSandbox(job: JobFile, attempt: number): Promise<{ sandboxId?: string }> {
   const { Sandbox } = await import("@vercel/sandbox");
   const worker = projectPath("lib", "live-engine", "worker");
-  const sb = await Sandbox.create({ source: { type: "snapshot", snapshotId: await snapshotId() }, resources: { vcpus: 4 }, timeout: TIMEOUT_MS, env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? "", ...(process.env.TEST_PHONE ? { TEST_PHONE: process.env.TEST_PHONE } : {}), ...(process.env.TEST_EMAIL ? { TEST_EMAIL: process.env.TEST_EMAIL } : {}) } });
+  const sb = await Sandbox.create({ source: { type: "snapshot", snapshotId: await snapshotId() }, resources: { vcpus: 4 }, timeout: TIMEOUT_MS, env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? "", ...(process.env.TEST_PHONE ? { TEST_PHONE: process.env.TEST_PHONE } : {}), ...(process.env.TEST_EMAIL ? { TEST_EMAIL: process.env.TEST_EMAIL } : {}), ...(job.kind === "post" && process.env.OPENAI_API_KEY ? { OPENAI_API_KEY: process.env.OPENAI_API_KEY } : {}) } });
   await sb.writeFiles([
     { path: `${APP}/worker.mjs`, content: await bundle() },
     { path: `${APP}/inpage.js`, content: fs.readFileSync(path.join(worker, "inpage.js")) },

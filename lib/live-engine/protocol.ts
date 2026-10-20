@@ -4,7 +4,9 @@
 /** the sandbox's steps, in order; a resumed job skips the finished ones */
 export const CAPTURE_STEPS = ["capture", "profile"] as const;
 export const VIDEO_STEPS = ["script", "build", "music", "qa", "render"] as const;
-export type Step = (typeof CAPTURE_STEPS)[number] | (typeof VIDEO_STEPS)[number];
+/** a post job (lib/posts-engine): the text, the AI images, the slide designs, the rendered slides */
+export const POST_STEPS = ["write", "images", "design", "slides"] as const;
+export type Step = (typeof CAPTURE_STEPS)[number] | (typeof VIDEO_STEPS)[number] | (typeof POST_STEPS)[number];
 
 /** sandbox brief (pipeline.mjs) */
 export type Brief = { url: string; objective: string; country: string; layout: string; length: number; description?: string; offer?: string; flowClips?: boolean };
@@ -14,7 +16,7 @@ export type JobMode = "new" | "direction" | "lines" | "edit";
 /** written to job.json for the worker */
 export type JobFile = {
   jobId: string;
-  kind: "capture" | "video";
+  kind: "capture" | "video" | "post";
   mode: JobMode | null;
   /** POST here (with the token) for every report; GET `${callbackUrl}?ask=1` for an SMS-code answer */
   callbackUrl: string;
@@ -39,6 +41,27 @@ export type JobFile = {
   engine?: "live" | "director";
   /** the director's model and cost cap (DIRECTOR_MODEL, DIRECTOR_MAX_USD) */
   director?: { model: string; maxUsd: number };
+  /** a post job: what to make (lib/posts-engine) */
+  post?: PostJob;
+};
+
+export type PostPlatform = "facebook" | "instagram" | "tiktok" | "linkedin" | "x";
+export type PostType = "single" | "carousel" | "text";
+export type PostJob = {
+  postId: string;
+  type: PostType;
+  platforms: PostPlatform[];
+  brief: string;
+  dialect: string;
+  /** AI images (OpenAI): "auto" = the writer decides, "yes" = at least one, "no" = never */
+  aiImage: "auto" | "yes" | "no";
+  /** carousel: the slide count asked for (null = the writer decides, 3–7) */
+  slides: number | null;
+  /** "Request a change": the client's words (the previous version's post.json is downloaded as run/prev/post.json) */
+  request?: string;
+  model: string;
+  maxUsd: number;
+  image: { model: string; quality: string };
 };
 
 export type LedgerRow = { step: string; model: string; in: number; out: number; cacheRead: number; cacheWrite: number; usd: number; ms: number };
@@ -65,12 +88,13 @@ export type LogicalRoot = "brand" | "run" | "private";
 
 export const LIVE_BUCKET = "live-engine";
 
-export function storagePath(logical: string, ids: { workspaceId: string; captureId: string; videoId?: string | null; runFolder?: string | null }) {
+export function storagePath(logical: string, ids: { workspaceId: string; captureId: string; videoId?: string | null; postId?: string | null; runFolder?: string | null }) {
   const [root, ...rest] = logical.split("/");
   const rel = rest.join("/");
   if (!rel || rel.includes("..")) throw new Error(`bad logical path: ${logical}`);
   if (root === "brand") return `${ids.workspaceId}/captures/${ids.captureId}/${rel}`;
   if (root === "private") return `_private/${ids.workspaceId}/captures/${ids.captureId}/${rel}`;
+  if (root === "run" && ids.postId && ids.runFolder) return `${ids.workspaceId}/posts/${ids.postId}/${ids.runFolder}/${rel}`;
   if (root === "run") {
     if (!ids.videoId || !ids.runFolder) throw new Error("run path without a video job");
     return `${ids.workspaceId}/runs/${ids.videoId}/${ids.runFolder}/${rel}`;

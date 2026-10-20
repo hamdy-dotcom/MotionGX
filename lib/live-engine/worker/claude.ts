@@ -57,6 +57,14 @@ export class Ledger {
     this.log(`  $ ${step} · ${model.replace("claude-", "")} · ${usage.input_tokens}+${usage.cache_read_input_tokens || 0}c in / ${usage.output_tokens} out · $${usd.toFixed(4)} (run $${this.total().toFixed(4)})`);
     void Promise.resolve(this.onRow?.(row)).catch(() => {});
   }
+  /** a call priced outside the Anthropic table (the posts engine's OpenAI images): its own usage and $ */
+  addPriced(step: string, model: string, tokens: { in: number; out: number }, usd: number, ms: number) {
+    const row: LedgerRow = { step, model, in: tokens.in, out: tokens.out, cacheRead: 0, cacheWrite: 0, usd: +usd.toFixed(5), ms };
+    this.rows.push(row);
+    fs.writeFileSync(this.file, JSON.stringify({ total: this.total(), byStep: this.byStep(), calls: this.rows }, null, 2));
+    this.log(`  $ ${step} · ${model} · ${tokens.in} in / ${tokens.out} out · $${usd.toFixed(4)} (run $${this.total().toFixed(4)})`);
+    void Promise.resolve(this.onRow?.(row)).catch(() => {});
+  }
   total() {
     return +this.rows.reduce((s, r) => s + r.usd, 0).toFixed(5);
   }

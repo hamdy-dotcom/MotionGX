@@ -16,6 +16,8 @@ import { LIVE_BUCKET, storagePath, type Brief, type JobFile, type JobMode, type 
 import { startLocal } from "./runner-local";
 import { startSandbox } from "./runner-sandbox";
 import { insertLiveVersion } from "./versions";
+import { postsSettings } from "@/lib/posts/config";
+import { insertPostVersion, setPostGeneration } from "@/lib/posts/server/versions";
 
 export type LiveMode = { kind: "new" } | { kind: "direction" } | { kind: "lines"; beats: ScriptBeat[] } | { kind: "edit"; instruction: string };
 
@@ -23,11 +25,12 @@ export type JobRow = {
   id: string;
   workspace_id: string;
   video_id: string | null;
+  post_id: string | null;
   company_id: string | null;
   capture_id: string | null;
-  kind: "capture" | "video";
+  kind: "capture" | "video" | "post";
   mode: JobMode | null;
-  input: { edit?: JobFile["edit"]; prevJobId?: string | null; first?: boolean; settings?: JobFile["settings"]; engine?: JobFile["engine"] };
+  input: { edit?: JobFile["edit"]; prevJobId?: string | null; first?: boolean; settings?: JobFile["settings"]; engine?: JobFile["engine"]; request?: string; prevVersion?: number | null };
   status: "queued" | "running" | "waiting_code" | "done" | "failed";
   stage: string | null;
   done_steps: Step[];
@@ -47,7 +50,7 @@ const admin = () => createAdminClient();
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const now = () => new Date().toISOString();
 
-const AI_KIND: Record<string, string> = { "capture-agent": "live_capture", profile: "live_profile", script: "live_script", direct: "live_direct", art: "live_direct", build: "live_build", rebuild: "live_build", "qa-vision": "live_qa", director: "director_agent" };
+const AI_KIND: Record<string, string> = { "capture-agent": "live_capture", profile: "live_profile", script: "live_script", direct: "live_direct", art: "live_direct", build: "live_build", rebuild: "live_build", "qa-vision": "live_qa", director: "director_agent", "post-write": "post_write", "post-design": "post_design", "post-repair": "post_design", "post-image": "post_image" };
 const aiKind = (step: string) => AI_KIND[step] ?? (step.startsWith("qa-repair") ? "live_repair" : "live_build");
 
 // ── videos.generation (same write rule as the legacy setGeneration: replace the whole object) ────────
@@ -200,6 +203,34 @@ export async function startLiveGeneration(videoId: string, mode: LiveMode) {
   await ensureCaptureJob(video, company.website_url);
 }
 
+/** a post (lib/posts-engine): a worker job on the company's capture; "Request a change" starts from a version */
+export async function startPostGeneration(postId: string, opts: { request?: string; fromVersion?: number } = {}) {
+  const db = admin();
+  const { data: post } = await db.from("posts").select("*").eq("id", postId).single();
+  if (!post) return;
+  const capture = await usableCapture(post.company_id);
+  const mode = opts.request ? "edit" : "new";
+  if (!capture) return setPostGeneration(postId, { stage: "error", mode, error: "no_capture" }, opts.request ? "ready" : "failed");
+  let prevJobId: string | null = null;
+  if (opts.request) {
+    const q = db.from("post_versions").select("version, job_id").eq("post_id", postId);
+    const { data: prev } = await (opts.fromVersion ? q.eq("version", opts.fromVersion) : q.order("version", { ascending: false }).limit(1)).maybeSingle();
+    prevJobId = prev?.job_id ?? null;
+    if (!prevJobId) return setPostGeneration(postId, { stage: "error", mode, error: "no_version" }, "ready");
+  }
+  const { data: job, error } = await db
+    .from("live_jobs")
+    .insert({ workspace_id: post.workspace_id, video_id: null, post_id: postId, company_id: post.company_id, capture_id: capture.id, kind: "post", mode, input: { prevJobId, request: opts.request ?? null, prevVersion: opts.fromVersion ?? null }, status: "queued" })
+    .select("id")
+    .single();
+  if (error || !job) {
+    console.error("[posts] could not create the post job", { postId, message: error?.message });
+    return setPostGeneration(postId, { stage: "error", mode, error: "could not start" }, opts.request ? "ready" : "failed");
+  }
+  await setPostGeneration(postId, { stage: "queued", mode }, "generating");
+  return launch(job.id);
+}
+
 /** one capture job per company at a time; the video job(s) wait for it */
 async function ensureCaptureJob(video: { id: string; workspace_id: string; company_id: string }, websiteUrl: string) {
   const db = admin();
@@ -231,27 +262,32 @@ export async function launch(jobId: string) {
   const { data: capture } = job.capture_id ? await db.from("live_brand_captures").select("*").eq("id", job.capture_id).single() : { data: null };
   if (!capture) return failJob(job, "missing capture");
   let brief: Brief;
+  let post: { id: string; type: "single" | "carousel" | "text"; platforms: ("facebook" | "instagram" | "tiktok" | "linkedin" | "x")[]; brief: string; dialect: string; ai_image: "auto" | "yes" | "no"; slides: number | null } | null = null;
   if (job.kind === "capture") brief = captureBrief(capture.site_url);
-  else {
+  else if (job.kind === "post") {
+    post = (await db.from("posts").select("*").eq("id", job.post_id!).single()).data;
+    if (!post) return failJob(job, "missing post");
+    brief = { ...captureBrief(capture.site_url), objective: "awareness" };
+  } else {
     const { data: video } = await db.from("videos").select("*").eq("id", job.video_id!).single();
     const { data: company } = await db.from("companies").select("website_url").eq("id", job.company_id!).single();
     if (!video || !company?.website_url) return failJob(job, "missing video or company website");
     // the brand folder is the capture's site (brands/<slug> as in the sandbox), the brief the video's
     brief = { ...briefFor(video, company.website_url), url: capture.site_url ?? company.website_url };
   }
-  if (flowClipsEnabled()) brief = { ...brief, flowClips: true };
+  if (flowClipsEnabled() && job.kind !== "post") brief = { ...brief, flowClips: true };
   const ids = { workspaceId: job.workspace_id, captureId: capture.id };
   const brandPrefix = storagePath("brand/x", ids).replace(/\/x$/, "");
   const downloads: JobFile["downloads"] = [];
   const add = async (storage: string, logical: string) => downloads.push({ path: logical, url: await sign(storage) });
 
-  const needBrand = job.kind === "video" || job.done_steps.includes("capture");
+  const needBrand = job.kind === "video" || job.kind === "post" || job.done_steps.includes("capture");
   if (needBrand) {
     // a video job reads only the live UI clones, their assets and the library (logo, images) — not the agent / html / probes / screens packs
     // video jobs read the live UI clones, their assets, the library — and the flow clips when the experiment is on;
     // a director job also reads the screenshots and UI blocks (never the agent / html / probes packs, never auth.json)
     const director = job.kind === "video" && job.input.engine === "director";
-    const keep = director ? /^(clips|clones|assets|library|screens|parts)\.tgz(\.part\d+)?$/ : job.kind === "video" ? (flowClipsEnabled() ? /^(clips|clones|assets|library)\.tgz(\.part\d+)?$/ : /^(clones|assets|library)\.tgz(\.part\d+)?$/) : /./;
+    const keep = job.kind === "post" ? /^(clones|assets|library)\.tgz(\.part\d+)?$/ : director ? /^(clips|clones|assets|library|screens|parts)\.tgz(\.part\d+)?$/ : job.kind === "video" ? (flowClipsEnabled() ? /^(clips|clones|assets|library)\.tgz(\.part\d+)?$/ : /^(clones|assets|library)\.tgz(\.part\d+)?$/) : /./;
     const packs = await listFiles(`${brandPrefix}/_pack`);
     for (const f of packs) if (keep.test(f.split("/").pop()!)) await add(f, `brand/_pack/${f.split("/").pop()}`);
     if (job.kind === "video" && flowClipsEnabled()) console.log(`[live] video job ${job.id}: capture ${capture.id} — ${packs.some((f) => /\/clips\.tgz(\.part\d+)?$/.test(f)) ? "flow clips downloaded" : "this capture has no flow clips (recapture with LIVE_FLOW_CLIPS=1)"}`);
@@ -271,6 +307,13 @@ export async function launch(jobId: string) {
       const own = `${job.workspace_id}/runs/${job.video_id}/${job.id}`;
       for (const f of await listFiles(own)) await add(f, `run/${f.split("/").pop()}`);
     }
+  }
+
+  // "Request a change" of a post: the version it changes (its content, design and AI images) as run/prev/…
+  if (job.kind === "post" && job.input.prevJobId) {
+    const prevRun = `${job.workspace_id}/posts/${job.post_id}/${job.input.prevJobId}`;
+    for (const f of await listFiles(prevRun)) if (/\/(post|design)\.json$/.test(f)) await add(f, `run/prev/${f.split("/").pop()}`);
+    for (const f of await listFiles(`${prevRun}/ai`)) await add(f, `run/prev/ai/${f.split("/").pop()}`);
   }
 
   // the workspace's last 5 looks: the art director must make this one different
@@ -297,6 +340,7 @@ export async function launch(jobId: string) {
     history,
     settings: job.input.settings,
     ...(job.input.engine === "director" ? { engine: "director" as const, director: directorSettings() } : {}),
+    ...(post ? { post: { postId: post.id, type: post.type, platforms: post.platforms, brief: post.brief, dialect: post.dialect, aiImage: post.ai_image, slides: post.slides ?? null, ...(job.input.request ? { request: job.input.request } : {}), ...postsSettings() } } : {}),
   };
   // local runner: a capture whose agent already finished on this machine (but whose upload never reached the app) resumes
   // from that folder at the upload — a relaunch never repeats the agent and its model calls
@@ -384,6 +428,7 @@ export async function handleReport(job: JobRow, r: Report): Promise<unknown> {
     }
     case "stage": {
       await patchJob(job.id, { stage: r.stage });
+      if (job.kind === "post") { await setPostGeneration(job.post_id!, { stage: r.stage, mode: job.mode ?? "new" }); return { ok: true }; }
       for (const vid of await videosFor(job)) await setGeneration(vid, { stage: videoStage(job, r.stage), mode: job.mode ?? "new", first: job.kind === "capture" || job.input.first });
       return { ok: true };
     }
@@ -391,13 +436,13 @@ export async function handleReport(job: JobRow, r: Report): Promise<unknown> {
       const row = r.row;
       const cost = Number((Number(job.cost_usd) + row.usd).toFixed(5));
       await patchJob(job.id, { ledger: [...(job.ledger ?? []), row], cost_usd: cost });
-      const { error } = await db.from("ai_usage").insert({ workspace_id: job.workspace_id, video_id: job.video_id, kind: aiKind(row.step), model: row.model, input_tokens: row.in, output_tokens: row.out, cache_read_tokens: row.cacheRead, cache_write_tokens: row.cacheWrite });
+      const { error } = await db.from("ai_usage").insert({ workspace_id: job.workspace_id, video_id: job.video_id, ...(job.post_id ? { post_id: job.post_id } : {}), kind: aiKind(row.step), model: row.model, input_tokens: row.in, output_tokens: row.out, cache_read_tokens: row.cacheRead, cache_write_tokens: row.cacheWrite });
       if (error) console.error("[live] ai_usage insert failed", { message: error.message });
       if (job.capture_id && job.kind === "capture") await db.from("live_brand_captures").update({ cost_usd: cost, updated_at: now() }).eq("id", job.capture_id);
       return { ok: true };
     }
     case "upload": {
-      const ids = { workspaceId: job.workspace_id, companyId: job.company_id, captureId: job.capture_id!, videoId: job.video_id, runFolder: job.id };
+      const ids = { workspaceId: job.workspace_id, companyId: job.company_id, captureId: job.capture_id!, videoId: job.video_id, postId: job.post_id, runFolder: job.id };
       const urls = [];
       for (const p of r.paths) {
         const target = storagePath(p, ids);
@@ -449,6 +494,7 @@ export async function answerCode(videoId: string, code: string) {
 
 /** the videos a job's progress is shown on: its own video, plus video jobs waiting for this capture */
 async function videosFor(job: JobRow): Promise<string[]> {
+  if (job.kind === "post") return [];
   if (job.kind === "video") return job.video_id ? [job.video_id] : [];
   if (!job.company_id) return [];
   const { data } = await admin().from("live_jobs").select("video_id").eq("company_id", job.company_id).eq("kind", "video").eq("status", "queued").is("capture_id", null);
@@ -470,6 +516,11 @@ async function finishJob(job: JobRow, summary: Record<string, unknown>) {
     return { ok: true };
   }
   const fresh = (await getJob(job.id)) ?? job;
+  if (job.kind === "post") {
+    const version = await insertPostVersion(fresh, summary);
+    await setPostGeneration(job.post_id!, { stage: "done", mode: job.mode ?? "new", version, cost_usd: Number(Number(fresh.cost_usd).toFixed(4)), seconds: Math.round((Date.now() - new Date(job.created_at).getTime()) / 1000) }, "ready");
+    return { ok: true, version };
+  }
   const version = await insertLiveVersion(fresh, summary);
   const seconds = Math.round((Date.now() - new Date(job.created_at).getTime()) / 1000);
   await setGeneration(job.video_id!, { stage: "done", mode: job.mode ?? "new", version, cost_usd: Number(Number(fresh.cost_usd).toFixed(4)), to_preview_s: seconds }, "ready");
@@ -487,6 +538,9 @@ async function failJob(job: JobRow, error: string) {
       await db.from("live_jobs").update({ status: "failed", error: "the brand capture failed", updated_at: now() }).eq("id", w.id);
       if (w.video_id) targets.push({ videoId: w.video_id, mode: w.mode ?? "new" });
     }
+  } else if (job.kind === "post" && job.post_id) {
+    const { count } = await db.from("post_versions").select("id", { count: "exact", head: true }).eq("post_id", job.post_id);
+    await setPostGeneration(job.post_id, { stage: "error", mode: job.mode ?? "new", error: error.split("\n")[0].slice(0, 300) }, count ? "ready" : "failed");
   } else if (job.video_id) targets.push({ videoId: job.video_id, mode: job.mode ?? "new" });
   for (const t of targets) {
     const { count } = await db.from("video_versions").select("id", { count: "exact", head: true }).eq("video_id", t.videoId);
