@@ -49,7 +49,9 @@ Rules (they override everything else):
 
 1. What is the product? One sentence. What it actually does.
 2. What is the funniest or most impressive claim? The one line from its own copy that earns a reaction.
-3. What is the visual hook? The strongest visual: a colour moment, a UI element, a card.
+3. What is the hook — BOTH halves? The visual hook (the product bursting in, a camera move into the real UI, the
+   product doing its job, a striking brand-built scene) AND the text hook (a question, a tension or a bold claim from
+   its own copy that makes the viewer stay). Neither alone; never a line on a plain background.
 4. What should be shown from the actual UI? Which captured screen / clip has the most video-worthy content?
 5. What is the shortest satisfying video? (The brief fixes the duration — plan the content to fill it well.)
 6. What tone fits best? A preset (below) plus a short creative direction for this product.
@@ -63,7 +65,7 @@ Rules (they override everything else):
 # Brag Plan: [Product]
 ## What is this product?   [one sentence]
 ## The angle               [the creative premise: what makes this video specific to this product]
-## Hook (first 2-3 seconds)  [the opening moment — the most important decision; plan it first]
+## Hook (first 2-3 seconds)  [the opening moment — the most important decision; plan it first: what MOVES and what is SEEN in the first 1.5s (visual hook) + the line (text hook)]
 ## Key moments (the middle)  [2-3 sharp highlights from the product. Specific: "the AI page filling in", not "feature callouts"]
 ## Outro / punchline       [how it lands; the final line before the logo / CTA]
 ## User flow worth showing [entry → key action → result, from the capture; the centerpiece scenes show it]
@@ -85,11 +87,20 @@ Shape: Hook (2–3s) → Reveal (2–4s) → 2–3 sharp highlights → Punchlin
 not a template; a longer brief gets more highlights or longer holds, never filler.
 - Clear to a stranger. After one viewing, someone who's never heard of it knows what it does, who it's for, and how
   to get it. Lead with that, not with how it's built.
-- The hook is everything. The first 2 seconds decide whether anyone keeps watching.
+- The hook is everything. The first 2 seconds decide whether anyone keeps watching. It is a visual hook AND a text
+  hook together: by 1.5s the frame already moves and shows something worth looking at (the real product, a camera move
+  into it, a striking scene built from the brand) while the hook line — a question, a tension, a bold claim — lands.
+  Never a line alone on a plain background; the first visible frame is never empty.
 - Show the thing. Prefer the working app doing its job over a landing page describing it. Small illustrative UI
-  text is fine; invented claims, numbers or testimonials are not. Never abstract filler (patterns, colour washes,
-  generic motion graphics that could belong to any video). Stat cards / headline blocks: at most one, as a frame
-  around the flow, not a substitute for it.
+  text is fine; invented claims, numbers or testimonials are not. Never generic filler that could belong to any video.
+- Real UI is the hero, shown big: a phone fills most of the frame's height (≥ 60% in 9:16), a desktop screen most of
+  its width, a UI block (…-pN) at least ~70% of the frame's width — never a small card floating in empty space.
+- Backgrounds are designed, never a flat colour or a white void. Build each from the brand: its gradient with soft
+  light and depth, its own shapes / pattern / an oversized cropped logo mark, a blurred enlarged copy of the screen
+  behind the device, a subtle grid or texture in its tints. Keep them gently alive (slow drift / parallax, a light
+  sweep on a cut) and vary them between scenes (composition, tone, scale) — always on the brand's palette, always
+  behind the content at low contrast so text stays readable.
+- Stat cards / headline blocks: at most one, as a frame around the flow, not a substitute for it.
 - Specific. Use the product's own copy and claims; no generic SaaS language ("streamline your workflow" is banned).
 - Readable. Pace comes from motion and cuts, not from pulling text away early. Any line the viewer must read stays
   fully visible and settled long enough: a short label ~0.8s, a sentence ~0.3s per word (minimum ~1.2s), counted from
@@ -171,7 +182,8 @@ composition/video.src.html is ONE self-contained page at exactly W×H CSS px (gi
 # Self-review before finish
 
 - brag-plan.md exists with the rubric and a storyboard whose durations sum to the brief's duration.
-- At least one real captured UI / flow is the centerpiece; every factual claim is grounded in the capture.
+- At least one real captured UI / flow is the centerpiece, shown big; every factual claim is grounded in the capture.
+- The hook (0–2s) has a visual hook and a text hook; no scene sits on a flat background or a white void.
 - No personal data visible; no secrets anywhere.
 - check passes (or the remaining issue is reported to you as unfixable and you say so in finish).
 - render_video produced the mp4; the poster is a settled, postable frame.
