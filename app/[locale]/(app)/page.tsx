@@ -2,225 +2,128 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getAppContext } from "@/lib/context";
 import { listCompanies } from "@/lib/data/companies";
+import { activeCompany } from "@/lib/data/active-company";
+import { brandDetails, listWorks } from "@/lib/data/works";
+import { paletteHexes } from "@/lib/brand/light";
 import { getFxRate, toLocal } from "@/lib/pricing";
-import { formatDate, formatMoney, formatNumber } from "@/lib/format";
-import type { Video } from "@/lib/types";
-import { Heading, boldTag } from "@/components/heading";
-import { FoldersIllustration, HeroIllustration } from "@/components/illustrations";
-import { CompanyMark, ColorDots } from "@/components/company-mark";
-import { StatusChip } from "@/components/status-chip";
-import { TimelineSlider } from "@/components/timeline-slider";
-import { ArrowIcon, ChevronIcon, PlusIcon } from "@/components/icons";
-import { formatKey } from "@/lib/video-labels";
+import { formatMoney } from "@/lib/format";
+import { dayMono, todayKey, WEEKDAY_MONO, weekday, weekOf } from "@/lib/dates";
+import { Rise, escapeMarkup } from "@/components/studio/rise";
+import { StudioMark } from "@/components/studio/mark";
+import { CountUp } from "@/components/studio/count-up";
 
-// PHASE 4: scheduled campaigns come from the campaigns feature; positions are day-of-month for now.
-const SCHEDULED_CAMPAIGN_DAYS = [8, 15, 24];
+// the docked composer starts jobs from this route
+export const maxDuration = 800;
 
-export default async function DashboardPage({ params }: { params: Promise<{ locale: string }> }) {
+const host = (url?: string | null) => { try { return url ? new URL(url).host.replace(/^www\./, "") : ""; } catch { return url ?? ""; } };
+const b = (c: string) => `<b>${c}</b>`;
+
+export default async function TodayPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const ctx = await getAppContext();
-  const { supabase, workspace } = ctx;
-  const t = await getTranslations("dashboard");
-  const tc = await getTranslations("common");
-  const tf = await getTranslations("formats");
-  const ta = await getTranslations("art");
+  const t = await getTranslations("today");
+  const companies = await listCompanies(ctx);
+  const brand = await activeCompany(companies);
 
-  const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-  const daysInMonth = new Date(now.getUTCFullYear(), now.getUTCMonth() + 1, 0).getDate();
+  if (!brand) {
+    return (
+      <section className="s-screen">
+        <div className="s-slate-line"><span className="live"><span className="s-dot" />STUDIO OPEN</span></div>
+        <Rise markup={t.markup("emptyTitle", { b })} />
+        <p className="s-lead">{t("emptyLead")}</p>
+        <Link href="/companies/new" className="s-btn lit">{t("addCompany")}</Link>
+      </section>
+    );
+  }
 
-  const [companies, videosRes, monthVideosRes, spendRes, fx] = await Promise.all([
-    listCompanies(ctx),
-    supabase
-      .from("videos")
-      .select("id, title, format, length_s, status, created_at, companies(name)")
-      .eq("workspace_id", workspace.id)
-      .order("created_at", { ascending: false })
-      .limit(8),
-    supabase
-      .from("videos")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", workspace.id)
-      .gte("created_at", monthStart),
-    supabase
-      .from("wallet_ledger")
-      .select("amount_usd")
-      .eq("workspace_id", workspace.id)
-      .in("kind", ["export", "refund"])
-      .gte("created_at", monthStart),
-    getFxRate(supabase, workspace.currency_code),
+  const today = todayKey(), week = weekOf(today), monthStart = `${today.slice(0, 8)}01`;
+  const [works, details, spendRes, fx] = await Promise.all([
+    listWorks(ctx, brand.id, { limit: 40 }),
+    brandDetails(ctx, brand.id),
+    ctx.supabase.from("wallet_ledger").select("amount_usd").eq("workspace_id", ctx.workspace.id).in("kind", ["export", "refund"]).gte("created_at", monthStart),
+    getFxRate(ctx.supabase, ctx.workspace.currency_code),
   ]);
-
-  const videos = (videosRes.data ?? []) as unknown as (Pick<Video, "id" | "title" | "format" | "length_s" | "status" | "created_at"> & {
-    companies: { name: string } | null;
-  })[];
-  const spentUsd = Math.max(0, -(spendRes.data ?? []).reduce((sum, r) => sum + Number(r.amount_usd), 0));
-  const cap = workspace.monthly_cap_usd;
-  const spentPct = cap ? Math.min(100, (spentUsd / cap) * 100) : (now.getUTCDate() / daysInMonth) * 100;
-  const money = (usd: number) => formatMoney(toLocal(usd, fx), workspace.currency_code, locale);
+  const spent = toLocal(Math.max(0, -(spendRes.data ?? []).reduce((s, r) => s + Number(r.amount_usd), 0)), fx);
+  const currency = formatMoney(0, ctx.workspace.currency_code, ctx.locale).replace(/[\d.,\s-]/g, "") || ctx.workspace.currency_code;
+  const month = works.filter((w) => w.day >= monthStart);
+  const latin = (host(brand.website_url) || brand.name).toUpperCase();
+  const colors = brand.brand_profiles?.colors ?? [];
+  const facts = details.facts;
+  const feature = (s?: string) => (s ?? "").split(/\s[—-]\s/)[0].trim();
+  const ideas = [
+    { text: feature(facts.offers?.[0]) || feature(facts.key_features?.[0]) || details.tagline || brand.name, kind: "image", tag: "POST · IG + FB" },
+    { text: feature(facts.key_features?.[0]) || feature(facts.offers?.[1]) || t("howItWorks"), kind: "video", tag: "REEL · 30S" },
+    { text: t("reasons", { n: Math.min(3, (facts.key_features?.length ?? 0) + (facts.offers?.length ?? 0)) || 3, name: brand.name }), kind: "carousel", tag: "CAROUSEL · LI + IG" },
+  ];
+  const frames = works.filter((w) => w.status !== "failed").slice(0, 14);
 
   return (
-    <div className="space-y-6">
-      {/* Hero */}
-      <section className="grid items-center gap-6 rounded-panel bg-field p-5 sm:p-8 lg:grid-cols-[1.2fr_1fr]">
-        <div>
-          <Heading as="h1" className="text-3xl sm:text-5xl">
-            {t.rich("hero", boldTag)}
-          </Heading>
-          <p className="mt-4 max-w-xl leading-relaxed text-ink-muted">{t("heroSub")}</p>
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Link href="/videos/new" className="btn btn-primary">
-              {t("newVideo")}
-              <ArrowIcon className="size-4" />
+    <section className="s-screen">
+      <div className="s-slate-line"><span className="live"><span className="s-dot" />STUDIO OPEN</span><i /><span dir="ltr">{WEEKDAY_MONO[weekday(today)]} · {today.split("-").reverse().join(".")}</span><i /><span dir="ltr">CLIENT · {latin}</span></div>
+      <Rise markup={t.markup("title", { b, name: escapeMarkup(brand.name) })} />
+      <p className="s-lead">{t("lead")}</p>
+      <div className="s-reel" aria-label={t("recent")}>
+        <div className="s-track">
+          {(frames.length ? [...frames, ...frames] : []).map((w, i) => (
+            <Link key={`${w.id}-${i}`} href={w.href} className={`s-frame${w.kind === "video" && w.type === "9:16" ? " v" : ""}`} data-tc={`Nº ${String((i % frames.length) + 1).padStart(3, "0")}`} style={w.thumb ? { backgroundImage: `url(${w.thumb})` } : undefined} aria-label={w.title}>
+              {w.thumb ? null : <span className="tile" dir="auto">{w.title}</span>}
             </Link>
-            <Link href="/companies/new" className="btn btn-white">
-              <PlusIcon className="size-4" />
-              {t("addCompany")}
-            </Link>
-          </div>
+          ))}
         </div>
-        <HeroIllustration label={ta("hero")} className="mx-auto w-full max-w-md" />
-      </section>
-
-      {/* Spend + stats */}
-      <section className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr_1fr]">
-        <div className="panel">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <Heading as="h2" className="text-lg">
-              {t.rich("spendTitle", boldTag)}
-            </Heading>
-            <p className="text-sm text-ink-2">
-              {cap ? t("spentOfCap", { spent: money(spentUsd), cap: money(cap) }) : t("spentNoCap", { spent: money(spentUsd) })}
-            </p>
-          </div>
-          <TimelineSlider
-            className="mt-3"
-            value={spentPct}
-            markers={SCHEDULED_CAMPAIGN_DAYS.map((d) => (d / daysInMonth) * 100)}
-            label={t.markup("spendTitle", { b: (c) => c })}
-            valueText={cap ? t("spentOfCap", { spent: money(spentUsd), cap: money(cap) }) : money(spentUsd)}
-          />
-          <p className="mt-1 flex items-center gap-2 text-xs text-ink-muted">
-            <span className="size-2.5 rotate-45 rounded-[2px] bg-primary-mid" aria-hidden="true" />
-            {t("scheduled")}
-          </p>
-        </div>
-        <Stat label={t("videosThisMonth")} value={formatNumber(monthVideosRes.count ?? 0, locale)} />
-        <Stat label={t("companiesCount")} value={formatNumber(companies.length, locale)} />
-        <Stat label={t("balance")} value={money(workspace.wallet_balance_usd)} sub={formatMoney(workspace.wallet_balance_usd, "USD", locale)} />
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-[1fr_2fr]">
-        {/* Companies */}
-        <div className="panel">
-          <div className="flex items-center justify-between gap-2">
-            <Heading as="h2" className="text-xl">
-              {t.rich("companies", boldTag)}
-            </Heading>
-            <Link href="/companies/new" className="btn btn-soft min-h-10 px-3" aria-label={t("addCompany")}>
-              <PlusIcon className="size-4" />
-            </Link>
-          </div>
-          {companies.length === 0 ? (
-            <div className="mt-6 flex flex-col items-center gap-3 text-center">
-              <FoldersIllustration label={ta("folders")} className="w-32" />
-              <p className="text-sm text-ink-muted">{t("noCompanies")}</p>
-            </div>
-          ) : (
-            <ul className="mt-4 space-y-2">
-              {companies.map((c) => (
-                <li key={c.id}>
-                  <Link href={`/companies/${c.id}`} className="flex items-center gap-3 rounded-full bg-white p-1.5 pe-4 transition-colors hover:bg-primary-light">
-                  <CompanyMark name={c.name} logoUrl={c.logo_url} logoOnDark={c.logo_on_dark} colors={c.brand_profiles?.colors} size="size-10" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{c.name}</p>
-                    {c.website_url ? (
-                      <p className="truncate text-xs text-ink-muted" dir="ltr">
-                        {c.website_url.replace(/^https?:\/\//, "")}
-                      </p>
-                    ) : null}
-                  </div>
-                  <ColorDots colors={c.brand_profiles?.colors ?? []} />
+        {frames.length ? null : <p className="s-lead" style={{ margin: 0, paddingInline: "max(16px, 3.2vw)" }}>{t("wallEmpty")}</p>}
+      </div>
+      <div className="s-grid2">
+        <div className="s-stack">
+          <div className="s-panel">
+            <div className="s-row" style={{ marginBottom: 14 }}><p className="s-label plain" style={{ margin: 0 }}>{t("week")}</p><Link href="/calendar" className="s-btn ghost small">{t("toCalendar")}</Link></div>
+            <div className="s-timeline">
+              {week.map((d) => {
+                const its = works.filter((w) => w.day === d);
+                return (
+                  <Link key={d} href={d >= today ? `/create?day=${d}` : "/calendar"} className={`s-tday${d === today ? " now" : ""}`}>
+                    <b>{WEEKDAY_MONO[weekday(d)]}</b><span className="n">{+d.slice(8)}</span>
+                    {its.map((w) => <span key={w.id} className={`s-clip${w.kind === "video" ? " v" : ""}`} dir="auto">{w.kind === "video" ? "▶" : "▣"} {w.title}</span>)}
+                    {!its.length && d > today ? <span className="s-clip add">{t("addIdea")}</span> : null}
                   </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Recent videos */}
-        <div className="panel min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <Heading as="h2" className="text-xl">
-              {t.rich("recentVideos", boldTag)}
-            </Heading>
-            <Link href="/videos/new" className="btn btn-soft min-h-10 px-3" aria-label={t("newVideo")}>
-              <PlusIcon className="size-4" />
-            </Link>
-          </div>
-          {videos.length === 0 ? (
-            <p className="mt-6 text-sm text-ink-muted">{t("noVideos")}</p>
-          ) : (
-            <div className="mt-4 overflow-x-auto rounded-2xl bg-white">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead>
-                  <tr className="text-start text-xs text-ink-muted">
-                    <th className="px-4 py-3 text-start font-medium">{t("colTitle")}</th>
-                    <th className="px-4 py-3 text-start font-medium">{t("colCompany")}</th>
-                    <th className="px-4 py-3 text-start font-medium">{t("colFormat")}</th>
-                    <th className="px-4 py-3 text-start font-medium">{t("colLength")}</th>
-                    <th className="px-4 py-3 text-start font-medium">{t("colDate")}</th>
-                    <th className="px-4 py-3 text-start font-medium">{t("colStatus")}</th>
-                    <th className="px-2 py-3">
-                      <span className="sr-only">{t("open")}</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {videos.map((v) => (
-                    <tr key={v.id} className="border-t border-dashed border-dash">
-                      <td className="max-w-[220px] truncate px-4 py-3 font-medium">
-                        <Link href={`/videos/${v.id}`} className="hover:text-primary">
-                          {v.title}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-ink-2">{v.companies?.name}</td>
-                      <td className="px-4 py-3 text-ink-2">
-                        {tf(formatKey(v.format))} <span dir="ltr">{v.format}</span>
-                      </td>
-                      <td className="px-4 py-3 text-ink-2">{tc("seconds", { n: formatNumber(v.length_s, locale) })}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-ink-2">{formatDate(v.created_at, locale)}</td>
-                      <td className="px-4 py-3">
-                        <StatusChip status={v.status} />
-                      </td>
-                      <td className="px-2 py-3">
-                        <Link
-                          href={`/videos/${v.id}`}
-                          aria-label={t("open")}
-                          className="inline-flex size-9 items-center justify-center rounded-full text-primary hover:bg-primary-light"
-                        >
-                          <ChevronIcon />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                );
+              })}
             </div>
-          )}
+          </div>
+          <div>
+            <p className="s-label">{t("ideas")}</p>
+            <div className="s-scenes">
+              {ideas.map((it, i) => (
+                <div key={i} className="s-scene">
+                  <span className="no">0{i + 1}</span>
+                  <small>Nº 0{i + 1} · {it.tag}</small>
+                  <p dir="auto">{it.text}</p>
+                  <Link href={`/create?kind=${it.kind}&brief=${encodeURIComponent(it.text)}`} className="s-btn small">{t("makeIt")}</Link>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </section>
-    </div>
-  );
-}
-
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="panel flex flex-col justify-between gap-2">
-      <p className="label">{label}</p>
-      <p className="text-3xl font-bold tracking-tight">{value}</p>
-      {sub ? <p className="text-xs text-ink-muted">{sub}</p> : null}
-    </div>
+        <div className="s-stack">
+          <div className="s-panel s-brandcard">
+            <p className="s-label">{t("brand")}</p>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <StudioMark company={brand} size={52} />
+              <div style={{ minWidth: 0 }}><b style={{ font: "800 22px var(--s-brandfont)" }}>{brand.name}</b><div className="s-mono" style={{ fontSize: 11, color: "var(--s-muted)" }} dir="ltr">{host(brand.website_url)}</div></div>
+            </div>
+            <div className="bars">{paletteHexes(colors).map((h, i) => <i key={`${h}-${i}`} title={h} style={{ background: h }} />)}</div>
+            <p className="s-voice" dir="auto">{(details.tone || details.tagline).slice(0, 130)}{(details.tone || details.tagline).length > 130 ? "…" : ""}</p>
+            <Link href="/brand" className="s-btn ghost small" style={{ marginTop: 14 }}>{t("lookbook")}</Link>
+          </div>
+          <div className="s-panel">
+            <p className="s-label">{t("month")}</p>
+            <div className="s-count"><span>{t("videos")}</span><b><CountUp to={month.filter((w) => w.kind === "video").length} /></b></div>
+            <div className="s-count"><span>{t("posts")}</span><b><CountUp to={month.filter((w) => w.kind === "post").length} /></b></div>
+            <div className="s-count"><span>{t("spend", { currency })}</span><b><CountUp to={Math.round(spent)} /></b></div>
+          </div>
+        </div>
+      </div>
+      <p className="s-mono" style={{ fontSize: 10.5, color: "var(--s-muted)", marginTop: 18 }} dir="ltr">{dayMono(week[0])} → {dayMono(week[6])}</p>
+    </section>
   );
 }

@@ -31,6 +31,14 @@ const nextConfig: NextConfig = {
     // these routes start workers too (a brand capture, a relaunch): the sandbox runner bundles the worker from source
     "/api/brand/capture": ["./lib/live-engine/worker/**/*"],
     "/api/live-engine/watchdog": ["./lib/live-engine/worker/**/*"],
+    // the studio's create screen, composer and plans start video and post jobs from these routes
+    "/[locale]": ["./lib/live-engine/worker/**/*"],
+    "/[locale]/create": ["./lib/live-engine/worker/**/*"],
+    "/[locale]/library": ["./lib/live-engine/worker/**/*"],
+    "/[locale]/calendar": ["./lib/live-engine/worker/**/*"],
+    "/[locale]/plans": ["./lib/live-engine/worker/**/*"],
+    "/[locale]/wallet": ["./lib/live-engine/worker/**/*"],
+    "/[locale]/posts/**": ["./lib/live-engine/worker/**/*"],
     "/[locale]/videos/*": ["./.remotion-bundle/**/*", "./packages/primitives/**/*", "./scripts/motion/**/*", "./scripts/music/*.py", "./data/motion-refs.json", "./tsconfig*.json", "./data/assets/**/*", "./node_modules/lucide-static/icons/**/*", "./node_modules/@phosphor-icons/core/assets/**/*", "./node_modules/flag-icons/flags/4x3/**/*", "./node_modules/harfbuzzjs/dist/**/*"],
   },
 };

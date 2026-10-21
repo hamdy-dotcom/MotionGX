@@ -321,7 +321,15 @@
     "kindTopup": "Top-up",
     "kindExport": "Export",
     "kindRefund": "Refund",
-    "kindAdjustment": "Adjustment"
+    "kindAdjustment": "Adjustment",
+    "studioTitle": "Budget",
+    "freeNote": "Creating and editing are free — you pay only at download",
+    "balanceIn": "Balance · {currency}",
+    "estimate": "≈ {posts} posts or {minutes} minutes of video",
+    "pricesIn": "Prices · {currency}",
+    "pricePost": "Post — every platform",
+    "priceVideoMin": "Video — per minute",
+    "priceVoiceMin": "Voiceover — per minute"
   },
   "aiErrors": {
     "rate_limited": "You've hit the limit of 30 AI requests per workspace per hour. Try again a bit later.",
@@ -528,6 +536,141 @@
       "slide": "Slide {n} of {total}",
       "starting": "<b>Getting the studio ready</b> for {name}…",
       "brandReading": "<b>Reading {name}'s identity</b> — logo, colours, fonts…"
+    }
+  },
+  "shell": {
+    "menu": "Menu",
+    "create": "Create new",
+    "today": "Today",
+    "plans": "Plans",
+    "library": "Library",
+    "calendar": "Calendar",
+    "brand": "Brand kit",
+    "brandShort": "Brand",
+    "wallet": "Wallet",
+    "account": "Account",
+    "switchBrand": "Choose the brand",
+    "addCompany": "Add a company",
+    "addFirst": "＋ Add your first company"
+  },
+  "today": {
+    "title": "What are we making for <b>{name}</b> today?",
+    "lead": "Write the idea in your own words — we write the copy and design the video or image from your brand.",
+    "recent": "Latest work",
+    "wallEmpty": "The brand's work gets pinned here as soon as you make the first video or post.",
+    "week": "This week",
+    "toCalendar": "Calendar →",
+    "addIdea": "＋ Idea",
+    "ideas": "Ideas from your brand",
+    "makeIt": "Make it →",
+    "howItWorks": "How the product works",
+    "reasons": "{n} reasons to choose {name}",
+    "brand": "Brand",
+    "lookbook": "Lookbook →",
+    "month": "This month",
+    "videos": "Videos",
+    "posts": "Posts",
+    "spend": "Spent · {currency}",
+    "emptyTitle": "Add your <b>first company</b>",
+    "emptyLead": "Paste its website — we read the logo, colours, font and voice and capture its screens. Then the studio takes on its colours.",
+    "addCompany": "Add a company →"
+  },
+  "compose": {
+    "idea": "Your idea",
+    "placeholder": "Write an idea for {name}… e.g. {example}",
+    "kinds": {
+      "image": "Image + text",
+      "carousel": "Carousel",
+      "video": "Video",
+      "text": "Text only"
+    },
+    "day": "Day",
+    "todayOpt": "Today {d}",
+    "atDownload": "at download",
+    "make": "Make →",
+    "making": "Starting…",
+    "empty": "Write the idea first — one sentence is enough",
+    "platforms": "Pick at least one platform",
+    "failed": "Something went wrong. Try again."
+  },
+  "create": {
+    "title": "Something new for <b>{name}</b>",
+    "forDay": "FOR {day}",
+    "what": "What are you making?",
+    "types": {
+      "video": [
+        "Video",
+        "A reel or TikTok on your real interface — 15 to 60 seconds."
+      ],
+      "image": [
+        "Image + text",
+        "A designed image and copy for each platform."
+      ],
+      "carousel": [
+        "Carousel",
+        "Several slides telling one idea."
+      ],
+      "text": [
+        "Text only",
+        "For X, LinkedIn or any platform."
+      ]
+    },
+    "size": "Size",
+    "length": "Length",
+    "seconds": "{n}s",
+    "goal": "Goal",
+    "platforms": "Platforms",
+    "aiImage": "AI images",
+    "dialect": "Dialect",
+    "brief": "The idea — what is it about?",
+    "briefPlaceholder": "e.g. a weekend offer — short and friendly, with a clear call to sign up",
+    "summary": "Summary",
+    "priceAt": "Price at download · {currency}",
+    "free": "Creating and editing are free.",
+    "go": "Make it →",
+    "going": "Starting…",
+    "briefRequired": "Write the idea first.",
+    "platformsRequired": "Pick at least one platform.",
+    "noCompany": "Add a company first — everything is made from its brand."
+  },
+  "library": {
+    "title": "Library",
+    "all": "All",
+    "videos": "Videos",
+    "posts": "Posts",
+    "search": "Search the work…",
+    "empty": "Nothing here yet —",
+    "makeFirst": "make the first one",
+    "close": "Close",
+    "open": "Open →",
+    "newVersion": "New version",
+    "schedule": "Schedule it",
+    "types": {
+      "single": "Image + text",
+      "carousel": "Carousel",
+      "text": "Text only"
+    }
+  },
+  "lookbook": {
+    "title": "<b>{name}</b> lookbook",
+    "reread": "↻ Read the site again",
+    "edit": "Edit the brand",
+    "palette": "Palette",
+    "font": "Font · {font}",
+    "specimen": "Aa Bb 123",
+    "voice": "Voice",
+    "audience": "Audience",
+    "sets": "What sets it apart",
+    "features": "Features",
+    "screens": "Captured screens",
+    "none": "—",
+    "roles": {
+      "primary": "primary",
+      "accent": "accent",
+      "background": "background",
+      "surface": "surface",
+      "ink": "ink",
+      "muted": "muted"
     }
   }
 }

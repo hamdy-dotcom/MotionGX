@@ -34,50 +34,32 @@ export function TopUp({ amounts, fxRate, currency }: { amounts: readonly number[
   }
 
   return (
-    <div className="space-y-4">
-      <div role="radiogroup" aria-label={t.markup("topUp", { b: (c) => c })} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <>
+      <p className="s-label" style={{ marginTop: 20 }}>{t.markup("topUp", { b: (c) => c })}</p>
+      <div className="s-chips" role="radiogroup" aria-label={t.markup("topUp", { b: (c) => c })}>
         {amounts.map((usd) => (
-          <button
-            key={usd}
-            type="button"
-            role="radio"
-            aria-checked={amount === usd}
-            onClick={() => setAmount(usd)}
-            className="chip chip-solid h-auto flex-col gap-0 rounded-[22px] chip-white py-3"
-          >
-            <span className="text-base font-bold">{local(usd)}</span>
-            <span className="text-xs opacity-75">{formatMoney(usd, "USD", locale)}</span>
+          <button key={usd} type="button" role="radio" aria-checked={amount === usd} onClick={() => setAmount(usd)} className="s-chip s-num" title={formatMoney(usd, "USD", locale)}>
+            {local(usd)}
           </button>
         ))}
       </div>
-
-      <div>
-        <p className="label mb-2">{t("methods")}</p>
-        <div role="radiogroup" aria-label={t("methods")} className="flex flex-wrap gap-2">
-          {METHODS.map((m) => (
-            <button key={m.id} type="button" role="radio" aria-checked={method === m.id} onClick={() => setMethod(m.id)} className="chip chip-white">
-              {t(m.key)}
-            </button>
-          ))}
-        </div>
+      <p className="s-label" style={{ marginTop: 18 }}>{t("methods")}</p>
+      <div className="s-chips" role="radiogroup" aria-label={t("methods")}>
+        {METHODS.map((m) => (
+          <button key={m.id} type="button" role="radio" aria-checked={method === m.id} onClick={() => setMethod(m.id)} className="s-chip">{t(m.key)}</button>
+        ))}
       </div>
-
-      <p className="text-xs text-ink-muted">{t("topUpHint")}</p>
-
-      <button type="button" onClick={pay} disabled={pending} className="btn btn-primary w-full">
+      <p style={{ fontSize: 12, color: "var(--s-muted)", margin: "12px 0 0" }}>{t("topUpHint")}</p>
+      <button type="button" onClick={pay} disabled={pending} className="s-btn lit" style={{ width: "100%", marginTop: 18 }}>
         {pending ? <SpinnerIcon className="size-4" /> : null}
         {pending ? t("paying") : t("pay", { amount: local(amount) })}
       </button>
-
       {message ? (
-        <p
-          role={message.ok ? "status" : "alert"}
-          className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm ${message.ok ? "bg-success-bg text-success-ink" : "bg-warning-bg text-warning-ink"}`}
-        >
+        <p role={message.ok ? "status" : "alert"} style={{ marginTop: 12, display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: message.ok ? "var(--s-ok)" : "var(--s-gold)" }}>
           {message.ok ? <CheckIcon className="size-4" /> : null}
           {message.text}
         </p>
       ) : null}
-    </div>
+    </>
   );
 }

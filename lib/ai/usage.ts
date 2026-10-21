@@ -32,7 +32,9 @@ export type AiKind =
   // posts (lib/posts-engine): a post's calls are counted as one post, not call by call (assertPostRateLimit)
   | "post_write"
   | "post_design"
-  | "post_image";
+  | "post_image"
+  // content plans: the ideas for a period
+  | "content_plan";
 
 /** Price per million tokens (input, output) — Claude API list prices. */
 export const PRICES: Record<string, [number, number]> = {

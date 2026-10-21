@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
-import { TopNav } from "@/components/nav/top-nav";
+import { JetBrains_Mono } from "next/font/google";
+import { StudioShell } from "@/components/studio/shell";
+import "../../studio.css";
+
+const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-mono", display: "swap" });
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="px-2.5 py-2.5 sm:px-6 sm:py-6">
-      <div className="mx-auto max-w-app rounded-card bg-white p-4 shadow-card sm:p-7">
-        <TopNav />
-        <div className="divider my-5 sm:my-6" />
-        <main>{children}</main>
-      </div>
+    <div className={mono.variable}>
+      <StudioShell>{children}</StudioShell>
     </div>
   );
 }

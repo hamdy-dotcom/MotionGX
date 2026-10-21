@@ -3,6 +3,7 @@
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
+import { placeCreated } from "@/lib/data/schedule";
 import { redirect } from "@/i18n/navigation";
 import { assertPostRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { startPostGeneration } from "@/lib/live-engine/server/jobs";
@@ -44,6 +45,7 @@ export async function createPost(_prev: CreatePostState, formData: FormData): Pr
     console.error("[createPost] insert failed", { code: error?.code, message: error?.message });
     return { error: "generic" };
   }
+  await placeCreated(supabase, "posts", post.id, formData);
   after(() => startPostGeneration(post.id));
   revalidatePath("/posts");
   redirect({ href: `/posts/${post.id}`, locale });
