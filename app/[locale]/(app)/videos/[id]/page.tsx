@@ -11,7 +11,11 @@ import type { ScriptBeat } from "@motiongx/primitives";
 import { dimensionsFor } from "@/lib/motion/types";
 import { LIVE_BUCKET } from "@/lib/live-engine/protocol";
 import { liveRevision } from "@/lib/live-engine/server/versions";
+import { listCompanies } from "@/lib/data/companies";
+import { companyCaptureId } from "@/lib/live-engine/server/jobs";
+import { brandFiles } from "@/lib/live-engine/server/brand-files";
 import { Studio, type RenderInfo, type StudioVersion } from "./studio";
+import type { CreatingBrand } from "./creating-video";
 
 // Generation ("another direction", change requests) and exports run in `after()` of this route's actions.
 export const maxDuration = 800;
@@ -21,7 +25,8 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
   setRequestLocale(locale);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
 
-  const { supabase, workspace } = await getAppContext();
+  const ctx = await getAppContext();
+  const { supabase, workspace } = ctx;
   const [videoRes, versionRes, renderRes, prices, fx] = await Promise.all([
     supabase.from("videos").select("*, companies(name, brand_profiles(colors))").eq("id", id).maybeSingle(),
     supabase.from("video_versions").select("*").eq("video_id", id).order("version", { ascending: false }).limit(1).maybeSingle(),
@@ -77,6 +82,16 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
     }
   }
 
+  // the live creating screen shows the brand's logo and its real captured screens while the first version is made
+  const company = (await listCompanies(ctx)).find((c) => c.id === video.company_id);
+  let screens: string[] = [];
+  if (video.status === "generating" && !current) {
+    const captureId = await companyCaptureId(video.company_id).catch(() => null);
+    const files = captureId ? await brandFiles(workspace.id, captureId).catch(() => null) : null;
+    screens = (files?.screens ?? []).map((x) => x.thumb).filter((x): x is string => Boolean(x)).slice(0, 8);
+  }
+  const brand: CreatingBrand = { name: video.companies?.name ?? "", colors: video.companies?.brand_profiles?.colors ?? [], logoUrl: company?.logo_url ?? null, logoOnDark: company?.logo_on_dark ?? null, screens };
+
   const r = renderRes.data;
   let downloadUrl: string | null = null;
   if (r?.status === "done" && r.output_path) {
@@ -96,6 +111,7 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
       fxRate={fx}
       currency={workspace.currency_code}
       initialRender={render}
+      brand={brand}
     />
   );
 }

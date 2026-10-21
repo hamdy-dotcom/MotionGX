@@ -765,5 +765,50 @@
     "removed": "Back in the plan without a day",
     "opens": "Caption opens with",
     "best": "Best time to post"
+  },
+  "videoStudio": {
+    "title": "<b>Making</b> the video",
+    "titleEdit": "<b>Editing</b> the video",
+    "sub": "The director reads your brand and watches your real screens, then writes, builds and animates every scene — follow each step.",
+    "steps": {
+      "brand": "Brand",
+      "idea": "Idea",
+      "scenes": "Scenes",
+      "music": "Music",
+      "check": "Check",
+      "export": "Export"
+    },
+    "stepsSub": {
+      "brand": "logo, colours, screens",
+      "idea": "plan and storyboard",
+      "scenes": "on your real interface",
+      "music": "on the beat",
+      "check": "every frame",
+      "export": "MP4 ready"
+    },
+    "time": "Time",
+    "cost": "Cost so far",
+    "step": "Step",
+    "seconds": "{n}s",
+    "queued": "Getting ready…",
+    "scene": "Scene {n}/{total}",
+    "frames": "Frame {n} / {total}",
+    "starting": "<b>Setting up the studio</b> for {name}…",
+    "capture": "<b>Reading {name}'s site</b> and capturing its screens — the brand's first video; next time is faster",
+    "brandKnown": "<b>{name}'s brand is ready</b> — logo, colours and screens from the last read of the site",
+    "explore": "<b>The director is watching your product's</b> real screens · {n} files",
+    "plan": "<b>Writing the video's idea</b> and plan",
+    "storyboard": "<b>Storyboard ready</b>: {n} scenes · {mood} pace",
+    "clip": "<b>Cutting a real shot</b> from the app recording",
+    "build": "<b>Building and animating the scenes</b> on your interface · pass {n}",
+    "snapshot": "<b>Looking at the frames</b> · {n} times",
+    "music": "<b>Music</b>: {mood}",
+    "bpm": "{n} BPM",
+    "check": "<b>Checking before export</b> — every frame of every scene",
+    "checkOk": "Every frame is clean",
+    "checkFix": "Found {n} issues — fixing them before export",
+    "retry": "The connection dropped for a moment — retrying",
+    "render": "<b>Exporting the video</b> frame by frame with the music",
+    "finish": "<b>The video is ready</b> — opening the studio"
   }
 }

@@ -3,6 +3,7 @@
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
+import { videoProgress, type VideoProgress } from "@/lib/live-engine/server/video-progress";
 import { assertWithinRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { runGeneration, undoLatest, type UndoResult } from "@/lib/motion/app";
 import { historyFor } from "@/lib/motion/revision";
@@ -97,7 +98,7 @@ export async function undoLastChange(videoId: string, version: number, revision:
   return res;
 }
 
-export async function getGenerationStatus(videoId: string): Promise<{ status: string; generation: Record<string, unknown> } | null> {
+export async function getGenerationStatus(videoId: string): Promise<{ status: string; generation: Record<string, unknown>; progress: VideoProgress | null } | null> {
   const { supabase } = await getAppContext();
   const { data } = await supabase.from("videos").select("status, generation").eq("id", videoId).maybeSingle();
   const generation = (data?.generation ?? {}) as Record<string, unknown>;
@@ -106,7 +107,10 @@ export async function getGenerationStatus(videoId: string): Promise<{ status: st
     lastRevive = Date.now();
     after(() => reviveStalledJobs().then(() => undefined));
   }
-  return data ? { status: data.status, generation } : null;
+  if (!data) return null;
+  // the live creating screen: what the job has done so far (only while it runs)
+  const progress = data.status === "generating" && generation.engine === "live" ? await videoProgress(videoId) : null;
+  return { status: data.status, generation, progress };
 }
 let lastRevive = 0;
 

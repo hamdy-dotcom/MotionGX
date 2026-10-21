@@ -334,3 +334,29 @@ body:has(.s-app) { background: var(--s-stage); color: var(--s-ink) }
   .s-cal { gap: 3px } .s-cell { min-height: 64px; padding: 5px } .s-cell .s-clip { font-size: 0; padding: 0; height: 6px } .s-cal .h { font-size: 8px; letter-spacing: 0 }
   .s-cell .s-pcard { padding: 0; border: 0; height: 6px; background: var(--s-brand); border-radius: 3px } .s-cell .s-pcard > * { display: none }
 }
+
+/* video creating screen — the posts creating studio (pst-*) with a moving canvas: the brand's real screens become
+   scenes, a filmstrip of the storyboard, an equaliser for the music and a frame counter for the export */
+.pst-forming.pst-v { aspect-ratio: var(--ar, 9 / 16); width: min(100%, var(--w, 300px)); background: #111318 }
+.pst-v .pst-scenes { position: absolute; inset: 0; opacity: 0; transition: opacity 1s }
+.pst-v.pst-film .pst-scenes { opacity: 1 }
+.pst-v .pst-scenes i { position: absolute; inset: 0; background: center/cover; opacity: 0; transform: scale(1.12); transition: opacity 1.1s ease }
+.pst-v .pst-scenes i.on { opacity: 1; animation: pst-kb 3.2s ease-out both }
+@keyframes pst-kb { from { transform: scale(1.18) translate(2%, 2%) } to { transform: scale(1.04) translate(0, 0) } }
+.pst-v .pst-scenes::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.05) 40%, rgba(0,0,0,.6)) }
+.pst-v.pst-film .pst-swatches { opacity: 0; transition: opacity .8s }
+.pst-v .pst-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 4 }
+.pst-v .pst-flash.go { animation: pst-flash .45s ease-out }
+@keyframes pst-flash { 12% { opacity: .75 } 100% { opacity: 0 } }
+.pst-v .pst-sceneNo { position: absolute; top: 14px; inset-inline-start: 14px; z-index: 3; background: rgba(0,0,0,.55); color: #fff; font: 600 11px var(--s-mono); padding: 3px 8px; border-radius: 999px; letter-spacing: .08em }
+.pst-v .pst-eq { position: absolute; inset-inline: 18px; bottom: 16px; height: 34px; display: flex; gap: 3px; align-items: flex-end; z-index: 3; opacity: 0; transition: opacity .6s }
+.pst-v.pst-music .pst-eq { opacity: 1 }
+.pst-v .pst-eq i { flex: 1; background: rgba(255,255,255,.85); border-radius: 2px; height: 20%; animation: pst-eq 1s ease-in-out infinite alternate }
+@keyframes pst-eq { to { height: 100% } }
+.pst-v .pst-render { position: absolute; inset-inline: 0; bottom: 0; height: 5px; background: rgba(255,255,255,.2); z-index: 5 } .pst-v .pst-render i { display: block; height: 100%; background: var(--s-brand, var(--primary)); transition: width .4s linear }
+.pst-v .pst-head { font-size: 22px; bottom: 64px }
+.pst-strip { display: flex; gap: 6px; margin-block-start: 14px; overflow-x: auto; padding-block-end: 4px }
+.pst-strip span { flex: none; width: 54px; aspect-ratio: 9 / 16; border-radius: 8px; background: #e7e8f3 center/cover; position: relative; animation: pst-pop .4s both; box-shadow: inset 0 0 0 1px rgba(0,0,0,.06) }
+.pst-strip span b { position: absolute; bottom: 3px; inset-inline-start: 4px; font: 600 9px var(--s-mono); color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6) }
+.pst-strip span.lit { box-shadow: 0 0 0 2px var(--s-brand, var(--primary)) }
+.pst-thumbs { display: flex; gap: 6px; margin-block-start: 8px; flex-wrap: wrap } .pst-thumbs i { width: 64px; height: 40px; border-radius: 6px; background: #e7e8f3 center/cover; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); animation: pst-pop .35s both }

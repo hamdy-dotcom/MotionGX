@@ -2,6 +2,8 @@
 
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore, useTransition, type FormEvent, type Ref } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { CreatingVideo, type CreatingBrand } from "./creating-video";
+import type { VideoProgress } from "@/lib/live-engine/server/video-progress";
 import { Link, useRouter } from "@/i18n/navigation";
 import {
   anotherDirection,
@@ -81,6 +83,7 @@ export function Studio({
   fxRate,
   currency,
   initialRender,
+  brand,
 }: {
   video: Video;
   generation: Record<string, unknown> | null;
@@ -91,6 +94,8 @@ export function Studio({
   fxRate: number;
   currency: string;
   initialRender: RenderInfo | null;
+  /** the brand as the live creating screen shows it */
+  brand: CreatingBrand;
 }) {
   const t = useTranslations("studio");
   const tc = useTranslations("common");
@@ -115,6 +120,7 @@ export function Studio({
   const [render, setRender] = useState<RenderInfo | null>(initialRender);
   const [status, setStatus] = useState(video.status);
   const [gen, setGen] = useState<Record<string, unknown> | null>(generation);
+  const [progress, setProgress] = useState<VideoProgress | null>(null);
   // The preview iframe needs window.location.origin, so it mounts client-side only.
   const mounted = useSyncExternalStore(
     () => () => undefined,
@@ -150,10 +156,11 @@ export function Studio({
   // Generation progress: poll while the background job runs; refresh when a version lands.
   useEffect(() => {
     if (!generating) return;
-    const poll = setInterval(async () => {
+    const tick = async () => {
       const s = await getGenerationStatus(video.id);
       if (!s) return;
       setGen(s.generation);
+      setProgress(s.progress);
       if (s.status !== "generating") {
         setStatus(s.status as Video["status"]);
         const g = String(s.generation.stage ?? "");
@@ -163,7 +170,9 @@ export function Studio({
         else if (g === "error") setNotice({ tone: "error", text: tc("error") });
         router.refresh();
       }
-    }, 3000);
+    };
+    void tick();
+    const poll = setInterval(tick, 3000);
     return () => clearInterval(poll);
   }, [generating, video.id, router, t, tc, current]);
 
@@ -309,6 +318,30 @@ export function Studio({
   const markers = beats.slice(1).map((b) => (b.start_s / video.length_s) * 100);
   const stageIndex = stage === "awaiting_code" ? 1 : Math.max(0, STAGES.indexOf(stage as Stage));
   const askedTo = String((gen?.ask as { sent_to?: string } | undefined)?.sent_to ?? "");
+
+  // the first version is being made: the live creating screen
+  if (generating && !current)
+    return (
+      <CreatingVideo
+        title={video.title}
+        format={video.format}
+        lengthS={video.length_s}
+        generation={gen}
+        progress={progress}
+        brand={brand}
+        edit={false}
+        codeForm={
+          <CaptureCodeForm
+            askedTo={askedTo}
+            onSend={async (c) => {
+              const ok = await submitCaptureCode(video.id, c);
+              if (ok) setGen((g) => ({ ...g, stage: "plan" }));
+              return ok;
+            }}
+          />
+        }
+      />
+    );
 
   return (
     <div className="space-y-5">
