@@ -149,7 +149,14 @@ export class Session {
     const page = await this.browser.newPage({ viewport: { width: this.W, height: this.H } });
     await page.route("**/*", (route) => (route.request().url().startsWith("file://") ? route.continue() : route.abort())); // no network
     page.on("pageerror", (e) => this.errors.push(`page error: ${e.message}`.slice(0, 300)));
-    page.on("console", (m) => { if (m.type() === "error") this.errors.push(`console: ${m.text()}`.slice(0, 300)); });
+    // a request to the outside world is aborted on purpose (no network) — e.g. a captured clone's font from the live
+    // site — so its "Failed to load resource" is not the composition's error; failures of local files still are
+    page.on("console", (m) => {
+      if (m.type() !== "error") return;
+      const from = m.location()?.url || "";
+      if (/Failed to load resource/.test(m.text()) && (!from || !from.startsWith("file://"))) return;
+      this.errors.push(`console: ${m.text()}`.slice(0, 300));
+    });
     await page.goto("file://" + this.html + "?render", { waitUntil: "load", timeout: 60000 });
     await page.evaluate("Promise.race([Promise.resolve(window.__ready), new Promise((r) => setTimeout(r, 30000))])");
     return page;
