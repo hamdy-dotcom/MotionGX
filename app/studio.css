@@ -254,3 +254,83 @@ body:has(.s-app) { background: var(--s-stage); color: var(--s-ink) }
 .s-bal { font: 700 clamp(44px, 6vw, 72px)/1 var(--s-mono); letter-spacing: -.03em; color: var(--s-ink) }
 .s-table { width: 100%; border-collapse: collapse; font-size: 13px } .s-table th, .s-table td { text-align: start; padding: 11px 6px; border-bottom: 1px solid var(--s-hair) } .s-table th { font: 500 10px var(--s-mono); letter-spacing: .18em; color: var(--s-muted); text-transform: uppercase }
 .s-tablewrap { overflow-x: auto }
+
+/* the brief card (plan setup): a colour-bar tab in the brand's palette */
+.s-slate { padding: 0; overflow: hidden }
+.s-clap { height: 12px; display: flex } .s-clap i { flex: 1 }
+.s-slate-body { padding: 18px 20px 20px }
+.s-slate-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--s-hair); border-radius: 12px; margin-bottom: 14px; overflow: hidden; background: var(--s-stage) }
+.s-slate-meta div { padding: 7px 10px; border-inline-end: 1px solid var(--s-hair) } .s-slate-meta div:last-child { border: 0 }
+.s-slate-meta small { display: block; font: 9.5px var(--s-mono); letter-spacing: .2em; color: var(--s-muted) } .s-slate-meta b { font: 600 13px var(--s-mono) }
+.s-pset .s-chips + .s-label { margin-top: 18px }
+.s-dates { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px } .s-dates label { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--s-ink-2) }
+.s-dates input { border: 1px solid var(--s-hair); background: var(--s-stage); border-radius: 12px; padding: 7px 10px; font: 13px var(--s-mono); color: var(--s-ink) }
+.s-sum .big-n { font: 700 54px/1 var(--s-mono); letter-spacing: -.03em }
+.s-sum .rowx { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.22); font-size: 13px } .s-sum .rowx b { font-family: var(--s-mono) }
+
+/* plans workspace */
+.s-pbar { display: flex; flex-wrap: wrap; gap: 14px 26px; align-items: center; margin-bottom: 18px }
+.s-pbar .meter { flex: 1; min-width: 180px; height: 10px; border-radius: 10px; background: var(--s-stage); box-shadow: inset 0 0 0 1px var(--s-hair); overflow: hidden } .s-pbar .meter i { display: block; height: 100%; background: var(--s-brand); border-radius: 10px; transition: width .5s cubic-bezier(.2, .8, .2, 1) }
+.s-pstat { display: flex; flex-direction: column; line-height: 1.2 } .s-pstat b { font: 700 24px var(--s-mono) } .s-pstat span { font-size: 12px; color: var(--s-muted) }
+.s-thinking { display: flex; gap: 10px; align-items: center; color: var(--s-brand); font-weight: 600; font-size: 13px }
+.s-plan-grid { grid-template-columns: minmax(0, 1fr) 300px }
+.s-ideas { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px }
+.s-idea { position: relative; overflow: hidden; background: #fff; border: 1px solid var(--s-hair); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--s-lift); transition: transform .3s, box-shadow .3s, opacity .3s, border-color .3s; animation: s-rise .55s cubic-bezier(.2, .8, .2, 1) both; min-height: 214px }
+.s-idea:hover { transform: translateY(-3px) rotate(-.3deg); box-shadow: 0 22px 40px -18px color-mix(in srgb, var(--s-brand) 45%, transparent) }
+.s-idea .no { position: absolute; top: -12px; inset-inline-end: 6px; font: 800 82px/1 var(--s-mono); color: color-mix(in srgb, var(--s-brand) 8%, transparent); pointer-events: none }
+.s-idea .top { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; position: relative }
+.s-idea .ang { font: 600 10px var(--s-mono); letter-spacing: .18em; color: var(--s-brand) }
+.s-idea .kd { font-size: 11px; padding: 1px 8px; border-radius: 99px; background: var(--s-panel-2); color: var(--s-ink-2); display: inline-flex; gap: 4px; align-items: center }
+.s-idea .occ { font-size: 11px; padding: 1px 8px; border-radius: 99px; background: #fff3dc; color: var(--s-gold) }
+.s-idea h4 { margin: 0; font: 700 16px/1.5 var(--s-brandfont); position: relative; text-wrap: balance }
+.s-idea .why { margin: 0; font-size: 12.5px; color: var(--s-ink-2); line-height: 1.6 }
+.s-idea .pl { display: flex; gap: 6px; color: var(--s-muted) }
+.s-idea .acts { margin-top: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center }
+.s-idea .acts select { border: 1px solid var(--s-hair); background: var(--s-stage); border-radius: 999px; padding: 5px 10px; font-size: 12.5px; max-width: 100%; color: var(--s-ink) }
+.s-idea .meta2 { display: grid; gap: 4px; padding: 8px 10px; border-radius: 10px; background: var(--s-stage); font-size: 12px; color: var(--s-ink-2) }
+.s-idea .meta2 b { color: var(--s-ink); font-weight: 600 } .s-idea .meta2 q { color: var(--s-ink) }
+.s-idea .badge { position: absolute; top: 12px; inset-inline-end: 12px; font-size: 11px; font-weight: 700; color: #fff; background: var(--s-brand); padding: 1px 8px; border-radius: 99px }
+.s-idea.ok { border-color: var(--s-brand); box-shadow: 0 0 0 1px var(--s-brand), var(--s-lift); cursor: grab }
+.s-idea.made { border-color: var(--s-ok); box-shadow: 0 0 0 1px var(--s-ok), var(--s-lift) } .s-idea.made .badge { background: var(--s-ok) }
+.s-idea.made .thumb { height: 96px; border-radius: 10px; background: var(--s-panel-2) center/cover; box-shadow: inset 0 0 0 1px var(--s-hair) }
+.s-idea.out { opacity: .42; filter: grayscale(.8); box-shadow: none } .s-idea.out:hover { transform: none }
+.s-idea.busy { opacity: .6; pointer-events: none }
+.s-idea.dragging { opacity: .4 }
+.s-days-panel { position: sticky; top: 22px; display: flex; flex-direction: column; gap: 10px }
+.s-days { display: flex; flex-direction: column; gap: 6px; max-height: calc(100dvh - 220px); overflow: auto; padding: 2px }
+.s-dayrow { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 10px; border: 1px solid var(--s-hair); border-radius: 12px; background: var(--s-stage); min-height: 46px; transition: border-color .2s, background .2s }
+.s-dayrow.over, .s-cell.over { border-color: var(--s-brand); border-style: dashed; background: color-mix(in srgb, var(--s-brand) 8%, #fff) }
+.s-dayrow .dn { font: 500 9.5px var(--s-mono); letter-spacing: .14em; color: var(--s-muted); display: block } .s-dayrow b { font: 700 17px var(--s-mono) }
+.s-dayrow .its { display: flex; flex-direction: column; gap: 4px; min-width: 0 }
+.s-dayrow .empty { font-size: 11px; color: var(--s-muted) }
+/* a planned idea inside a day: what it is, where it goes, when to post, and a one-tap make */
+.s-pcard { position: relative; display: flex; flex-direction: column; gap: 3px; background: #fff; border: 1px dashed color-mix(in srgb, var(--s-brand) 55%, var(--s-gold)); border-inline-start: 3px solid var(--s-brand); border-radius: 9px; padding: 5px 7px 6px; cursor: grab; text-align: start; min-width: 0; transition: transform .2s, box-shadow .2s; animation: s-rise .45s both; color: var(--s-ink) }
+.s-pcard:hover { transform: translateY(-1px); box-shadow: 0 10px 20px -12px color-mix(in srgb, var(--s-brand) 60%, transparent) }
+.s-pcard .pk { display: flex; gap: 4px; align-items: center; font-size: 10px; font-weight: 600; color: var(--s-brand); white-space: nowrap; overflow: hidden }
+.s-pcard .pk em { font-style: normal; color: var(--s-muted); font-weight: 500; overflow: hidden; text-overflow: ellipsis }
+.s-pcard b { font: 600 11.5px/1.4 var(--s-brandfont); color: var(--s-ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+.s-pcard .pf { display: flex; gap: 5px; align-items: center; color: var(--s-muted); font: 500 9.5px var(--s-mono) }
+.s-pcard .pf svg { width: 11px; height: 11px }
+.s-pcard .pmk { margin-inline-start: auto; border: 0; background: var(--s-brand); color: #fff; border-radius: 99px; padding: 1px 8px; font: 700 10px var(--s-display); opacity: 0; transition: opacity .2s }
+.s-pcard:hover .pmk, .s-pcard:focus-within .pmk { opacity: 1 }
+
+/* brand calendar */
+.s-calhead { display: flex; gap: 8px; align-items: center }
+.s-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px }
+.s-cal .h { font: 500 10px var(--s-mono); letter-spacing: .18em; color: var(--s-muted); text-align: center; padding: 6px 0 }
+.s-cell { position: relative; border: 1px solid var(--s-hair); background: var(--s-stage); border-radius: 12px; min-height: 104px; padding: 8px; text-align: start; display: flex; flex-direction: column; gap: 4px; transition: .2s; min-width: 0; cursor: pointer; color: var(--s-ink) }
+.s-cell:hover { border-color: color-mix(in srgb, var(--s-brand) 50%, transparent); background: #fff; transform: translateY(-2px); box-shadow: var(--s-lift) }
+.s-cell .d { font: 700 14px var(--s-mono); color: var(--s-ink-2) } .s-cell.out { opacity: .3; cursor: default } .s-cell.past { opacity: .75 }
+.s-cell.now { border-color: var(--s-brand); background: #fff; box-shadow: 0 0 0 1px var(--s-brand) }
+.s-cell .add { margin-top: auto; color: var(--s-brand); opacity: 0; font: 10px var(--s-mono); letter-spacing: .1em } .s-cell:hover .add { opacity: 1 }
+.s-modal { position: fixed; inset: 0; background: rgba(246,244,238,.7); backdrop-filter: blur(8px); display: grid; place-items: center; z-index: 45; padding: 16px }
+.s-modal .s-panel { width: min(520px, 100%) }
+.s-pop-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px }
+.s-pop-grid div { background: var(--s-stage); border-radius: 12px; padding: 8px 10px; font-size: 12.5px } .s-pop-grid small { display: block; color: var(--s-muted); font-size: 11px }
+.s-input { width: 100%; border: 1px solid var(--s-hair); background: var(--s-stage); border-radius: 14px; padding: 12px 14px; font: 14px var(--s-mono); color: var(--s-ink) }
+@media (max-width: 900px) {
+  .s-plan-grid { grid-template-columns: minmax(0, 1fr) !important } .s-days-panel { position: static } .s-days { max-height: none }
+  .s-slate-meta { grid-template-columns: repeat(2, minmax(0, 1fr)) } .s-slate-meta div:nth-child(2) { border-inline-end: 0 } .s-slate-meta div:nth-child(-n+2) { border-bottom: 1px solid var(--s-hair) }
+  .s-cal { gap: 3px } .s-cell { min-height: 64px; padding: 5px } .s-cell .s-clip { font-size: 0; padding: 0; height: 6px } .s-cal .h { font-size: 8px; letter-spacing: 0 }
+  .s-cell .s-pcard { padding: 0; border: 0; height: 6px; background: var(--s-brand); border-radius: 3px } .s-cell .s-pcard > * { display: none }
+}
