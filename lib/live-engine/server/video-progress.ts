@@ -4,6 +4,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 /** What the video's job has done so far, read from its log (the director engine's tool lines) — for the live creating
  *  screen. Read-only: the engine is not changed or asked for anything. */
 export type VideoEvent =
+  // a brand's first video: the capture job reads the site first
+  | { k: "site"; pages: number }
+  | { k: "app"; blocked: boolean | null }
+  | { k: "captured"; pages: number; screens: number }
+  | { k: "profile"; features: number | null; screens: number | null }
+  | { k: "saving"; n: number }
   | { k: "explore"; n: number }
   | { k: "plan" }
   | { k: "storyboard"; scenes: number; mood: string }
@@ -15,12 +21,12 @@ export type VideoEvent =
   | { k: "render" }
   | { k: "finish" }
   | { k: "retry" };
-export type VideoProgress = { startedAt: string | null; cost: number; step: string | null; events: VideoEvent[] };
+export type VideoProgress = { kind: "capture" | "video"; startedAt: string | null; cost: number; step: string | null; events: VideoEvent[] };
 
 export function parseVideoLog(lines: string[]): VideoEvent[] {
   const out: VideoEvent[] = [];
   // repeated work is one event whose count rises (the director alternates build → look → build …)
-  const bump = (k: "explore" | "clip" | "build" | "snapshot") => {
+  const bump = (k: "explore" | "clip" | "build" | "snapshot" | "saving") => {
     const seen = out.find((e) => e.k === k);
     if (seen) (seen as { n: number }).n++;
     else out.push({ k, n: 1 } as VideoEvent);
@@ -28,7 +34,15 @@ export function parseVideoLog(lines: string[]): VideoEvent[] {
   for (const raw of lines) {
     const l = raw.trim();
     let m: RegExpMatchArray | null;
-    if (/^🛠 (inspect_clone|(read_file|list_files)( ✗)? capture:)/.test(l)) bump("explore");
+    if (/^▶ capture: public pages/.test(l)) out.push({ k: "site", pages: 1 });
+    else if (/^· https?:\/\//.test(l)) { const e = out.findLast((x) => x.k === "site"); if (e && e.k === "site") e.pages++; }
+    else if (/^▶ capture: agent enters/.test(l)) out.push({ k: "app", blocked: null });
+    else if (/^■ agent blocked/.test(l)) { const e = out.findLast((x) => x.k === "app"); if (e && e.k === "app") e.blocked = true; }
+    else if ((m = l.match(/^✓ capture: (\d+) public pages, (\d+) app screens/))) { const e = out.findLast((x) => x.k === "app"); if (e && e.k === "app" && e.blocked == null) e.blocked = false; out.push({ k: "captured", pages: +m[1], screens: +m[2] }); }
+    else if (/^▶ profile:/.test(l)) out.push({ k: "profile", features: null, screens: null });
+    else if ((m = l.match(/^✓ profile: .*?(\d+) features.*?(\d+) screens/))) { const e = out.findLast((x) => x.k === "profile"); if (e && e.k === "profile") { e.features = +m[1]; e.screens = +m[2]; } }
+    else if (/^upload \(brand/.test(l)) bump("saving");
+    else if (/^🛠 (inspect_clone|(read_file|list_files)( ✗)? capture:)/.test(l)) bump("explore");
     else if (/^🛠 write_file brag-plan\.md/.test(l)) { if (!out.some((e) => e.k === "plan")) out.push({ k: "plan" }); }
     else if ((m = l.match(/^🛠 set_storyboard (\d+) scenes · (.+)$/))) out.push({ k: "storyboard", scenes: +m[1], mood: m[2].trim() });
     else if (/^🛠 clip_frames/.test(l)) bump("clip");
@@ -47,7 +61,8 @@ export function parseVideoLog(lines: string[]): VideoEvent[] {
 
 /** the latest job of a video (the caller has already checked the user can see the video) */
 export async function videoProgress(videoId: string): Promise<VideoProgress | null> {
-  const { data } = await createAdminClient().from("live_jobs").select("created_at, cost_usd, stage, log").eq("video_id", videoId).eq("kind", "video").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  // the video's newest job: the brand capture (a first video) until the video job itself starts
+  const { data } = await createAdminClient().from("live_jobs").select("kind, created_at, cost_usd, stage, log").eq("video_id", videoId).in("kind", ["capture", "video"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (!data) return null;
-  return { startedAt: data.created_at as string, cost: Number(data.cost_usd ?? 0), step: (data.stage as string | null) ?? null, events: parseVideoLog((data.log ?? []) as string[]) };
+  return { kind: data.kind === "capture" ? "capture" : "video", startedAt: data.created_at as string, cost: Number(data.cost_usd ?? 0), step: (data.stage as string | null) ?? null, events: parseVideoLog((data.log ?? []) as string[]) };
 }

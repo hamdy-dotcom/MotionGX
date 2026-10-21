@@ -121,6 +121,9 @@ export function Studio({
   const [status, setStatus] = useState(video.status);
   const [gen, setGen] = useState<Record<string, unknown> | null>(generation);
   const [progress, setProgress] = useState<VideoProgress | null>(null);
+  // a first video opens before its brand capture has saved any screens: they arrive with the poll
+  const [screens, setScreens] = useState(brand.screens);
+  const noScreens = screens.length === 0;
   // The preview iframe needs window.location.origin, so it mounts client-side only.
   const mounted = useSyncExternalStore(
     () => () => undefined,
@@ -156,11 +159,13 @@ export function Studio({
   // Generation progress: poll while the background job runs; refresh when a version lands.
   useEffect(() => {
     if (!generating) return;
+    const screensNeeded = { current: noScreens };
     const tick = async () => {
-      const s = await getGenerationStatus(video.id);
+      const s = await getGenerationStatus(video.id, !current && screensNeeded.current);
       if (!s) return;
       setGen(s.generation);
       setProgress(s.progress);
+      if (s.screens?.length) { screensNeeded.current = false; setScreens(s.screens); }
       if (s.status !== "generating") {
         setStatus(s.status as Video["status"]);
         const g = String(s.generation.stage ?? "");
@@ -174,7 +179,7 @@ export function Studio({
     void tick();
     const poll = setInterval(tick, 3000);
     return () => clearInterval(poll);
-  }, [generating, video.id, router, t, tc, current]);
+  }, [generating, video.id, router, t, tc, current, noScreens]);
 
   // Render progress: Supabase Realtime on `renders`, with a polling fallback.
   const renderId = render?.id;
@@ -328,7 +333,8 @@ export function Studio({
         lengthS={video.length_s}
         generation={gen}
         progress={progress}
-        brand={brand}
+        brand={{ ...brand, screens }}
+        createdAt={video.created_at}
         edit={false}
         codeForm={
           <CaptureCodeForm

@@ -24,12 +24,13 @@ export function DevVideo({ screens }: { screens: string[] }) {
   useEffect(() => { const iv = setInterval(() => setS((Date.now() - t0) / 1000), 500); return () => clearInterval(iv); }, [t0]);
   const [, step, events] = TIMELINE.findLast(([at]) => s >= at) ?? TIMELINE[0];
   const gen = { stage: step === "queued" ? "queued" : step === "script" ? "plan" : step === "render" ? "ready" : step === "music" ? "music" : "spec", engine: "live", first: false };
-  const progress: VideoProgress = { startedAt: new Date(t0).toISOString(), cost: Math.min(0.42, s * 0.011), step: step === "queued" ? null : step, events };
+  const progress: VideoProgress = { kind: "video", startedAt: new Date(t0).toISOString(), cost: Math.min(0.42, s * 0.011), step: step === "queued" ? null : step, events };
   return (
     <CreatingVideo
       title="معاك 60 ثانية؟ ده كل اللي محتاجه متجرك"
       format="9:16"
       lengthS={60}
+      createdAt={new Date(t0).toISOString()}
       generation={gen}
       progress={progress}
       brand={{ name: "منتوج", colors: [{ hex: "#3b82f6" }, { hex: "#60a5fa" }, { hex: "#0f1117" }, { hex: "#1a1d24" }, { hex: "#8b8fa8" }, { hex: "#ffffff" }], logoUrl: null, logoOnDark: true, screens }}

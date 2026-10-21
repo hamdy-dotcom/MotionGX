@@ -18,15 +18,16 @@ const GEN_OF: Record<string, number> = { queued: 0, awaiting_code: 0, plan: 1, m
 
 export type CreatingBrand = { name: string; colors: BrandColor[]; logoUrl: string | null; logoOnDark: boolean | null; screens: string[] };
 
-export function CreatingVideo({ title, format, lengthS, generation, progress, brand, edit, codeForm }: { title: string; format: string; lengthS: number; generation: Record<string, unknown> | null; progress: VideoProgress | null; brand: CreatingBrand; edit: boolean; codeForm: ReactNode }) {
+export function CreatingVideo({ title, format, lengthS, createdAt, generation, progress, brand, edit, codeForm }: { title: string; format: string; lengthS: number; createdAt: string; generation: Record<string, unknown> | null; progress: VideoProgress | null; brand: CreatingBrand; edit: boolean; codeForm: ReactNode }) {
   const t = useTranslations("videoStudio");
   const stage = String(generation?.stage ?? "queued");
-  const first = Boolean(generation?.first);
+  const capturing = progress?.kind === "capture";
+  const first = Boolean(generation?.first) || capturing;
   const ev = progress?.events ?? [];
   const has = (k: VideoEvent["k"]) => ev.some((e) => e.k === k);
   const last = <K extends VideoEvent["k"]>(k: K) => ev.findLast((e) => e.k === k) as Extract<VideoEvent, { k: K }> | undefined;
   // the step reached: the job's own step when known, else the video's stage; it never goes back
-  const reachedNow = Math.max(progress?.step ? STEP_OF[progress.step] ?? 0 : 0, GEN_OF[stage] ?? 0, has("storyboard") ? 3 : has("music") ? 2 : has("plan") ? 1 : 0, has("render") ? 5 : 0);
+  const reachedNow = capturing ? 0 : Math.max(progress?.step ? STEP_OF[progress.step] ?? 0 : 0, GEN_OF[stage] ?? 0, has("storyboard") ? 3 : has("music") ? 2 : has("plan") ? 1 : 0, has("render") ? 5 : 0);
   const [reached, setReached] = useState(reachedNow);
   if (reachedNow > reached) setReached(reachedNow);
   const current = Math.min(reached, STEPS.length - 1);
@@ -38,7 +39,7 @@ export function CreatingVideo({ title, format, lengthS, generation, progress, br
   const [w, h] = format === "16:9" ? [16, 9] : format === "1:1" ? [1, 1] : [9, 16];
 
   // the clock and the cost, ticking
-  const started = progress?.startedAt ? new Date(progress.startedAt).getTime() : null;
+  const started = new Date(createdAt).getTime();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const iv = setInterval(() => setNow(Date.now()), 100); return () => clearInterval(iv); }, []);
   const target = progress?.cost ?? 0;
@@ -68,7 +69,7 @@ export function CreatingVideo({ title, format, lengthS, generation, progress, br
   const events: ReactNode[] = [];
   events.push(
     <Event key="start" icon="◐" ok={current > 0}>
-      <p>{t.rich(stage === "queued" && !first ? "starting" : first && current === 0 ? "capture" : "brandKnown", { ...boldTag, name: brand.name })}</p>
+      <p>{t.rich(first && current === 0 ? "capture" : stage === "queued" && !progress ? "starting" : "brandKnown", { ...boldTag, name: brand.name })}</p>
       <div className="pst-swatchRow">{palette.map((v, i) => <i key={`${v}-${i}`} style={{ background: v, animation: `pst-pop .4s ${i * 0.12}s both` }} />)}</div>
       {current === 0 ? <span className="pst-dots" aria-hidden="true"><i /><i /><i /></span> : null}
       {stage === "awaiting_code" ? codeForm : null}
@@ -76,7 +77,12 @@ export function CreatingVideo({ title, format, lengthS, generation, progress, br
   );
   ev.forEach((e, i) => {
     const key = `${e.k}-${i}`;
-    if (e.k === "explore") events.push(<Event key={key} icon="◉"><p>{t.rich("explore", { ...boldTag, n: e.n })}</p><div className="pst-thumbs">{screens.slice(0, 6).map((s, j) => <i key={s} style={{ backgroundImage: `url(${JSON.stringify(s)})`, animationDelay: `${j * 0.1}s` }} />)}</div></Event>);
+    if (e.k === "site") events.push(<Event key={key} icon="◌" ok={has("captured")}><p>{t.rich("site", { ...boldTag, n: e.pages })}</p></Event>);
+    else if (e.k === "app") events.push(<Event key={key} icon="⌁" ok={e.blocked === false}><p>{t.rich(e.blocked ? "appNone" : "app", boldTag)}</p>{e.blocked == null ? <span className="pst-dots" aria-hidden="true"><i /><i /><i /></span> : null}</Event>);
+    else if (e.k === "captured") events.push(<Event key={key} icon="▣" ok><p>{t.rich("captured", { ...boldTag, pages: e.pages, screens: e.screens })}</p></Event>);
+    else if (e.k === "profile") events.push(<Event key={key} icon="◐" ok={e.features != null}><p>{t.rich(e.features != null ? "profiled" : "profiling", { ...boldTag, name: brand.name, features: e.features ?? 0, screens: e.screens ?? 0 })}</p>{e.features == null ? <span className="pst-dots" aria-hidden="true"><i /><i /><i /></span> : null}</Event>);
+    else if (e.k === "saving") events.push(<Event key={key} icon="↥"><p>{t("saving")}</p></Event>);
+    else if (e.k === "explore") events.push(<Event key={key} icon="◉"><p>{t.rich("explore", { ...boldTag, n: e.n })}</p><div className="pst-thumbs">{screens.slice(0, 6).map((s, j) => <i key={s} style={{ backgroundImage: `url(${JSON.stringify(s)})`, animationDelay: `${j * 0.1}s` }} />)}</div></Event>);
     else if (e.k === "plan") events.push(<Event key={key} icon="✎"><p>{t.rich("plan", boldTag)}</p><div className="pst-cap" dir="auto"><Type text={title} speed={45} /></div></Event>);
     else if (e.k === "storyboard") events.push(<Event key={key} icon="▦" ok><p>{t.rich("storyboard", { ...boldTag, n: e.scenes, mood: e.mood })}</p></Event>);
     else if (e.k === "clip") events.push(<Event key={key} icon="✂"><p>{t.rich("clip", boldTag)}</p></Event>);
@@ -128,7 +134,7 @@ export function CreatingVideo({ title, format, lengthS, generation, progress, br
             </div>
           ) : null}
           <div className="pst-meters">
-            <div className="pst-meter"><span>{t("time")}</span><b>{t("seconds", { n: started ? ((now - started) / 1000).toFixed(1) : "0.0" })}</b></div>
+            <div className="pst-meter"><span>{t("time")}</span><b>{t("seconds", { n: Math.max(0, (now - started) / 1000).toFixed(1) })}</b></div>
             <div className="pst-meter"><span>{t("cost")}</span><b dir="ltr">${cost.toFixed(3)}</b></div>
             <div className="pst-meter"><span>{t("step")}</span><b style={{ fontSize: 15 }}>{stage === "queued" && !progress ? t("queued") : t(`steps.${STEPS[current]}`)}</b></div>
           </div>

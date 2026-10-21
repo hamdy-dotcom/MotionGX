@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
 import { videoProgress, type VideoProgress } from "@/lib/live-engine/server/video-progress";
+import { brandFiles } from "@/lib/live-engine/server/brand-files";
 import { assertWithinRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { runGeneration, undoLatest, type UndoResult } from "@/lib/motion/app";
 import { historyFor } from "@/lib/motion/revision";
@@ -12,7 +13,7 @@ import { runRender } from "@/lib/render/run";
 import { promoteCustom, promoteIllustrations } from "@/lib/motion/promote";
 import type { ScriptBeat } from "@motiongx/primitives";
 import { liveEngineEnabled } from "@/lib/live-engine/config";
-import { answerCode, reviveStalledJobs } from "@/lib/live-engine/server/jobs";
+import { answerCode, companyCaptureId, reviveStalledJobs } from "@/lib/live-engine/server/jobs";
 
 export type ActionResult = { ok: true } | { ok: false; error: AiErrorCode | "generic" };
 
@@ -98,9 +99,9 @@ export async function undoLastChange(videoId: string, version: number, revision:
   return res;
 }
 
-export async function getGenerationStatus(videoId: string): Promise<{ status: string; generation: Record<string, unknown>; progress: VideoProgress | null } | null> {
+export async function getGenerationStatus(videoId: string, withScreens = false): Promise<{ status: string; generation: Record<string, unknown>; progress: VideoProgress | null; screens?: string[] } | null> {
   const { supabase } = await getAppContext();
-  const { data } = await supabase.from("videos").select("status, generation").eq("id", videoId).maybeSingle();
+  const { data } = await supabase.from("videos").select("status, generation, company_id, workspace_id").eq("id", videoId).maybeSingle();
   const generation = (data?.generation ?? {}) as Record<string, unknown>;
   // live engine without a cron (local runs): the studio's poll doubles as the watchdog, at most once a minute
   if (data?.status === "generating" && generation.engine === "live" && Date.now() - lastRevive > 60_000) {
@@ -110,7 +111,14 @@ export async function getGenerationStatus(videoId: string): Promise<{ status: st
   if (!data) return null;
   // the live creating screen: what the job has done so far (only while it runs)
   const progress = data.status === "generating" && generation.engine === "live" ? await videoProgress(videoId) : null;
-  return { status: data.status, generation, progress };
+  // the brand's captured screens, once its capture has saved them (a first video's page opens before they exist)
+  let screens: string[] | undefined;
+  if (withScreens && progress?.kind === "video") {
+    const captureId = await companyCaptureId(data.company_id).catch(() => null);
+    const files = captureId ? await brandFiles(data.workspace_id, captureId).catch(() => null) : null;
+    screens = (files?.screens ?? []).map((x) => x.thumb).filter((x): x is string => Boolean(x)).slice(0, 8);
+  }
+  return { status: data.status, generation, progress, screens };
 }
 let lastRevive = 0;
 

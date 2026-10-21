@@ -809,6 +809,13 @@
     "checkFix": "Found {n} issues — fixing them before export",
     "retry": "The connection dropped for a moment — retrying",
     "render": "<b>Exporting the video</b> frame by frame with the music",
-    "finish": "<b>The video is ready</b> — opening the studio"
+    "finish": "<b>The video is ready</b> — opening the studio",
+    "site": "<b>Opening the brand's site</b> and capturing its pages · {n} pages",
+    "app": "<b>Trying to get inside the app</b> to capture its real screens",
+    "appNone": "<b>There is no app to get into</b> — the video is made from the site's pages",
+    "captured": "<b>Captured</b> {pages} pages and {screens} app screens",
+    "profiling": "<b>Reading {name}'s brand</b> from the pages — logo, colours, features",
+    "profiled": "<b>{name}'s brand is ready</b>: {features} features · {screens} screens",
+    "saving": "Saving the brand's files — next time starts right away"
   }
 }
