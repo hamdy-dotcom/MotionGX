@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import type { Ledger } from "../../live-engine/worker/claude";
-import { makeMusic } from "../../live-engine/worker/steps/music";
+import { hashSeed, makeDirectorMusic } from "./music";
 import { clipFrames } from "../../live-engine/worker/steps/clips";
 import { prepare, renderVideo, Session, SIZES, smallJpeg } from "./renderer";
 
@@ -207,10 +207,16 @@ export class Director {
         script.music.drops = script.scenes.filter((s: any) => ["reveal", "offer", "cta"].includes(s.purpose) && s.start > 0).map((s: any) => Math.round(s.start * 2) / 2);
         fs.writeFileSync(path.join(this.c.runDir, "script.json"), JSON.stringify(script, null, 2));
         await this.c.stage("music");
-        const m = makeMusic({ script, file: path.join(this.c.runDir, "music.wav") } as any) as any;
-        this.c.log(`  ♪ music: ${a.mood}, 120 BPM, drops at ${(m?.drops || script.music.drops).join(", ")}s`);
+        // the bed is cut to this storyboard: its tempo puts the cuts on beats; its seed (this run) picks key, groove and lead
+        const m = makeDirectorMusic({ script, file: path.join(this.c.runDir, "music.wav"), seed: hashSeed(this.c.runDir) }) as any;
+        script.bpm = m.bpm; script.music.drops = m.drops;
+        // the cuts now sit on the music's beats: the script (and the composition) follow the moved times
+        script.scenes.forEach((s: any, i: number) => { s.start = m.scenes[i].start; s.bars = +((m.scenes[i].end - m.scenes[i].start) / 2).toFixed(4); });
+        fs.writeFileSync(path.join(this.c.runDir, "script.json"), JSON.stringify(script, null, 2));
+        this.c.log(`  ♪ music: ${a.mood}, ${m.bpm} BPM, ${m.kit} groove, ${m.lead} lead, drops at ${m.drops.join(", ") || "—"}s`);
         await this.c.stage("build");
-        return `script + music written. Music: 120 BPM — a beat every 0.5 s, a bar every 2 s; drops (strongest hits) at ${(m?.drops || script.music.drops).join(", ")} s. Scenes: ${script.scenes.map((s: any) => `${s.name} ${s.start}–${(s.start + s.bars * 2).toFixed(2)}s`).join(" · ")}`;
+        const fmt = (x: number) => x.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+        return `script + music written. Music: ${m.bpm} BPM (${m.kit} groove, ${m.lead} lead) — a beat every ${fmt(m.beat)} s, a bar every ${fmt(m.bar)} s. Your cuts were moved onto this tempo's beats (by at most ${fmt(m.moved)} s), so every cut lands exactly on a beat and each scene starts a new bar — BUILD TO THESE TIMES: ${m.scenes.map((x: any) => `${x.name} ${x.start}–${x.end}s (${x.beats} beats)`).join(" · ")}. The arrangement follows your scenes: breakdown under "problem", a build in the hook, the full drop on reveal / offer / CTA, a hit on every cut, a fill + riser + impact into each drop. Drops (strongest hits) at ${m.drops.join(", ") || "none"} s. Beat k of a scene is at its start + k × ${fmt(m.beat)} s.`;
       }
       case "snapshot": {
         const s = await this.open();

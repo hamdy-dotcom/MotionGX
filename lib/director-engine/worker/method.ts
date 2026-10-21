@@ -116,8 +116,12 @@ Longer briefs (30–60s) keep the tone's pacing and add highlights, not padding.
 
 # Sound
 
-The music bed is MotionGX's own (made by set_storyboard: 120 BPM, a beat every 0.5s, a bar every 2s; it returns the
-drops). Place 1–3 major reveals within ±0.15s of a drop or bar line, smaller entrances within ±0.10s of a beat — only
+The music bed is MotionGX's own, made by set_storyboard with a tempo of its own per video (inside the mood's range).
+It moves your cuts onto that tempo's beats (by under half a beat) and returns the BPM, the beat and bar lengths, the
+drops and the scene times — build to THOSE times, they change per video. The arrangement follows your scene purposes
+(breakdown under "problem", build in the hook, the drop on reveal / offer / CTA, a hit on every cut). Place 1–3 major
+reveals within ±0.15s of a drop or a bar line (every 4th beat from the scene's start), and smaller
+entrances within ±0.10s of a beat — only
 where it doesn't hurt readability (for sequential TEXT, hold each item to the reading floor; snap to every other
 beat or reveal quickly and hold the set). Mark them in comments: // beat-locked: 5.80s
 Sound effects (CC0, in composition/sfx/; read sfx/sfx-analysis.md before choosing): write music and effects as one
