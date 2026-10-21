@@ -14,6 +14,8 @@ import { promoteCustom, promoteIllustrations } from "@/lib/motion/promote";
 import type { ScriptBeat } from "@motiongx/primitives";
 import { liveEngineEnabled } from "@/lib/live-engine/config";
 import { answerCode, companyCaptureId, reviveStalledJobs } from "@/lib/live-engine/server/jobs";
+import { liveRevision, restoreLive } from "@/lib/live-engine/server/versions";
+import type { CompositionEdits } from "@/lib/director-engine/edits";
 
 export type ActionResult = { ok: true } | { ok: false; error: AiErrorCode | "generic" };
 
@@ -85,6 +87,44 @@ export async function requestEdit(videoId: string, instruction: string, baseRevi
   const text = instruction.trim().slice(0, 1000);
   if (!text) return { ok: false, error: "generic" } as ActionResult;
   return startGeneration(videoId, { kind: "edit", instruction: text, baseRevision });
+}
+
+/** Edit room «طبّق»: the client's moves / sizes / hides / texts are baked into the composition and it is rendered
+ *  again (no model call). The edits are the version's whole set (the ones it already had included). */
+export async function applyEdits(videoId: string, revision: string, edits: CompositionEdits): Promise<ActionResult> {
+  const clean: CompositionEdits = {};
+  const num = (x: unknown, lo: number, hi: number) => (typeof x === "number" && Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : undefined);
+  for (const e of Object.values(edits ?? {}).slice(0, 200)) {
+    // a selector the editor made (ids, classes, :nth-child) — never markup or a rule block
+    if (typeof e?.sel !== "string" || e.sel.length > 300 || /[{}<>;@\\]/.test(e.sel)) continue;
+    clean[e.sel] = { sel: e.sel, dx: num(e.dx, -4000, 4000), dy: num(e.dy, -4000, 4000), scale: num(e.scale, 0.1, 6), hidden: e.hidden === true || undefined, text: typeof e.text === "string" ? e.text.slice(0, 300) : undefined };
+  }
+  if (!(await isLatest(videoId, revision))) return { ok: false, error: "generic" };
+  return startGeneration(videoId, { kind: "rerender", edits: clean });
+}
+
+/** Edit room «اطلب من المخرج» on one scene: a change request scoped to that scene's time span */
+export async function askDirectorScene(videoId: string, revision: string, scene: { n: number; start: number; end: number; label: string }, instruction: string) {
+  const text = instruction.trim().slice(0, 1000);
+  if (!text) return { ok: false, error: "generic" } as ActionResult;
+  const scoped = `Scene ${scene.n} only (${scene.start.toFixed(2)}s → ${scene.end.toFixed(2)}s${scene.label ? `, «${scene.label.slice(0, 80)}»` : ""}): ${text}\nKeep every other scene, the cuts, the music and the brand exactly as they are.`;
+  return startGeneration(videoId, { kind: "edit", instruction: scoped, baseRevision: revision });
+}
+
+/** Edit room «استرجع VN»: that version comes back as the newest one */
+export async function restoreVersion(videoId: string, from: number): Promise<{ ok: true; version: number } | { ok: false }> {
+  const { supabase } = await getAppContext();
+  const { data } = await supabase.from("videos").select("id, status").eq("id", videoId).maybeSingle(); // RLS: members only
+  if (!data || data.status === "generating") return { ok: false };
+  const res = await restoreLive(videoId, from);
+  if (res.ok) revalidatePath(`/videos/${videoId}`);
+  return res;
+}
+
+async function isLatest(videoId: string, revision: string) {
+  const { supabase } = await getAppContext();
+  const { data } = await supabase.from("video_versions").select("id, engine").eq("video_id", videoId).order("version", { ascending: false }).limit(1).maybeSingle();
+  return data?.engine === "live" && liveRevision(data) === revision;
 }
 
 /** «تراجع»: restores the previous version through the stored inverse patch (as a new version). */

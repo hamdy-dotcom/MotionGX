@@ -12,7 +12,8 @@ import { Ledger } from "../../live-engine/worker/claude";
 import type { Sync } from "../../live-engine/worker/sync";
 import { METHOD } from "./method";
 import { Director } from "./agent";
-import { prepare, SIZES } from "./renderer";
+import { prepare, renderVideo, SIZES } from "./renderer";
+import { bakeEdits } from "../edits";
 
 // the video steps the studio's progress follows (protocol.ts VIDEO_STEPS — repeated here: protocol.ts loads as CommonJS
 // in the worker, so only its types may be imported)
@@ -45,31 +46,52 @@ export async function runDirector(job: JobFile, dirs: { root: string; brandDir: 
   const stage = async (s: "script" | "build" | "music" | "qa" | "render") => { if (s !== stageNow) { stageNow = s; await sync.stage(s); } };
   await stage("script");
 
-  const agent = new Director({ brandDir, workDir, runDir, root, layout, length, identity, ledger, model, maxUsd, log, stage }, METHOD);
-  const resumed = (job.mode === "lines" || job.mode === "edit") && agent.resume();
-  if (resumed) {
-    // "Edit lines": the studio's edited lines go into the saved script now; the agent updates the composition to match
-    let ask = "";
-    if (job.mode === "lines") {
-      const sf = path.join(runDir, "script.json"), s = fs.existsSync(sf) ? JSON.parse(fs.readFileSync(sf, "utf8")) : null;
-      const changes = (job.edit?.lines ?? []).filter((l) => s?.scenes?.[l.scene] && (s.scenes[l.scene].headline !== l.headline || (l.sub !== undefined && s.scenes[l.scene].sub !== l.sub)));
-      for (const l of changes) { s.scenes[l.scene].headline = l.headline; if (l.sub !== undefined) s.scenes[l.scene].sub = l.sub; }
-      if (s) fs.writeFileSync(sf, JSON.stringify(s, null, 2));
-      ask = `The client edited the on-screen lines in the studio (the script is already updated):\n${changes.map((l) => `- scene ${l.scene + 1}: headline «${l.headline}»${l.sub !== undefined ? ` · sub «${l.sub}»` : ""}`).join("\n") || "- (no line changed)"}\nUpdate composition/video.src.html so these scenes show exactly these lines (keep everything else: the look, the timing, the material), update brag-plan.md, then snapshot, check, render_video and finish.`;
-    } else ask = `The client asks for this change:\n«${job.edit?.request ?? ""}»\nApply it to the video you made (brag-plan.md, the composition, and set_storyboard again if the scenes change). Keep everything the client didn't ask to change. Then snapshot, check, render_video and finish.`;
-    agent.addUser([{ type: "text", text: `NEW REQUEST (an edit of this video — same brief, same capture, your work dir is as you left it).\n${ask}` }]);
-    log(`↺ director: resuming the agent of the previous version (${agent.messages.length} messages) for ${job.mode === "lines" ? "edited lines" : "a change request"}`);
+  // "Apply edits": the client's moves / sizes / hides / text are baked into the previous composition and it is rendered
+  // again — no agent, no model call, the same script and music
+  let agent: Director | null = null;
+  if (job.mode === "rerender") {
+    const comp = path.join(workDir, "composition"), src = path.join(comp, "video.src.html");
+    if (!fs.existsSync(src)) throw new Error("the previous version has no composition to re-render");
+    const edits = job.edit?.edits ?? {};
+    fs.writeFileSync(src, bakeEdits(fs.readFileSync(src, "utf8"), edits));
+    log(`▶ director: re-rendering the previous composition with ${Object.keys(edits).length} manual edits (no model call)`);
+    const built = prepare({ compDir: comp, brandDir, root, layout, identity });
+    if (!built.ok) throw new Error(built.error);
+    await stage("render");
+    const musicFile = path.join(runDir, "music.wav");
+    if (!fs.existsSync(musicFile)) throw new Error("the previous version has no music bed");
+    const r = await renderVideo({ html: path.join(comp, "video.html"), compDir: comp, layout, duration: length, musicFile, outFile: path.join(runDir, "video.mp4"), posterTime: job.edit?.posterTime ?? 2, log });
+    fs.copyFileSync(r.poster, path.join(workDir, "poster.jpg"));
+    const at = new Date().toISOString();
+    fs.writeFileSync(path.join(runDir, "qa.json"), JSON.stringify({ engine: "director", shipped: "rerender", errors: 0, warnings: 0, history: [{ tag: "rerender", errors: 0, warnings: 0, at }], issues: [] }, null, 2));
+    if (!fs.existsSync(path.join(runDir, "cost.json"))) fs.writeFileSync(path.join(runDir, "cost.json"), JSON.stringify({ total: 0, byStep: {}, calls: [] }, null, 2));
   } else {
-    if (job.mode === "lines" || job.mode === "edit") log("! director: the previous version has no saved agent run — starting a new one with the edit as direction");
-    agent.addUser([{ type: "text", text: firstMessage({ brand, cap, brief, language, layout, W, H, length, edit: job.mode === "edit" ? job.edit?.request : undefined }) }]);
-  }
+    agent = new Director({ brandDir, workDir, runDir, root, layout, length, identity, ledger, model, maxUsd, log, stage }, METHOD);
+    const resumed = (job.mode === "lines" || job.mode === "edit") && agent.resume();
+    if (resumed) {
+      // "Edit lines": the studio's edited lines go into the saved script now; the agent updates the composition to match
+      let ask = "";
+      if (job.mode === "lines") {
+        const sf = path.join(runDir, "script.json"), s = fs.existsSync(sf) ? JSON.parse(fs.readFileSync(sf, "utf8")) : null;
+        const changes = (job.edit?.lines ?? []).filter((l) => s?.scenes?.[l.scene] && (s.scenes[l.scene].headline !== l.headline || (l.sub !== undefined && s.scenes[l.scene].sub !== l.sub)));
+        for (const l of changes) { s.scenes[l.scene].headline = l.headline; if (l.sub !== undefined) s.scenes[l.scene].sub = l.sub; }
+        if (s) fs.writeFileSync(sf, JSON.stringify(s, null, 2));
+        ask = `The client edited the on-screen lines in the studio (the script is already updated):\n${changes.map((l) => `- scene ${l.scene + 1}: headline «${l.headline}»${l.sub !== undefined ? ` · sub «${l.sub}»` : ""}`).join("\n") || "- (no line changed)"}\nUpdate composition/video.src.html so these scenes show exactly these lines (keep everything else: the look, the timing, the material), update brag-plan.md, then snapshot, check, render_video and finish.`;
+      } else ask = `The client asks for this change:\n«${job.edit?.request ?? ""}»\nApply it to the video you made (brag-plan.md, the composition, and set_storyboard again if the scenes change). Keep everything the client didn't ask to change. Then snapshot, check, render_video and finish.`;
+      agent.addUser([{ type: "text", text: `NEW REQUEST (an edit of this video — same brief, same capture, your work dir is as you left it).\n${ask}` }]);
+      log(`↺ director: resuming the agent of the previous version (${agent.messages.length} messages) for ${job.mode === "lines" ? "edited lines" : "a change request"}`);
+    } else {
+      if (job.mode === "lines" || job.mode === "edit") log("! director: the previous version has no saved agent run — starting a new one with the edit as direction");
+      agent.addUser([{ type: "text", text: firstMessage({ brand, cap, brief, language, layout, W, H, length, edit: job.mode === "edit" ? job.edit?.request : undefined }) }]);
+    }
 
-  try {
-    const out = await agent.run();
-    log(`✓ director: delivered — ${out.angle.slice(0, 160)}`);
-  } finally {
-    // whatever happened, the cost so far is on record
-    log(`  $ director total: $${ledger.total().toFixed(4)} of cap $${maxUsd} · ${ledger.rows.length} model calls · ${ledger.rows.reduce((a, r) => a + r.in + r.cacheRead + r.cacheWrite, 0)} prompt tokens · ${ledger.rows.reduce((a, r) => a + r.out, 0)} output tokens`);
+    try {
+      const out = await agent.run();
+      log(`✓ director: delivered — ${out.angle.slice(0, 160)}`);
+    } finally {
+      // whatever happened, the cost so far is on record
+      log(`  $ director total: $${ledger.total().toFixed(4)} of cap $${maxUsd} · ${ledger.rows.length} model calls · ${ledger.rows.reduce((a, r) => a + r.in + r.cacheRead + r.cacheWrite, 0)} prompt tokens · ${ledger.rows.reduce((a, r) => a + r.out, 0)} output tokens`);
+    }
   }
 
   // deliverables next to the run (the studio reads script.json / video.mp4 / video.src.html / music.wav / qa.json)
@@ -86,7 +108,7 @@ export async function runDirector(job: JobFile, dirs: { root: string; brandDir: 
     jobId: job.jobId, kind: job.kind, engine: "director", model, brand: job.slug, seconds: Math.round((Date.now() - t0) / 1000),
     qa: qa ? { shipped: "director", errors: qa.errors, history: qa.history } : null,
     cost: { total: ledger.total(), brand_one_time: 0, per_video: +ledger.total().toFixed(4), cap: maxUsd, byStep: ledger.byStep(), calls: ledger.rows.length },
-    share_copy: agent.done?.share_copy ?? null, angle: agent.done?.angle ?? null, fingerprint: null,
+    share_copy: agent?.done?.share_copy ?? null, angle: agent?.done?.angle ?? null, fingerprint: null,
   };
   fs.writeFileSync(path.join(runDir, "summary.json"), JSON.stringify(summary, null, 2));
   log(`■ done in ${summary.seconds}s · director · this video $${summary.cost.per_video} (cap $${maxUsd})`);

@@ -72,6 +72,25 @@ export async function undoLive(videoId: string, expect: { version: number; revis
   return { ok: true as const, version };
 }
 
+/** «استرجع» in the edit room: version N comes back as a new version (a copy of its row), so nothing is lost */
+export async function restoreLive(videoId: string, from: number) {
+  const db = admin();
+  const { data: latest } = await db.from("video_versions").select("version").eq("video_id", videoId).order("version", { ascending: false }).limit(1).maybeSingle();
+  const { data: row } = await db.from("video_versions").select("*").eq("video_id", videoId).eq("version", from).maybeSingle();
+  if (!latest || !row || row.engine !== "live") return { ok: false as const };
+  const version = latest.version + 1;
+  const { id: _id, created_at: _c, version: _v, ...copy } = row;
+  void _id;
+  void _c;
+  void _v;
+  const { error } = await db.from("video_versions").insert({ ...copy, version, qa: { ...((row.qa ?? {}) as Record<string, unknown>), history: { origin: "restore", parent_version: latest.version, restored: from } } });
+  if (error) {
+    console.error("[live] restore insert failed", { videoId, message: error.message });
+    return { ok: false as const };
+  }
+  return { ok: true as const, version };
+}
+
 /** signed URLs for the studio's preview of a live version */
 export async function liveMedia(row: { mp4_path: string | null }) {
   const sign = async (p?: string | null) => (p ? ((await admin().storage.from(LIVE_BUCKET).createSignedUrl(p, 6 * 3600)).data?.signedUrl ?? null) : null);

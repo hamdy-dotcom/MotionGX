@@ -26,8 +26,9 @@ import { liveEngineEnabled } from "@/lib/live-engine/config";
 import { startLiveGeneration } from "@/lib/live-engine/server/jobs";
 import { liveRevision, undoLive } from "@/lib/live-engine/server/versions";
 import type { ValidateCtx } from "./validate";
+import type { CompositionEdits } from "@/lib/director-engine/edits";
 
-export type GenerationMode = { kind: "new" } | { kind: "direction" } | { kind: "edit"; instruction: string; baseRevision?: string } | { kind: "lines"; beats: ScriptBeat[] };
+export type GenerationMode = { kind: "new" } | { kind: "direction" } | { kind: "edit"; instruction: string; baseRevision?: string } | { kind: "lines"; beats: ScriptBeat[] } | { kind: "rerender"; edits: CompositionEdits };
 
 /** the live engine makes new videos / another direction unless VIDEO_ENGINE=legacy; an edit stays on its version's engine */
 async function liveDispatch(videoId: string, mode: GenerationMode): Promise<boolean> {
@@ -209,9 +210,10 @@ export async function runGeneration(videoId: string, mode: GenerationMode) {
     if (await liveDispatch(videoId, mode)) return;
   } catch (err) {
     console.error("[live] could not start", { videoId, err });
-    const editing = mode.kind === "edit" || mode.kind === "lines";
+    const editing = mode.kind === "edit" || mode.kind === "lines" || mode.kind === "rerender";
     return setGeneration(videoId, { stage: editing ? "edit_failed" : "error", mode: mode.kind, engine: "live" }, editing ? "ready" : "needs_direction");
   }
+  if (mode.kind === "rerender") return setGeneration(videoId, { stage: "edit_failed", mode: "rerender" }, "ready"); // manual edits exist only on director versions
   if (mode.kind === "lines") return; // legacy line edits are saved directly (saveLines)
   const admin = createAdminClient();
   const { data } = await admin.from("videos").select("*").eq("id", videoId).single();

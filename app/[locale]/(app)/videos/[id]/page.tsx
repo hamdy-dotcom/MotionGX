@@ -16,6 +16,9 @@ import { companyCaptureId } from "@/lib/live-engine/server/jobs";
 import { brandFiles } from "@/lib/live-engine/server/brand-files";
 import { Studio, type RenderInfo, type StudioVersion } from "./studio";
 import type { CreatingBrand } from "./creating-video";
+import { EditRoom, type RoomVersion } from "./edit-room";
+import { compositionToken } from "@/lib/live-engine/server/composition";
+import type { LiveScript } from "@/lib/live-engine/mapping";
 
 // Generation ("another direction", change requests) and exports run in `after()` of this route's actions.
 export const maxDuration = 800;
@@ -92,6 +95,32 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
   }
   const brand: CreatingBrand = { name: video.companies?.name ?? "", colors: video.companies?.brand_profiles?.colors ?? [], logoUrl: company?.logo_url ?? null, logoOnDark: company?.logo_on_dark ?? null, screens };
 
+  // director / live versions open in the edit room: the player, the scenes on the beat, on-screen edits, the versions
+  let room: { versions: RoomVersion[]; bpm: number | null; drops: number[]; mood: string | null } | null = null;
+  if (v?.engine === "live" && current) {
+    const { data: rows } = await supabase.from("video_versions").select("version, created_at, qa, live_job_id").eq("video_id", id).order("version", { ascending: false }).limit(30);
+    const jobIds = (rows ?? []).map((x) => x.live_job_id).filter((x): x is string => Boolean(x));
+    const { data: jobs } = jobIds.length ? await supabase.from("live_jobs").select("id, mode, input").in("id", jobIds) : { data: [] };
+    const jobOf = new Map((jobs ?? []).map((j) => [j.id as string, j as { mode: string | null; input: { edit?: { request?: string; edits?: Record<string, unknown> } } | null }]));
+    const versions: RoomVersion[] = (rows ?? []).map((x) => {
+      const qa = (x.qa ?? {}) as { history?: { origin?: string; restored?: number }; summary?: { cost?: { per_video?: number } } };
+      const job = x.live_job_id ? jobOf.get(x.live_job_id) : undefined;
+      const origin = qa.history?.origin ?? job?.mode ?? "new";
+      return {
+        version: x.version,
+        at: x.created_at,
+        origin: origin === "restore" || origin === "undo" ? origin : (job?.mode ?? origin),
+        request: job?.input?.edit?.request?.replace(/^Scene \d+ only \([^)]*\): /, "").split("\n")[0] ?? null,
+        edits: Object.keys(job?.input?.edit?.edits ?? {}).length,
+        restored: qa.history?.restored ?? null,
+        // a copied version (undo / restore) made no new cost
+        costUsd: origin === "restore" || origin === "undo" ? 0 : Number(qa.summary?.cost?.per_video ?? 0),
+      };
+    });
+    const script = (v.live_script ?? null) as LiveScript | null;
+    room = { versions, bpm: script?.bpm ?? null, drops: script?.music?.drops ?? [], mood: script?.music?.mood ?? null };
+  }
+
   const r = renderRes.data;
   let downloadUrl: string | null = null;
   if (r?.status === "done" && r.output_path) {
@@ -99,7 +128,30 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
   }
   const render: RenderInfo | null = r ? { id: r.id, status: r.status, progress: Number(r.progress ?? 0), downloadUrl } : null;
 
+  if (room && current?.engine === "live")
+    return (
+      <EditRoom
+        key={`${video.id}-${current.version}`}
+        video={video}
+        generation={video.generation ?? null}
+        companyName={video.companies?.name ?? ""}
+        current={current}
+        beats={current.beats}
+        versions={room.versions}
+        bpm={room.bpm}
+        drops={room.drops}
+        mood={room.mood}
+        costUsd={exportCostUsd(video.length_s, video.voiceover, prices)}
+        fxRate={fx}
+        currency={workspace.currency_code}
+        initialRender={render}
+        compBase={`/api/compositions/${video.id}/${current.version}/${compositionToken(video.id, current.version)}/`}
+        scriptDir={video.dialect === "en" ? "ltr" : "rtl"}
+      />
+    );
+
   return (
+    <div className="s-sheet">
     <Studio
       key={`${video.id}-${current?.version ?? 0}`}
       video={video}
@@ -113,5 +165,6 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
       initialRender={render}
       brand={brand}
     />
+    </div>
   );
 }

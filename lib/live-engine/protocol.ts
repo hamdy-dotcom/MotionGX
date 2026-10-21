@@ -11,7 +11,7 @@ export type Step = (typeof CAPTURE_STEPS)[number] | (typeof VIDEO_STEPS)[number]
 /** sandbox brief (pipeline.mjs) */
 export type Brief = { url: string; objective: string; country: string; layout: string; length: number; description?: string; offer?: string; flowClips?: boolean };
 
-export type JobMode = "new" | "direction" | "lines" | "edit";
+export type JobMode = "new" | "direction" | "lines" | "edit" | "rerender";
 
 /** written to job.json for the worker */
 export type JobFile = {
@@ -30,7 +30,7 @@ export type JobFile = {
   /** files to fetch before starting (logical path → signed URL); *.tgz / *.tgz.partNN are packed folders */
   downloads: { path: string; url: string }[];
   /** "Edit lines": the edited headline/sub per scene index; "Request a change": the client's text */
-  edit?: { lines?: { scene: number; headline: string; sub?: string }[]; request?: string };
+  edit?: { lines?: { scene: number; headline: string; sub?: string }[]; request?: string; edits?: Record<string, { sel: string; dx?: number; dy?: number; scale?: number; hidden?: boolean; text?: string }>; posterTime?: number };
   /** the workspace's last 5 video fingerprints (layout sequence, transition, background, hook, CTA): the art direction must differ */
   history?: Record<string, unknown>[];
   /** remembered test phone/email (the sandbox's .sandbox-settings.json) */

@@ -19,7 +19,7 @@ import { insertLiveVersion } from "./versions";
 import { postsSettings } from "@/lib/posts/config";
 import { insertPostVersion, mergePostGeneration, setPostGeneration } from "@/lib/posts/server/versions";
 
-export type LiveMode = { kind: "new" } | { kind: "direction" } | { kind: "lines"; beats: ScriptBeat[] } | { kind: "edit"; instruction: string };
+export type LiveMode = { kind: "new" } | { kind: "direction" } | { kind: "lines"; beats: ScriptBeat[] } | { kind: "edit"; instruction: string } | { kind: "rerender"; edits: NonNullable<NonNullable<JobFile["edit"]>["edits"]> };
 
 export type JobRow = {
   id: string;
@@ -179,7 +179,7 @@ export async function startLiveGeneration(videoId: string, mode: LiveMode) {
   if (!company?.website_url) return setGeneration(videoId, { stage: "error", mode: mode.kind, error: "brand missing" }, "failed");
 
   let prevJobId: string | null = null;
-  if (mode.kind === "lines" || mode.kind === "edit") {
+  if (mode.kind === "lines" || mode.kind === "edit" || mode.kind === "rerender") {
     const { data: prev } = await db.from("video_versions").select("live_job_id").eq("video_id", videoId).eq("engine", "live").order("version", { ascending: false }).limit(1).maybeSingle();
     if (!prev?.live_job_id) return setGeneration(videoId, { stage: "edit_failed", mode: mode.kind }, "ready");
     prevJobId = prev.live_job_id;
@@ -187,7 +187,7 @@ export async function startLiveGeneration(videoId: string, mode: LiveMode) {
   const capture = await usableCapture(company.id);
   // the engine: a new video / another direction takes VIDEO_ENGINE; an edit stays on the engine of the version it edits
   const engine: JobFile["engine"] = prevJobId ? (((await db.from("live_jobs").select("input").eq("id", prevJobId).maybeSingle()).data?.input as JobRow["input"] | null)?.engine ?? "live") : directorEngineEnabled() ? "director" : "live";
-  const edit = mode.kind === "lines" ? { lines: linesFromBeats(mode.beats) } : mode.kind === "edit" ? { request: mode.instruction } : undefined;
+  const edit = mode.kind === "lines" ? { lines: linesFromBeats(mode.beats) } : mode.kind === "edit" ? { request: mode.instruction } : mode.kind === "rerender" ? { edits: mode.edits } : undefined;
   const { data: job, error } = await db
     .from("live_jobs")
     .insert({ workspace_id: video.workspace_id, video_id: videoId, company_id: company.id, capture_id: capture?.id ?? null, kind: "video", mode: mode.kind, input: { edit, prevJobId, first: !capture, engine }, status: "queued" })
@@ -195,7 +195,7 @@ export async function startLiveGeneration(videoId: string, mode: LiveMode) {
     .single();
   if (error || !job) {
     console.error("[live] could not create the video job", { videoId, message: error?.message });
-    return setGeneration(videoId, { stage: "error", mode: mode.kind, error: "could not start" }, mode.kind === "lines" || mode.kind === "edit" ? "ready" : "needs_direction");
+    return setGeneration(videoId, { stage: "error", mode: mode.kind, error: "could not start" }, mode.kind === "lines" || mode.kind === "edit" || mode.kind === "rerender" ? "ready" : "needs_direction");
   }
   await setGeneration(videoId, { stage: capture ? "queued" : "plan", mode: mode.kind, first: !capture }, "generating");
   if (capture) return launch(job.id);
