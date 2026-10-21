@@ -91,6 +91,11 @@ not a template; a longer brief gets more highlights or longer holds, never fille
   hook together: by 1.5s the frame already moves and shows something worth looking at (the real product, a camera move
   into it, a striking scene built from the brand) while the hook line — a question, a tension, a bold claim — lands.
   Never a line alone on a plain background; the first visible frame is never empty.
+- The brand is established from the first frame. Colours and words alone don't tell anyone whose video this is: the
+  logo is on screen from t=0 (inside the hook, big, or as a clear corner mark — at least ~6% of the frame's width) and
+  stays as a small corner mark through the video (it may step aside while the brand's own UI fills the frame), and the
+  brand's name or its product is in the hook. Use the captured logo (capture/library/logo/…) as an <img>; if you draw
+  it another way, mark that element data-logo. The check fails a video without its logo in the opening second.
 - Show the thing. Prefer the working app doing its job over a landing page describing it. Small illustrative UI
   text is fine; invented claims, numbers or testimonials are not. Never generic filler that could belong to any video.
 - Real UI is the hero, shown big: a phone fills most of the frame's height (≥ 60% in 9:16), a desktop screen most of
@@ -183,7 +188,8 @@ composition/video.src.html is ONE self-contained page at exactly W×H CSS px (gi
 
 - brag-plan.md exists with the rubric and a storyboard whose durations sum to the brief's duration.
 - At least one real captured UI / flow is the centerpiece, shown big; every factual claim is grounded in the capture.
-- The hook (0–2s) has a visual hook and a text hook; no scene sits on a flat background or a white void.
+- The hook (0–2s) has a visual hook and a text hook, and the logo from the first frame; no scene sits on a flat
+  background or a white void.
 - No personal data visible; no secrets anywhere.
 - check passes (or the remaining issue is reported to you as unfixable and you say so in finish).
 - render_video produced the mp4; the poster is a settled, postable frame.

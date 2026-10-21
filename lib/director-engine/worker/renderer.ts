@@ -159,6 +159,22 @@ export class Session {
   async contract() { return (await this.page.evaluate("({ d: window.__duration, seek: typeof window.__seek, sfx: Array.isArray(window.__sfx) ? window.__sfx : [] })")) as { d: number; seek: string; sfx: { t: number; src: string; vol?: number }[] }; }
   async seek(t: number, page = this.page) { await page.evaluate(`Promise.resolve(window.__seek(${t})).then(() => Promise.all(Array.from(document.images).filter((i) => !i.complete).map((i) => i.decode().catch(() => null))))`); }
   async still(t: number, page = this.page) { await this.seek(t, page); return page.screenshot({ type: "jpeg", quality: 82 }); }
+  /** is the brand's logo on screen at t? the captured logo image (capture/library/logo/…) or an element marked data-logo,
+   *  fully visible, inside the frame and at least `minFrac` of the frame's width */
+  async logoAt(t: number, minFrac = 0.06) {
+    await this.seek(t);
+    return (await this.page.evaluate(`(() => {
+      const W = ${this.W}, H = ${this.H}, min = W * ${minFrac};
+      const seen = (el) => { let o = 1; for (let n = el; n && n.nodeType === 1; n = n.parentElement) { const cs = getComputedStyle(n); if (cs.display === "none" || cs.visibility === "hidden") return 0; o *= +cs.opacity; } return o; };
+      let best = 0;
+      for (const el of document.querySelectorAll('img[src*="library/logo"], [data-logo]')) {
+        const r = el.getBoundingClientRect(), w = Math.min(r.right, W) - Math.max(r.left, 0), h = Math.min(r.bottom, H) - Math.max(r.top, 0);
+        if (w <= 0 || h <= 0 || seen(el) < 0.85) continue;
+        best = Math.max(best, w);
+      }
+      return { shown: best >= min, width: Math.round(best) };
+    })()`)) as { shown: boolean; width: number };
+  }
   async analyze(t: number, full = true) { await this.seek(t); return (await this.page.evaluate(`(${ANALYZER})(${full})`)) as { sev: string; code: string; msg: string }[]; }
   async frames(from: number, to: number, onFrame: (jpg: Buffer) => Promise<void>) {
     const page = await this.newPage();

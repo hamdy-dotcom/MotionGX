@@ -243,6 +243,8 @@ export class Director {
         const times = new Set<number>([0.1, this.c.length - 0.2]), mids = new Set<number>();
         for (const sc of script?.scenes || []) { const e = sc.start + sc.bars * 2, m = +(sc.start + (e - sc.start) * 0.6).toFixed(2); times.add(m); mids.add(m); if (e < this.c.length - 0.1) times.add(+(e - 0.12).toFixed(2)); }
         for (const t of [...times].sort((x, y) => x - y)) for (const x of await s.analyze(t, mids.has(t))) { if (x.sev === "error") errors++; else warnings++; report.push(`${x.sev} t=${t.toFixed(2)}s ${x.code}: ${x.msg}`); }
+        // the brand is established from the first frame: its logo is on screen in the opening second
+        for (const t of [0.3, 1]) { const l = await s.logoAt(t); if (!l.shown) { errors++; report.push(`error t=${t.toFixed(2)}s brand: ${l.width ? `the logo is only ${l.width}px wide` : "no logo on screen"} — show the brand's logo (capture/library/logo/…, or an element marked data-logo) fully visible from the first frame, at least ${Math.round(this.c.layout === "16:9" ? 115 : 65)}px wide`); } }
         if (s.errors.length) { errors++; report.push(`error page: ${s.errors.slice(-5).join(" | ")}`); }
         this.lastCheck = { passed: errors === 0, errors, warnings, at: new Date().toISOString() };
         fs.writeFileSync(path.join(this.c.runDir, "qa.json"), JSON.stringify({ engine: "director", shipped: "v0", errors, warnings, history: [{ tag: "check", errors, warnings, at: this.lastCheck.at }], issues: report.slice(0, 200).map((m) => ({ sev: m.startsWith("error") ? "error" : "warn", msg: m })) }, null, 2));
