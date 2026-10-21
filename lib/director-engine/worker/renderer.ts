@@ -35,7 +35,7 @@ function screensAsCaptured(src: string, brandDir: string, W: number, H: number) 
   const load = (id: string) => { if (!size.has(id)) { try { const c = JSON.parse(fs.readFileSync(path.join(brandDir, "clones", `${id}.json`), "utf8")); size.set(id, { w: +c.w, h: +c.h }); } catch { size.set(id, null); } } return size.get(id) ?? null; };
   const attr = (tag: string, n: string) => tag.match(new RegExp(`\\s${n}\\s*=\\s*"([^"]*)"`))?.[1];
   const drop = (tag: string, n: string) => tag.replace(new RegExp(`\\s${n}\\s*=\\s*"[^"]*"`), "");
-  return src.replace(/<([a-z]+)(\s[^>]*?\sdata-clone\s*=\s*"([^"]+)"[^>]*?)(\/?)>/gi, (whole: string, _tag: string, _attrs: string, id: string) => {
+  return src.replace(/<([a-z]+)((?:\s[^>]*?)?\sdata-clone\s*=\s*"([^"]+)"[^>]*?)(\/?)>/gi, (whole: string, _tag: string, _attrs: string, id: string) => {
     const cid = [id, id.replace(/-phone$/, "-mobile"), id.replace(/-flow$/, "")].find((x) => fs.existsSync(path.join(brandDir, "clones", `${x}.json`)));
     const c = cid && !/-p\d+$/.test(cid) ? load(cid) : null;
     if (!c || !(c.w > 0)) return whole;

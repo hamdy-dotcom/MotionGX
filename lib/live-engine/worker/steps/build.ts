@@ -215,7 +215,7 @@ export function embedClones({ runDir, brandDir, layout }) {
   let html = fs.readFileSync(path.join(runDir, "video.src.html"), "utf8");
   const meta = {}, missing = []; let count = 0;
   const attr = (tag, n) => tag.match(new RegExp(`\\s${n}\\s*=\\s*"([^"]*)"`))?.[1];
-  html = html.replace(/<([a-z]+)(\s[^>]*?\sdata-clone\s*=\s*"([^"]+)"[^>]*?)(\/?)>/gi, (whole, tag, attrs, id, selfClose) => {
+  html = html.replace(/<([a-z]+)((?:\s[^>]*?)?\sdata-clone\s*=\s*"([^"]+)"[^>]*?)(\/?)>/gi, (whole, tag, attrs, id, selfClose) => {
     // tolerate asset ids for clone ids (flows/phones)
     const cid = [id, id.replace(/-phone$/, "-mobile"), id.replace(/-flow$/, "")].find((x) => fs.existsSync(path.join(brandDir, "clones", `${x}.json`)));
     if (!cid) { missing.push(id); return whole; }
