@@ -19,7 +19,7 @@ const SIZE: Record<Canvas, string> = { "4:5": "1088x1360", "9:16": "1088x1920", 
 // OpenAI's GPT Image price per 1M tokens: text in, image in, image out (developers.openai.com/api/docs/pricing)
 const PRICE: Record<string, [number, number, number]> = { default: [5, 8, 30], "gpt-image-1.5": [5, 8, 32], "gpt-image-1": [5, 10, 40], "gpt-image-1-mini": [2, 2.5, 8] };
 
-type Ref = { file: string; role: string };
+type Ref = { file: string; role: string; device?: "phone" | "laptop" };
 
 /** an image's type from its bytes (a file's name can lie: a .png that is really WebP) */
 const mediaOf = (buf: Buffer) => (buf[0] === 0x89 && buf[1] === 0x50 ? "image/png" : buf[0] === 0xff && buf[1] === 0xd8 ? "image/jpeg" : buf.subarray(0, 4).toString() === "RIFF" && buf.subarray(8, 12).toString() === "WEBP" ? "image/webp" : buf.subarray(0, 3).toString() === "GIF" ? "image/gif" : "image/png");
@@ -133,23 +133,46 @@ export async function brandRefs(brand: any, brandDir: string, runDir: string, se
   return { logo, looks, screens, imagery };
 }
 
-/** one slide's references: a screen id → its real screenshot; a captured image file → itself */
+/** one slide's references: a product screen id → its real screenshot, as the device placed on the picture afterwards
+ *  (a phone with its real mobile UI when it has one, else a laptop with its desktop screen); a captured image → itself */
 async function slideRefs(slide: Slide, brand: any, brandDir: string, runDir: string, screens: any[]): Promise<Ref[]> {
   const out: Ref[] = [];
   for (const r of slide.refs ?? []) {
     const sc = screens.find((s: any) => s.id === r);
-    // a phone in the scene shows the screen's real mobile UI; otherwise its desktop screenshot on a laptop
-    const mobile = sc?.clones?.mobile?.id && /phone|mobile|smartphone|هاتف|موبايل/i.test(slide.scene ?? "") ? sc.clones.mobile.id : null;
+    const mobile = sc?.clones?.mobile?.id ?? null;
     if (mobile) {
       const f = await phoneShot(mobile, brandDir, path.join(runDir, "refs", `phone-${mobile}.jpg`));
-      if (f) { out.push({ file: f, role: `the real phone screen of the product (${sc.shows ?? sc.id}) — put exactly this screen on the phone, as it is; never change, redraw or invent its UI, text or numbers` }); continue; }
+      if (f) { out.push({ file: f, role: `the real phone screen of the product (${sc.shows ?? sc.id})`, device: "phone" }); continue; }
     }
     const src = sc ? path.join(brandDir, sc.view) : path.join(brandDir, r);
     if (!fs.existsSync(src)) continue;
     const f = await refJpeg(src, path.join(runDir, "refs", `ref-${path.basename(r).replace(/\.\w+$/, "")}.jpg`));
-    if (f) out.push({ file: f, role: sc ? `a real product screen (${sc.shows ?? sc.id}) — show exactly this screen on a laptop, as it is; never change, redraw or invent its UI, text or numbers` : `a captured image (${r}) — use it as it is` });
+    if (f) out.push(sc ? { file: f, role: `a real product screen (${sc.shows ?? sc.id})`, device: "laptop" } : { file: f, role: `a captured image (${r}) — use it as it is` });
   }
   return out;
+}
+
+/** The real screen in a real device, placed on the finished picture: the right shape (a phone screen in a phone, a
+ *  desktop screen on a laptop), never squashed, facing the viewer, with a soft shadow — the image model never draws it. */
+export async function placeDevice(file: string, canvas: Canvas, device: Ref, slot: "start" | "center" | "end", rtl: boolean) {
+  const [W, H] = CANVAS[canvas];
+  const data = (f: string) => `data:image/jpeg;base64,${fs.readFileSync(f).toString("base64")}`;
+  const wide = W / H > 1.6;
+  const side = slot === "center" ? "center" : (slot === "start") !== rtl ? "left" : "right";
+  const x = side === "center" ? "50%" : side === "left" ? "27%" : "73%";
+  const phoneH = Math.round(H * (wide ? 0.84 : 0.6)), laptopW = Math.round(W * (wide ? 0.42 : 0.66));
+  const frame = device.device === "phone"
+    ? `<div class="dev" style="height:${phoneH}px;aspect-ratio:390/844;padding:${Math.round(phoneH * 0.018)}px;border-radius:${Math.round(phoneH * 0.085)}px;background:#0b0c0f;box-shadow:0 0 0 ${Math.max(1, Math.round(phoneH * 0.004))}px #2a2d35,0 ${Math.round(phoneH * 0.06)}px ${Math.round(phoneH * 0.14)}px rgba(0,0,0,.45)"><img src="${data(device.file)}" style="width:100%;height:100%;object-fit:cover;object-position:top;border-radius:${Math.round(phoneH * 0.07)}px;display:block"></div>`
+    : `<div class="dev" style="width:${laptopW}px"><div style="background:#121318;border-radius:${Math.round(laptopW * 0.022)}px ${Math.round(laptopW * 0.022)}px 4px 4px;padding:${Math.round(laptopW * 0.02)}px;box-shadow:0 0 0 2px #7d828c,0 ${Math.round(laptopW * 0.05)}px ${Math.round(laptopW * 0.1)}px rgba(0,0,0,.45)"><img src="${data(device.file)}" style="width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top;display:block;border-radius:3px"></div><div style="height:${Math.round(laptopW * 0.03)}px;margin:0 -7%;border-radius:0 0 ${Math.round(laptopW * 0.05)}px ${Math.round(laptopW * 0.05)}px/0 0 ${Math.round(laptopW * 0.03)}px ${Math.round(laptopW * 0.03)}px;background:linear-gradient(#e9ebef,#b9bec7)"></div></div>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:${W}px;height:${H}px;overflow:hidden}body{background:url(${data(file)}) center/cover}.slot{position:absolute;left:${x};top:50%;transform:translate(-50%,-50%)}</style></head><body><div class="slot">${frame}</div></body></html>`;
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: W, height: H } });
+    await page.setContent(html, { waitUntil: "load" });
+    await page.screenshot({ path: file, type: "jpeg", quality: 92 });
+  } finally {
+    await browser.close();
+  }
 }
 
 /**
@@ -167,7 +190,7 @@ async function styleBrief(post: PostJob, brand: any, looks: Ref[], imagery: Ref[
   return String(r.style ?? "").trim();
 }
 
-function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs: { logo: boolean; roles: string[]; screen: boolean; style: string }, n: number, total: number, feedback?: string) {
+function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs: { logo: boolean; roles: string[]; screen: boolean; style: string; slot?: { at: "start" | "center" | "end"; kind: "phone" | "laptop"; shows: string } | null }, n: number, total: number, feedback?: string) {
   const imagery = Boolean(refs.style);
   const [w, h] = SIZE[canvas].split("x");
   const words = [`Headline: «${slide.headline}»`, slide.sub ? `Second line: «${slide.sub}»` : "", slide.cta ? `Call to action (as a button or tag): «${slide.cta}»` : ""].filter(Boolean).join("\n  ");
@@ -186,7 +209,8 @@ function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs
     `THE BRAND IS THE BASE OF THIS IMAGE — it must feel like an extension of the brand itself, as if taken from its own website. Its colours dominate: ${palette}${brand.palette?.theme ? ` (a ${brand.palette.theme} brand: the image is ${brand.palette.theme})` : ""}. Its look: ${brand.look ?? ""}. Its type: ${brand.fonts?.display ?? ""} / ${brand.fonts?.body ?? ""} style. Any occasion or theme (a holiday, a season, an event) is expressed INSIDE this identity — its motifs drawn in the brand's own colours and style — never with the occasion's traditional stock palette or look, unless those are the brand's own colours.`,
     refs.roles.map((r, i) => `Reference image ${i + 1}: ${r}.`).join("\n"),
     refs.logo ? `Reference image 1 is the brand's logo (shown on a plain tile — the tile is not part of the logo): reproduce the mark and its lettering exactly as given — same shapes, letters, colours and proportions, never redrawn, re-spelled, recoloured or altered — ${post.placement === "cover" ? "SMALL and quiet, like a signature in the upper part of the centre area — never the centrepiece, never on a tile, badge or glow (the page's profile picture already shows it)" : "clearly visible and well sized, like a signature"}.` : "",
-    refs.screen ? "Any phone or laptop in the image shows ONLY the real screen given as a reference, exactly as it is. The scene must be physically real: a screen faces the person using it — if the viewer sees the screen, the person is beside or behind it looking the same way (over the shoulder), or the device is held / placed toward the viewer with nobody looking at it from the back." : "Do NOT show any phone, laptop, tablet, app screen or user interface — there is no real screen for this image.",
+    refs.slot ? `THE PRODUCT DEVICE IS ADDED AFTERWARDS: a ${refs.slot.kind === "phone" ? "phone (upright, about 85% of the height)" : "laptop (about 45% of the width)"} showing ${refs.slot.shows} will be placed ${refs.slot.at === "center" ? "in the CENTRE" : `on the ${(refs.slot.at === "start") !== (post.dialect !== "en") ? "LEFT" : "RIGHT"} side`} of the picture, facing the viewer. Compose around it: keep that area a calm, clean part of the scene (the brand's colour, light and shapes behind it, so it sits in the scene naturally), and put the people / the world around it — people may look toward it or at the viewer, smiling, as if it shows them something good. Draw NO phone, laptop, tablet, screen or interface anywhere yourself.` : "",
+    refs.slot ? "" : refs.screen ? "Any phone or laptop in the image shows ONLY the real screen given as a reference, exactly as it is. The scene must be physically real: a screen faces the person using it — if the viewer sees the screen, the person is beside or behind it looking the same way (over the shoulder), or the device is held / placed toward the viewer with nobody looking at it from the back." : "Do NOT show any phone, laptop, tablet, app screen or user interface — there is no real screen for this image.",
     `No other text, letters, numbers, watermarks or made-up interface anywhere. Keep all text well inside the edges. Everything physically plausible: correct perspective and light, natural hands and faces, objects used the way they really are.`,
     feedback ? `The previous attempt had these problems — fix them: ${feedback}` : "",
   ].filter(Boolean).join("\n\n");
@@ -263,18 +287,22 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
     for (const [i, slide] of slides.entries()) {
       if (ledger.total() >= post.maxUsd) throw new Error(`cost cap reached ($${ledger.total().toFixed(2)} of $${post.maxUsd})`);
       const own = await slideRefs(slide, brand, brandDir, runDir, screens);
+      // a real product screen is never drawn by the image model (it gets the geometry wrong): the scene leaves room
+      // for it and the device is placed on top afterwards
+      const device = own.find((r) => r.device) ?? null;
+      const slot: "start" | "center" | "end" = post.placement === "cover" ? "center" : "end";
       // "Request a change": the current slide goes in as a reference, so what wasn't asked to change stays
       const prevFile = opts.prevRenders?.[canvas]?.[i] ? path.join(runDir, "prev", opts.prevRenders[canvas][i]) : null;
-      const prev: Ref[] = prevFile && fs.existsSync(prevFile) ? [{ file: prevFile, role: `the current version of this slide — keep everything the client didn't ask to change (the change: ${post.request})` }] : [];
-      // only what the image must reproduce goes in as an image: the logo, the current version, the slide's real screen
-      const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own].slice(0, 3);
+      const prev: Ref[] = prevFile && fs.existsSync(prevFile) ? [{ file: prevFile, role: `the current version of this slide — keep everything the client didn't ask to change (the change: ${post.request})${device ? "; its phone / laptop is placed separately afterwards — leave that area clear and draw no device" : ""}` }] : [];
+      // only what the image must reproduce goes in as an image: the logo, the current version
+      const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own.filter((r) => !r.device)].slice(0, 3);
       const roles = refs.map((r) => r.role);
-      const hasScreen = own.some((r) => /real (phone )?(product )?screen/.test(r.role));
+      const hasScreen = false;
       const file = path.join(runDir, "slides", `${canvasKey(canvas)}-${i + 1}.jpg`);
       let feedback: string | undefined, last: string[] = [];
       for (let attempt = 0; attempt < 2; attempt++) {
         if (!started) { started = true; await on?.stage("image"); }
-        const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles, screen: hasScreen, style }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
+        const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles, screen: hasScreen, style, slot: device ? { at: slot, kind: device.device!, shows: device.role } : null }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
         fs.writeFileSync(file, jpg);
         await on?.image(path.relative(runDir, file), canvas, i + 1);
         if (!checking) { checking = true; await on?.stage("check"); }
@@ -287,6 +315,10 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
         if (ledger.total() >= post.maxUsd) break;
       }
       await exactSize(file, canvas);
+      if (device) {
+        await placeDevice(file, canvas, device, slot, post.dialect !== "en").catch((err) => log(`! device not placed: ${String(err).slice(0, 160)}`));
+        await on?.image(path.relative(runDir, file), canvas, i + 1);
+      }
       renders[canvas].push(path.relative(runDir, file));
       check[canvas].push(last);
     }
