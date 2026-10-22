@@ -53,9 +53,36 @@ export async function listWorks(ctx: AppContext, companyId: string, { limit = 60
   return works.filter((w) => (!from || w.day >= from) && (!to || w.day <= to)).sort((a, b) => b.day.localeCompare(a.day) || b.createdAt.localeCompare(a.createdAt));
 }
 
-/** The brand's facts and voice (not in listCompanies). */
+/** The brand's facts and voice (not in listCompanies). A field the company saved empty is filled from the capture it
+ *  uses (its profile has the audience, the full feature inventory and the selling points) — the saved value always
+ *  wins when there is one. */
 export async function brandDetails(ctx: AppContext, companyId: string) {
   const { data } = await ctx.supabase.from("brand_profiles").select("facts, tone, tagline, fonts").eq("company_id", companyId).maybeSingle();
-  const facts = (data?.facts ?? {}) as { what_it_does?: string; audience?: string; key_features?: string[]; offers?: string[]; numbers?: { value: string; label: string }[] };
-  return { facts, tone: (data?.tone as string) ?? "", tagline: (data?.tagline as string) ?? "" };
+  const saved = (data?.facts ?? {}) as { what_it_does?: string; audience?: string; key_features?: string[]; offers?: string[]; numbers?: { value: string; label: string }[] };
+  const facts = { ...saved };
+  let tone = (data?.tone as string) ?? "", tagline = (data?.tagline as string) ?? "";
+  let sellingPoints: string[] = [];
+  const thin = !facts.key_features?.length || !facts.audience || !facts.what_it_does || (!facts.offers?.length && !facts.numbers?.length) || !tone || !tagline;
+  if (thin) {
+    const profile = await captureProfile(ctx, companyId).catch(() => null);
+    if (profile) {
+      if (!facts.key_features?.length) facts.key_features = (profile.features ?? []).map((f) => (f.detail ? `${f.name} — ${f.detail}` : f.name)).filter(Boolean);
+      if (!facts.audience) facts.audience = profile.audience ?? "";
+      if (!facts.what_it_does) facts.what_it_does = profile.summary ?? "";
+      tone ||= profile.voice ?? "";
+      tagline ||= profile.tagline ?? "";
+      sellingPoints = (profile.selling_points ?? []).filter(Boolean);
+    }
+  }
+  return { facts, tone, tagline, sellingPoints };
+}
+
+type CaptureProfile = { audience?: string; summary?: string; voice?: string; tagline?: string; selling_points?: string[]; features?: { name: string; detail?: string }[] };
+async function captureProfile(ctx: AppContext, companyId: string): Promise<CaptureProfile | null> {
+  const { companyCaptureId } = await import("@/lib/live-engine/server/jobs");
+  const id = await companyCaptureId(companyId);
+  if (!id) return null;
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const { data } = await createAdminClient().from("live_brand_captures").select("profile").eq("id", id).eq("workspace_id", ctx.workspace.id).maybeSingle();
+  return (data?.profile as CaptureProfile | null) ?? null;
 }

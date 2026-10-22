@@ -8,6 +8,7 @@ import { companyCaptureId } from "@/lib/live-engine/server/jobs";
 import { brandFiles } from "@/lib/live-engine/server/brand-files";
 import { Rise, escapeMarkup } from "@/components/studio/rise";
 import { StudioMark } from "@/components/studio/mark";
+import { CaptureGallery } from "@/components/studio/capture-gallery";
 
 const host = (url?: string | null) => { try { return url ? new URL(url).host.replace(/^www\./, "") : ""; } catch { return url ?? ""; } };
 const ROLES = ["primary", "accent", "background", "surface", "ink", "muted"];
@@ -27,8 +28,9 @@ export default async function BrandPage({ params }: { params: Promise<{ locale: 
   const font = b.brand_profiles?.fonts?.arabic || b.brand_profiles?.fonts?.latin || "Readex Pro";
   const site = host(b.website_url);
   const facts = details.facts;
-  const sets = facts.offers?.length ? facts.offers : facts.numbers?.map((n) => `${n.value} ${n.label}`) ?? [];
-  const screens = (files?.screens ?? []).filter((s) => s.thumb).slice(0, 8);
+  const sets = facts.offers?.length ? facts.offers : facts.numbers?.length ? facts.numbers.map((n) => `${n.value} ${n.label}`) : details.sellingPoints;
+  // the profile's screens show at once; the gallery then loads everything the capture saved (all screens, parts, images)
+  const screens = (files?.screens ?? []).filter((s) => s.thumb).map((s) => ({ id: s.id, label: s.label, thumb: s.thumb! }));
   const role = (r?: string) => (r && ROLES.includes(r) ? t(`roles.${r as "primary"}`) : "");
 
   return (
@@ -49,11 +51,8 @@ export default async function BrandPage({ params }: { params: Promise<{ locale: 
         <div className="s-panel span3"><p className="s-label">{t("voice")}</p><p style={{ margin: "0 0 14px", fontSize: 15, lineHeight: 1.8 }} dir="auto">{details.tone || t("none")}</p><p className="s-label">{t("audience")}</p><p style={{ margin: 0, color: "var(--s-ink-2)" }} dir="auto">{facts.audience || t("none")}</p></div>
         <div className="s-panel span3"><p className="s-label">{t("sets")}</p>{sets.length ? <ul className="s-list">{sets.map((s, i) => <li key={i} dir="auto">{s}</li>)}</ul> : <p>{t("none")}</p>}</div>
         <div className="s-panel span3"><p className="s-label">{t("features")}</p>{facts.key_features?.length ? <ul className="s-list">{facts.key_features.map((s, i) => <li key={i} dir="auto">{s}</li>)}</ul> : <p>{t("none")}</p>}</div>
-        {screens.length ? (
-          <div className="s-panel full"><p className="s-label">{t("screens")}</p><div className="s-lightbox">{screens.map((s, i) => (
-            // eslint-disable-next-line @next/next/no-img-element -- signed storage URL
-            <img key={s.id} src={s.thumb!} alt={s.label} style={{ ["--r" as string]: `${[-2, 1.5, -1, 2][i % 4]}deg` }} />
-          ))}</div></div>
+        {captureId ? (
+          <div className="s-panel full"><CaptureGallery captureId={captureId} initial={screens} /></div>
         ) : null}
       </div>
     </section>

@@ -182,7 +182,8 @@
     "kind_icon": "Icon",
     "kind_people": "People",
     "kind_background": "Background",
-    "kind_partner_logo": "Partner logos"
+    "kind_partner_logo": "Partner logos",
+    "filesAll": "Everything captured"
   },
   "videos": {
     "title": "<b>New</b> video",
@@ -980,5 +981,31 @@
     "insufficient": "Your balance isn't enough for this export.",
     "editFailed": "The edit couldn't be applied — the current version is unchanged.",
     "editStale": "The video changed before your request arrived — reopen it and ask again."
+  },
+  "gallery": {
+    "screens": "Captured screens ({n})",
+    "picked": "{n} picked by the profile",
+    "parts": "UI parts ({n})",
+    "images": "Images ({n})",
+    "more": "Show more ({n})",
+    "open": "Open {name}",
+    "unused": "not used",
+    "loading": "Gathering everything captured…",
+    "failed": "Couldn't load every file — only the profile's picks are shown.",
+    "legend": "★ picked by the brand profile, used by the director first · the rest is saved and available too.",
+    "close": "Close",
+    "demo": "test data",
+    "kind": {
+      "product": "Product",
+      "lifestyle": "Lifestyle",
+      "illustration": "Illustration",
+      "icon": "Icon",
+      "people": "People",
+      "background": "Background",
+      "partner_logo": "Partner logo",
+      "object_images": "Page image",
+      "site": "From the site",
+      "other": "Image"
+    }
   }
 }

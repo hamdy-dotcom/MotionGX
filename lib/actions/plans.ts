@@ -53,7 +53,7 @@ export async function suggestIdeas(planId: string, count: number, fresh: boolean
   try {
     const drafts = await writeIdeas({
       workspaceId: workspace.id,
-      brand: { name: company?.name ?? "", site: company?.website_url ?? "", tone: details.tone, tagline: details.tagline, audience: details.facts.audience ?? "", whatItDoes: details.facts.what_it_does ?? "", features: details.facts.key_features ?? [], offers: details.facts.offers ?? [], numbers: (details.facts.numbers ?? []).map((n) => `${n.value} ${n.label}`), dialect: company?.default_dialect ?? "msa" },
+      brand: { name: company?.name ?? "", site: company?.website_url ?? "", tone: details.tone, tagline: details.tagline, audience: details.facts.audience ?? "", whatItDoes: details.facts.what_it_does ?? "", features: details.facts.key_features ?? [], offers: details.facts.offers?.length ? details.facts.offers : details.sellingPoints, numbers: (details.facts.numbers ?? []).map((n) => `${n.value} ${n.label}`), dialect: company?.default_dialect ?? "msa" },
       startsOn: plan.starts_on, endsOn: plan.ends_on, goals: plan.goals, mix: plan.mix, platforms: plan.platforms.length ? plan.platforms : ["instagram", "facebook"], notes: plan.notes,
       count: Math.min(40, Math.max(1, count)), avoid: kept.map((i) => i.title),
     });

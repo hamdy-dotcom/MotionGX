@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import type { BrandFiles as Files } from "@/lib/live-engine/server/brand-files";
 import { Heading, boldTag } from "@/components/heading";
 import { SpinnerIcon } from "@/components/icons";
+import { CaptureGallery } from "@/components/studio/capture-gallery";
+import type { CaptureGallery as Gallery } from "@/lib/live-engine/server/capture-gallery";
 
 const KINDS = ["product", "lifestyle", "illustration", "icon", "people", "background", "partner-logo"] as const;
 
@@ -15,6 +17,8 @@ export function BrandFiles({ captureId }: { captureId: string }) {
   const [failed, setFailed] = useState(false);
   const [big, setBig] = useState<{ src: string; caption: string } | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  // the full-page shots live in the capture's packs: the gallery below brings their URLs
+  const [fullOf, setFullOf] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let live = true;
@@ -68,7 +72,7 @@ export function BrandFiles({ captureId }: { captureId: string }) {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {items.map((s) => (
               <figure key={s.id} className="overflow-hidden rounded-2xl bg-white">
-                <button type="button" onClick={() => open(s.full, s.label)} className="block w-full" aria-label={t("filesOpen", { name: s.label })}>
+                <button type="button" onClick={() => open(fullOf[s.id] ?? s.full, s.label)} className="block w-full" aria-label={t("filesOpen", { name: s.label })}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- signed storage URL */}
                   {s.thumb ? <img src={s.thumb} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover object-top" /> : <span className="block aspect-[4/3] bg-primary-lavender" />}
                 </button>
@@ -153,6 +157,11 @@ export function BrandFiles({ captureId }: { captureId: string }) {
           </div>
         </div>
       ) : null}
+
+      <div>
+        <p className="label mb-2">{t("filesAll")}</p>
+        <CaptureGallery captureId={captureId} screens={false} onLoad={(g: Gallery) => setFullOf(Object.fromEntries(g.screens.map((s) => [s.id, s.full])))} />
+      </div>
 
       {files.trace.length ? (
         <details className="text-sm">

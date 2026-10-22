@@ -7,6 +7,7 @@ import { answerCaptureCode, captureProgress, startBrandCapture } from "@/lib/liv
 import { brandDraftFrom } from "@/lib/live-engine/server/brand-draft";
 import { brandFiles } from "@/lib/live-engine/server/brand-files";
 import { brandCard } from "@/lib/live-engine/server/brand-card";
+import { captureGallery } from "@/lib/live-engine/server/capture-gallery";
 
 /**
  * "طلّع الهوية" with VIDEO_ENGINE=live: the sandbox's capture (public crawl + sign-up agent + feature tour)
@@ -16,6 +17,7 @@ import { brandCard } from "@/lib/live-engine/server/brand-card";
  *   GET  ?id=<captureId>              → progress; brand draft (the Add-company fields) once brand.json exists
  *   GET  ?id=<captureId>&card=1       → the "هوية الشركة" card: the homepage hero clone (assets signed) + brand tokens
  *   GET  ?id=<captureId>&files=1      → "ملفات البراند": logo, screens, UI blocks, images, agent trace (signed URLs)
+ *   GET  ?id=<captureId>&all=1        → everything captured: every screen (+ full page), UI part and image, from the packs
  */
 // starting a capture may build the sandbox runner's snapshot on the very first job (minutes)
 export const maxDuration = 300;
@@ -56,6 +58,10 @@ export async function GET(request: NextRequest) {
   if (request.nextUrl.searchParams.get("card") === "1") {
     const card = await brandCard(ctx.workspace.id, id);
     return card ? Response.json(card) : Response.json({ error: "not_found" }, { status: 404 });
+  }
+  if (request.nextUrl.searchParams.get("all") === "1") {
+    const all = await captureGallery(ctx.workspace.id, id);
+    return all ? Response.json(all) : Response.json({ error: "not_found" }, { status: 404 });
   }
   if (request.nextUrl.searchParams.get("files") === "1") {
     const files = await brandFiles(ctx.workspace.id, id);

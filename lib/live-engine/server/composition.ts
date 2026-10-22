@@ -2,10 +2,9 @@ import "server-only";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { LIVE_BUCKET } from "@/lib/live-engine/protocol";
+import { download, unpackPacks, untar } from "./capture-cache";
 
 /** A director version's composition, rebuilt for the edit room: its video.html (real UI pasted in) from director.tgz,
  *  and the brand files it loads from the capture's packs — in a local cache, served same-origin so the editor can seek
@@ -15,14 +14,7 @@ export type CompositionFiles = { comp: string; brand: string };
 
 const ROOT = path.join(os.tmpdir(), "mgx-composition");
 const building = new Map<string, Promise<CompositionFiles | null>>();
-const PACKS = /^(clones|assets|library|screens|parts)\.tgz(\.part\d+)?$/;
-
-async function download(db: ReturnType<typeof createAdminClient>, p: string) {
-  const { data, error } = await db.storage.from(LIVE_BUCKET).download(p);
-  if (error || !data) throw new Error(`download ${p}: ${error?.message ?? "missing"}`);
-  return Buffer.from(await data.arrayBuffer());
-}
-const untar = (buf: Buffer, into: string) => { const f = path.join(into, `.pack-${Math.random().toString(36).slice(2)}.tgz`); fs.writeFileSync(f, buf); try { execFileSync("tar", ["-xzf", f, "-C", into]); } finally { fs.rmSync(f, { force: true }); } };
+const PACKS = /^(clones|assets|library|screens|parts)$/;
 
 async function build(videoId: string, version: number, dir: string): Promise<CompositionFiles | null> {
   const db = createAdminClient();
@@ -40,12 +32,7 @@ async function build(videoId: string, version: number, dir: string): Promise<Com
     return null; // not a director version (or saved before the work dir was kept)
   }
   if (job?.capture_id) {
-    const prefix = `${job.workspace_id}/captures/${job.capture_id}/_pack`;
-    const { data: files } = await db.storage.from(LIVE_BUCKET).list(prefix, { limit: 200 });
-    // a big pack is stored in parts: joined in order, then unpacked
-    const groups = new Map<string, string[]>();
-    for (const f of (files ?? []).map((x) => x.name).filter((n) => PACKS.test(n)).sort()) { const base = f.replace(/\.part\d+$/, ""); groups.set(base, [...(groups.get(base) ?? []), f]); }
-    for (const parts of groups.values()) untar(Buffer.concat(await Promise.all(parts.sort((a, b) => (+(a.match(/\.part(\d+)$/)?.[1] ?? 0)) - (+(b.match(/\.part(\d+)$/)?.[1] ?? 0))).map((p) => download(db, `${prefix}/${p}`)))), path.join(tmp, "brand"));
+    await unpackPacks(db, `${job.workspace_id}/captures/${job.capture_id}`, path.join(tmp, "brand"), PACKS);
     for (const f of ["brand.json"]) { try { fs.writeFileSync(path.join(tmp, "brand", f), await download(db, `${job.workspace_id}/captures/${job.capture_id}/${f}`)); } catch { /* optional */ } }
   }
   const comp = path.join(tmp, "director", "composition");
