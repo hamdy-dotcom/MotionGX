@@ -15,7 +15,7 @@ export function LibraryView({ works, latin }: { works: Work[]; latin: string }) 
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Work | null>(null);
   const list = works.filter((w) => (filter === "all" || w.kind === filter) && (!q.trim() || w.title.includes(q.trim())));
-  const tall = (w: Work) => w.kind === "video" && w.type === "9:16";
+  const tall = (w: Work) => (w.kind === "video" && w.type === "9:16") || w.type === "story";
   const status = (s: string) => (["draft", "ready", "review", "exporting", "failed", "generating", "needs_direction"].includes(s) ? ts(s as "ready") : s);
 
   return (
@@ -34,7 +34,7 @@ export function LibraryView({ works, latin }: { works: Work[]; latin: string }) 
             <button key={w.id} type="button" className="s-shot" style={{ animationDelay: `${i * 70}ms` }} onClick={() => setOpen(w)}>
               <div className={`img${tall(w) ? " v" : ""}`}>
                 {w.thumb ? <i style={{ backgroundImage: `url(${w.thumb})` }} /> : <span className="tile" dir="auto">{w.title}</span>}
-                <span className={`s-tag${w.kind === "video" ? " v" : ""}`}>{w.kind === "video" ? "VIDEO" : "POST"}</span>
+                <span className={`s-tag${w.kind === "video" ? " v" : ""}`}>{w.kind === "video" ? "VIDEO" : w.type === "story" ? "STORY" : w.type === "cover" ? "COVER" : "POST"}</span>
                 <span className="s-fno">#{String(list.length - i).padStart(3, "0")}</span>
               </div>
               <span className="t" dir="auto">{w.title}</span>
@@ -47,7 +47,7 @@ export function LibraryView({ works, latin }: { works: Work[]; latin: string }) 
       )}
       {open ? (
         <div className="s-drawer" role="dialog" aria-label={open.title}>
-          <div className="s-row"><span className={`s-tag${open.kind === "video" ? " v" : ""}`} style={{ position: "static" }}>{open.kind === "video" ? "VIDEO" : "POST"} · {status(open.status)}</span><button type="button" className="s-btn ghost small" onClick={() => setOpen(null)}>{t("close")}</button></div>
+          <div className="s-row"><span className={`s-tag${open.kind === "video" ? " v" : ""}`} style={{ position: "static" }}>{open.kind === "video" ? "VIDEO" : open.type === "story" ? "STORY" : open.type === "cover" ? "COVER" : "POST"} · {status(open.status)}</span><button type="button" className="s-btn ghost small" onClick={() => setOpen(null)}>{t("close")}</button></div>
           <div className={`art${tall(open) ? " v" : ""}`} style={open.thumb ? { backgroundImage: `url(${open.thumb})` } : undefined} />
           <h2 style={{ margin: "0 0 6px", fontSize: 22 }} dir="auto">{open.title}</h2>
           <p className="s-mono" style={{ color: "var(--s-muted)", margin: "0 0 12px", fontSize: 11, display: "flex", gap: 6, alignItems: "center" }}>{latin} · {dayMono(open.day)} · {open.platforms.map((p) => <PlatformIcon key={p} p={p} />)}</p>

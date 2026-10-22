@@ -18,10 +18,10 @@ const handleOf = (name: string, site?: string | null) => {
   return host || name.toLowerCase().replace(/[^a-z0-9.]+/g, "").replace(/^\.+|\.+$/g, "") || "brand";
 };
 
-export function PlatformPreview({ platform, device, image, text, hashtags, brand }: { platform: PostPlatformKey; device: "mobile" | "desktop"; image: string | null; text: string; hashtags: string[]; brand: PreviewBrand }) {
+export function PlatformPreview({ platform, device, image, text, hashtags, brand, placement = "feed" }: { platform: PostPlatformKey; device: "mobile" | "desktop"; image: string | null; text: string; hashtags: string[]; brand: PreviewBrand; placement?: "feed" | "story" | "cover" }) {
   const stage = useRef<HTMLDivElement>(null), scaler = useRef<HTMLDivElement>(null);
   const b: MockBrand = { name: brand.name, handle: handleOf(brand.name, brand.site), logo: brand.logoUrl, dark: brand.logoOnDark === true, tagline: brand.tagline ?? null, palette: { primary: brand.colors[0]?.hex } };
-  const html = mockupHtml(platform, device, { text, tags: hashtags, image }, b);
+  const html = mockupHtml(platform, device, { text, tags: hashtags, image }, b, placement);
 
   // the frames have fixed sizes (a phone 390×844, a browser 1280×800): scale them by those, never by a measurement
   // taken before the styles arrive

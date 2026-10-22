@@ -537,7 +537,14 @@
       "readyChip": "جاهز",
       "slide": "الشريحة {n} من {total}",
       "starting": "<b>نجهّز الاستوديو</b> لـ {name}…",
-      "brandReading": "<b>نقرأ هوية {name}</b> — الشعار والألوان والخطوط…"
+      "brandReading": "<b>نقرأ هوية {name}</b> — الشعار والألوان والخطوط…",
+      "bioOf": "نبذة صفحة {platform} (مع الغلاف)",
+      "storyLineOf": "سطر الستوري على {platform}"
+    },
+    "placement": {
+      "feed": "منشور",
+      "story": "ستوري",
+      "cover": "غلاف الصفحة"
     }
   },
   "shell": {
@@ -673,7 +680,9 @@
     "types": {
       "single": "صورة + نص",
       "carousel": "كاروسيل",
-      "text": "نص فقط"
+      "text": "نص فقط",
+      "story": "ستوري",
+      "cover": "غلاف الصفحة"
     }
   },
   "lookbook": {

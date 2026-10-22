@@ -537,7 +537,14 @@
       "readyChip": "Ready",
       "slide": "Slide {n} of {total}",
       "starting": "<b>Getting the studio ready</b> for {name}…",
-      "brandReading": "<b>Reading {name}'s identity</b> — logo, colours, fonts…"
+      "brandReading": "<b>Reading {name}'s identity</b> — logo, colours, fonts…",
+      "bioOf": "{platform} page bio (with the cover)",
+      "storyLineOf": "The story's line on {platform}"
+    },
+    "placement": {
+      "feed": "Post",
+      "story": "Story",
+      "cover": "Page cover"
     }
   },
   "shell": {
@@ -673,7 +680,9 @@
     "types": {
       "single": "Image + text",
       "carousel": "Carousel",
-      "text": "Text only"
+      "text": "Text only",
+      "story": "Story",
+      "cover": "Page cover"
     }
   },
   "lookbook": {

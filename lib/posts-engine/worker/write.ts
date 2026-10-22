@@ -26,6 +26,12 @@ export type PostText = { text: string; hashtags: string[] };
 export type Written = { angle: string; alt_text: string; platforms: Partial<Record<PostPlatform, PostText>>; slides: Slide[] };
 
 /** the brand's facts and the captured material the writer may use */
+/** a story's and a cover's platform text is not a feed caption */
+const TEXT_RULE: Record<string, { rule: string; max: number } | undefined> = {
+  story: { rule: "the line that goes with the story: one short line (≤ 120 characters) the viewer reads with it, or a reply prompt; 0–3 hashtags", max: 300 },
+  cover: { rule: "the page's one-line bio that matches the cover (≤ 150 characters): what the brand does, in its voice; no hashtags, no link", max: 150 },
+};
+
 export function brandBrief(brand: any) {
   const screens = (brand.screens ?? [])
     .filter((s: any) => !s.empty && (s.clones?.screen || s.clones?.mobile))
@@ -122,7 +128,7 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
     imageMode && visualPost ? `FORMAT: pick the kind of picture that best serves THIS idea from the allowed formats — the brand's recent posts already used ${[...blocked].join(", ") || "none"}; least used so far: ${fresh.join(", ")}. In a carousel, vary the format across slides.` : "",
     post.history?.length ? `THIS BRAND'S RECENT POSTS (newest first) — the brand's feed keeps one identity, but this post must NOT repeat any of them: a different concept and angle, different people / subjects, a different setting, composition and layout, a different headline idea:\n${JSON.stringify(post.history)}` : "",
     imageMode && visualPost ? `BRAND STYLE (every image is built on it)\n${JSON.stringify({ palette: brand.palette, look: brand.look, fonts: { display: brand.fonts?.display, body: brand.fonts?.body }, imagery: [...new Set((brand.images ?? []).filter((i: any) => !i.demo).map((i: any) => i.kind))] })}` : "",
-    `THE POST\n- What the client wants: ${post.brief}\n${post.placement && post.placement !== "feed" ? `- Placement: ${PLACEMENT_RULES[post.placement]}\n` : ""}- Type: ${post.type === "single" ? "one image + text" : post.type === "carousel" ? `carousel${count ? ` of ${count} slides` : ""} + text — slide 1 hooks, the middle slides deliver, the last slide closes with the call to action` : "text only (no image)"}\n- Language: ${LANGUAGE[post.dialect] ?? post.dialect}\n- Platforms and their rules:\n${post.platforms.map((p) => `  - ${PLATFORM[p].name}: ${PLATFORM[p].rules} (max ${PLATFORM[p].maxChars} characters)`).join("\n")}${visualPost ? (imageMode ? `\n- Visuals: each slide is ONE image made by an image model that sees the brand's logo, its website and product screenshots. Describe it fully in scene; when the post is about the product, put a real screen in it (refs). On-image words are short (the platform text carries the detail). A phone, laptop or app screen may appear ONLY when you list its screen id in refs (the real screen is then put on it) — otherwise the scene has no device or UI at all.` : `\n- Visuals: ${ai} On-image text is short (the platform text carries the detail).`) : ""}`,
+    `THE POST\n- What the client wants: ${post.brief}\n${post.placement && post.placement !== "feed" ? `- Placement: ${PLACEMENT_RULES[post.placement]}\n` : ""}- Type: ${post.type === "single" ? "one image + text" : post.type === "carousel" ? `carousel${count ? ` of ${count} slides` : ""} + text — slide 1 hooks, the middle slides deliver, the last slide closes with the call to action` : "text only (no image)"}\n- Language: ${LANGUAGE[post.dialect] ?? post.dialect}\n- Platforms and their rules:\n${post.platforms.map((p) => `  - ${PLATFORM[p].name}: ${TEXT_RULE[post.placement ?? "feed"]?.rule ?? PLATFORM[p].rules} (max ${TEXT_RULE[post.placement ?? "feed"]?.max ?? PLATFORM[p].maxChars} characters)`).join("\n")}${visualPost ? (imageMode ? `\n- Visuals: each slide is ONE image made by an image model that sees the brand's logo, its website and product screenshots. Describe it fully in scene; when the post is about the product, put a real screen in it (refs). On-image words are short (the platform text carries the detail). A phone, laptop or app screen may appear ONLY when you list its screen id in refs (the real screen is then put on it) — otherwise the scene has no device or UI at all.` : `\n- Visuals: ${ai} On-image text is short (the platform text carries the detail).`) : ""}`,
     prev ? `THE CURRENT VERSION\n${JSON.stringify(prev)}\n\nTHE CLIENT ASKS FOR THIS CHANGE: ${post.request}\nChange what they ask for and keep everything else as it is.` : "",
   ].filter(Boolean).join("\n\n");
   const out = (await callTool({ ledger, step: "post-write", model: post.model, system: `${SYSTEM}`, content, tool, maxTokens: 8000, effort: "medium" })) as Written;
@@ -151,6 +157,8 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
     if (v.kind === "image" && !images.some((x: any) => x.file === v.image)) s.visual = { kind: "none" };
     if (v.kind === "ai_image" && (post.aiImage === "no" || !v.prompt)) s.visual = { kind: "none" };
   }
+  // a cover's text is the page bio: never hashtags
+  if (post.placement === "cover") for (const t of Object.values(out.platforms ?? {}) as { hashtags?: string[] }[]) if (t) t.hashtags = [];
   opts.log(`✓ write: "${out.angle}" · ${post.platforms.join(", ")} · ${out.slides.length} slide(s)${out.slides.length ? ` (${out.slides.map((s) => (imageMode ? `refs: ${(s.refs ?? []).join("+") || "none"}` : s.visual.kind)).join(", ")})` : ""}`);
   return out;
 }

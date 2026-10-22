@@ -172,10 +172,57 @@ function xx(device, post, b) {
 }
 
 
-/** the post as a platform shows it: its feed layout inside a phone (mobile) or a desktop browser */
-export function mockupHtml(p, device, post, brand) {
+// ── a story: the frame full screen, the platform's story chrome on top of it ─────────────────────────────
+function storyFrame(p, post, b) {
+  const img = post.image ? `<img src="${post.image}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">` : `<div style="position:absolute;inset:0;background:#222"></div>`;
+  const bars = `<div style="position:absolute;top:10px;left:10px;right:10px;display:flex;gap:4px">${[1, 0, 0].map((on) => `<span style="flex:1;height:2.5px;border-radius:2px;background:rgba(255,255,255,${on ? ".95" : ".4"})"></span>`).join("")}</div>`;
+  const head = `<div style="position:absolute;top:22px;left:12px;right:12px;display:flex;align-items:center;gap:8px;color:#fff;font:600 13px var(--ui);text-shadow:0 1px 3px rgba(0,0,0,.4)">${av(b, 30)}<span>${esc(b.name)}</span><span style="opacity:.75;font-weight:400">2h</span><span style="margin-left:auto;font-size:22px;line-height:1">×</span></div>`;
+  const foot = p === "facebook"
+    ? `<div style="position:absolute;bottom:18px;left:12px;right:12px;display:flex;gap:10px;align-items:center;color:#fff"><span style="flex:1;border:1.5px solid rgba(255,255,255,.8);border-radius:999px;padding:9px 14px;font:13px var(--ui)">Reply…</span>${st(P.like, 24, 1.9, "#fff")}${st(P.heart, 24, 1.9, "#fff")}</div>`
+    : p === "tiktok"
+      ? `<div style="position:absolute;bottom:18px;left:12px;right:12px;display:flex;gap:10px;align-items:center;color:#fff"><span style="flex:1;background:rgba(255,255,255,.18);border-radius:999px;padding:10px 14px;font:13px var(--ui)">Send message…</span>${st(P.heart, 24, 1.9, "#fff")}${st(P.send, 24, 1.9, "#fff")}</div>`
+      : `<div style="position:absolute;bottom:18px;left:12px;right:12px;display:flex;gap:12px;align-items:center;color:#fff"><span style="flex:1;border:1.5px solid rgba(255,255,255,.8);border-radius:999px;padding:9px 14px;font:13px var(--ui)">Send message</span>${st(P.heart, 24, 1.9, "#fff")}${st(P.send, 24, 1.9, "#fff")}</div>`;
+  return `<div style="position:relative;width:100%;height:100%;overflow:hidden;background:#000">${img}<div style="position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.35),transparent 18%,transparent 82%,rgba(0,0,0,.35))"></div>${bars}${head}${foot}</div>`;
+}
+
+// ── a profile cover: the top of the brand's page, the banner at its real shape, the profile picture over it ──
+const COVER = {
+  facebook: { ratio: "1640/624", avatar: "circle", follow: "Follow", msg: "Message", color: "#0866ff", bg: "#fff", ink: "#050505" },
+  linkedin: { ratio: "1584/396", avatar: "square", follow: "+ Follow", msg: "Visit website", color: "#0a66c2", bg: "#fff", ink: "#191919" },
+  x: { ratio: "1500/500", avatar: "circle", follow: "Follow", msg: "", color: "#0f1419", bg: "#fff", ink: "#0f1419" },
+};
+function coverPage(p, device, post, b) {
+  const c = COVER[p] ?? COVER.facebook, big = device !== "mobile";
+  const size = big ? (p === "linkedin" ? 120 : 150) : p === "linkedin" ? 84 : 96;
+  const avatar = `<span style="position:absolute;left:${big ? 32 : 16}px;bottom:-${Math.round(size / 2)}px;width:${size}px;height:${size}px;border-radius:${c.avatar === "circle" ? "50%" : "10px"};background:${b.dark ? "#15161c" : "#fff"};border:4px solid ${c.bg};display:grid;place-items:center;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.12)">${logoImg(b, "70%")}</span>`;
+  const banner = `<div style="position:relative;width:100%;aspect-ratio:${c.ratio};background:#ddd">${post.image ? `<img src="${post.image}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">` : ""}${avatar}</div>`;
+  const btn = (label, solid) => (label ? `<span style="border-radius:${p === "facebook" ? "8px" : "999px"};padding:${big ? "9px 18px" : "7px 14px"};font:600 ${big ? 15 : 13}px var(--ui);${solid ? `background:${c.color};color:#fff` : `border:1px solid #cfd9de;color:${c.ink}`}">${label}</span>` : "");
+  const info = `<div style="padding:${Math.round(size / 2) + 12}px ${big ? 32 : 16}px 16px;color:${c.ink};font-family:var(--ui)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+      <div style="min-width:0"><div style="font:700 ${big ? 26 : 21}px var(--ui)">${esc(b.name)}</div>${p === "x" ? `<div style="color:#536471;font-size:14px">@${b.handle}</div>` : `<div style="color:#65676b;font-size:13px;margin-top:2px">${p === "linkedin" ? "Company page" : "Page"}</div>`}</div>
+      <div style="display:flex;gap:8px;flex-shrink:0">${btn(c.follow, true)}${btn(c.msg, false)}</div>
+    </div>
+    <div class="ar" dir="auto" style="margin-top:10px;font-size:${big ? 15 : 14}px;line-height:1.5;white-space:pre-wrap">${esc(post.text)}</div>
+    <div style="display:flex;gap:${big ? 28 : 18}px;margin-top:16px;border-top:1px solid #e4e6eb;padding-top:12px;font:600 14px var(--ui);color:#65676b">${(p === "linkedin" ? ["Home", "About", "Posts", "Jobs"] : p === "x" ? ["Posts", "Replies", "Media", "Likes"] : ["Posts", "About", "Photos", "Videos"]).map((t, i) => `<span style="${i === 0 ? `color:${c.color};` : ""}">${t}</span>`).join("")}</div>
+  </div>`;
+  const page = `<div style="background:${c.bg};${big ? "max-width:940px;margin:0 auto;border-radius:0 0 12px 12px;box-shadow:0 1px 2px rgba(0,0,0,.1)" : ""}">${banner}${info}</div>`;
+  return `<div class="pf" style="background:${big ? "#f0f2f5" : c.bg};overflow:auto">${page}</div>`;
+}
+
+/** the post as a platform shows it: its feed layout — or, for a story, the story screen, and for a cover, the page
+ *  header — inside a phone (mobile) or a desktop browser */
+export function mockupHtml(p, device, post, brand, placement = "feed") {
   const b = { ...brand, name: brand.name, handle: esc(brand.handle) };
-  const inner = platform(p, device, { ...post, image: post.image ? esc(post.image) : "" }, b);
+  const safe = { ...post, image: post.image ? esc(post.image) : "" };
+  if (placement === "story") {
+    const frame = storyFrame(p, safe, b);
+    return device === "mobile" ? phone(frame, true) : browser(`<div style="height:100%;display:grid;place-items:center;background:#111"><div style="width:405px;height:720px;border-radius:14px;overflow:hidden">${frame}</div></div>`, HOST[p]);
+  }
+  if (placement === "cover") {
+    const inner = coverPage(p, device, safe, b);
+    return device === "mobile" ? phone(inner, false) : browser(inner, { facebook: "facebook.com/page", linkedin: "linkedin.com/company", x: "x.com" }[p] ?? HOST[p]);
+  }
+  const inner = platform(p, device, safe, b);
   return device === "mobile" ? phone(inner, p === "tiktok") : browser(inner, HOST[p]);
 }
 export const PLATFORM_ICON = (p, size = 16) => ICON[p](size);

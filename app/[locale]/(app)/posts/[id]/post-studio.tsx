@@ -16,7 +16,7 @@ import { cancelPost, downloadPost, requestPostChange, retryPost, savePostText, u
 import { CreatingStudio } from "./creating-studio";
 import { PlatformPreview, type PreviewBrand } from "./platform-preview";
 
-type Post = { id: string; title: string; brief: string; type: string; platforms: string[]; status: "generating" | "ready" | "failed"; generation: Record<string, unknown>; createdAt: string; company: string };
+type Post = { id: string; title: string; brief: string; type: string; platforms: string[]; status: "generating" | "ready" | "failed"; generation: Record<string, unknown>; createdAt: string; company: string; placement?: "feed" | "story" | "cover" };
 type Version = { version: number; content: PostContent; parent: number | null; origin: string; request: string | null };
 
 const Icon = ({ p, size = 16 }: { p: string; size?: number }) => <span aria-hidden="true" className="inline-flex" dangerouslySetInnerHTML={{ __html: PLATFORM_ICON(p, size) }} />;
@@ -113,7 +113,7 @@ export function PostStudio({ post, brand, version, versions, images, liveImage, 
           {back}
           <Heading as="h1" className="mt-2 text-3xl sm:text-4xl">{post.title}</Heading>
           <p className="mt-1.5 text-ink-2">
-            {post.company} · {t(`types.${post.type as "single"}`)} · {formatDate(post.createdAt, locale)}
+            {post.company} · {post.placement && post.placement !== "feed" ? t(`placement.${post.placement}`) : t(`types.${post.type as "single"}`)} · {formatDate(post.createdAt, locale)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -156,7 +156,7 @@ export function PostStudio({ post, brand, version, versions, images, liveImage, 
               ))}
             </div>
           </div>
-          <PlatformPreview key={`${tab}-${version.version}-${device}-${shown}`} platform={tab} device={device} image={slides[shown] ?? null} text={current.text} hashtags={current.hashtags} brand={brand} />
+          <PlatformPreview key={`${tab}-${version.version}-${device}-${shown}`} platform={tab} device={device} image={slides[shown] ?? null} text={current.text} hashtags={current.hashtags} brand={brand} placement={post.placement ?? "feed"} />
           {slides.length > 1 ? (
             <div className="mt-3 flex items-center justify-center gap-3">
               <button type="button" onClick={() => setSlide(Math.max(0, shown - 1))} disabled={shown === 0} className="chip chip-white" aria-label="›">→</button>
@@ -189,6 +189,7 @@ export function PostStudio({ post, brand, version, versions, images, liveImage, 
         <TextPanel
           key={`${tab}-${version.version}`}
           platform={tab}
+          placement={post.placement ?? "feed"}
           text={current.text}
           hashtags={current.hashtags}
           disabled={pending}
@@ -212,7 +213,7 @@ function Notice({ tone, text }: { tone: "error" | "info" | "ok"; text: string })
 }
 
 /** one platform's text: shown, copied or edited (a new version), and "Request a change" under it */
-function TextPanel({ platform, text, hashtags, disabled, onSave, request, setRequest, onRequest }: { platform: PostPlatformKey; text: string; hashtags: string[]; disabled: boolean; onSave: (text: string, tags: string[]) => void; request: string; setRequest: (s: string) => void; onRequest: () => void }) {
+function TextPanel({ platform, text, hashtags, disabled, onSave, request, setRequest, onRequest, placement = "feed" }: { platform: PostPlatformKey; text: string; hashtags: string[]; disabled: boolean; onSave: (text: string, tags: string[]) => void; request: string; setRequest: (s: string) => void; onRequest: () => void; placement?: "feed" | "story" | "cover" }) {
   const t = useTranslations("posts");
   const ts = useTranslations("posts.studio");
   const [editing, setEditing] = useState(false);
@@ -220,11 +221,12 @@ function TextPanel({ platform, text, hashtags, disabled, onSave, request, setReq
   const [tags, setTags] = useState(hashtags.join(" "));
   const [copied, setCopied] = useState(false);
   const full = `${text}${hashtags.length ? `\n\n${hashtags.map((h) => `#${h}`).join(" ")}` : ""}`;
-  const max = POST_PLATFORM_INFO[platform]?.maxChars ?? 2200;
+  // a cover's text is the page bio, a story's one line; a feed post follows the platform
+  const max = placement === "cover" ? 150 : placement === "story" ? 300 : POST_PLATFORM_INFO[platform]?.maxChars ?? 2200;
   const length = editing ? draft.length + tags.split(/\s+/).filter(Boolean).reduce((n, h) => n + h.length + 2, 0) : full.length;
   return (
     <section className="rounded-panel bg-field p-5">
-      <p className="label mb-3">{ts("textOf", { platform: t(`platform.${platform}`) })}</p>
+      <p className="label mb-3">{placement === "cover" ? ts("bioOf", { platform: t(`platform.${platform}`) }) : placement === "story" ? ts("storyLineOf", { platform: t(`platform.${platform}`) }) : ts("textOf", { platform: t(`platform.${platform}`) })}</p>
       {editing ? (
         <>
           <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={10} dir="auto" className="w-full resize-y rounded-[20px] bg-white p-4 text-sm leading-relaxed text-navy outline-none focus:shadow-[inset_0_0_0_1.5px_var(--primary)]" />

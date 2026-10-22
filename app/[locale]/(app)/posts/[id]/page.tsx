@@ -51,7 +51,7 @@ export default async function PostPage({ params, searchParams }: { params: Promi
     <PostStudio
       brand={brand}
       key={`${post.id}-${shown?.version ?? 0}-${post.status}`}
-      post={{ id: post.id, title: post.title, brief: post.brief, type: post.type, platforms: post.platforms, status: post.status, generation: post.generation ?? {}, createdAt: post.created_at, company: post.companies?.name ?? "" }}
+      post={{ id: post.id, title: post.title, brief: post.brief, type: post.type, platforms: post.platforms, status: post.status, generation: post.generation ?? {}, createdAt: post.created_at, company: post.companies?.name ?? "", placement: (post as { placement?: string }).placement === "story" || (post as { placement?: string }).placement === "cover" ? ((post as { placement?: string }).placement as "story" | "cover") : "feed" }}
       version={shown ? { version: shown.version, content: shown.content, parent: shown.parent_version, origin: shown.origin, request: shown.request } : null}
       versions={versions.map((x) => x.version)}
       images={images}
