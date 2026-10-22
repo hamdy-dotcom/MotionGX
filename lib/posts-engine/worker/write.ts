@@ -90,7 +90,9 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
   // the feed rotates: the formats of the brand's last 3 posts are not offered; the least used ones are suggested
   const recent = (post.history ?? []).map((h) => h.format).filter((f): f is Format => Boolean(f && f in FORMATS));
   const blocked = new Set(recent.slice(0, 3));
-  const allowed = (Object.keys(FORMATS) as Format[]).filter((f) => !blocked.has(f));
+  // a cover picks from the cover kinds (campaign photo, product hero, graphic system, place, detail), whatever the feed used
+  const COVER_FORMATS: Format[] = ["people_moment", "product_in_use", "brand_pattern", "place_scene", "detail_closeup"];
+  const allowed = post.placement === "cover" ? COVER_FORMATS : (Object.keys(FORMATS) as Format[]).filter((f) => !blocked.has(f));
   const used = (f: Format) => recent.filter((x) => x === f).length;
   const fresh = [...allowed].sort((a, b) => used(a) - used(b)).slice(0, 4);
   // image mode: each slide is one generated image — its exact words, and the whole picture described for the image model
