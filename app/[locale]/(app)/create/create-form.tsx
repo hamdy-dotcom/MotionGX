@@ -27,7 +27,6 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
   const t = useTranslations("create");
   const tg = useTranslations("goals");
   const td = useTranslations("dialects");
-  const ta = useTranslations("posts.aiImages");
   const te = useTranslations("aiErrors");
   const tc = useTranslations("common");
   const tp = useTranslations("posts.platform");
@@ -36,7 +35,6 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
   const [length, setLength] = useState<15 | 30 | 60>(30);
   const [goal, setGoal] = useState<(typeof GOALS)[number]>("sell");
   const [plats, setPlats] = useState<string[]>(initial.platforms.length ? initial.platforms : ["instagram", "facebook"]);
-  const [ai, setAi] = useState<"auto" | "yes" | "no">("auto");
   const [dialect, setDialect] = useState<Dialect>(brand.dialect);
   const [brief, setBrief] = useState(initial.brief);
   const [contentType, setContentType] = useState<ContentType>(initial.contentType ?? "standard");
@@ -64,7 +62,7 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
     start(async () => {
       let res: { error?: string; aiError?: string } | undefined;
       if (video) { fd.set("goal", goal); fd.set("format", format); fd.set("length_s", String(length)); fd.set("pace", "medium"); res = await createVideo({}, fd); }
-      else { fd.set("type", kind === "image" || kind === "story" || kind === "cover" ? "single" : kind); fd.set("placement", placement); fd.set("ai_image", kind === "text" ? "no" : ai); shownPlats.forEach((p) => fd.append("platforms", p)); res = await createPost({}, fd); }
+      else { fd.set("type", kind === "image" || kind === "story" || kind === "cover" ? "single" : kind); fd.set("placement", placement); fd.set("ai_image", kind === "text" ? "no" : "auto"); shownPlats.forEach((p) => fd.append("platforms", p)); res = await createPost({}, fd); }
       if (res?.aiError) setError(te(res.aiError as "ai_failed"));
       else if (res?.error) setError(res.error === "briefRequired" ? t("briefRequired") : res.error === "platformsRequired" ? t("platformsRequired") : tc("error"));
     });
@@ -93,7 +91,6 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
           ) : (
             <>
               <div className="s-opt"><p className="s-label">{t("platforms")}</p><div className="s-chips">{Object.entries(platformSizes).map(([p, size]) => chip(plats.includes(p), () => setPlats((v) => (v.includes(p) ? v.filter((x) => x !== p) : [...v, p])), <><PlatformIcon p={p} />{tp(p as "x")} <span dir="ltr">{size}</span></>, p))}</div>{kind === "story" ? <p className="s-hint" style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--s-muted)" }}>{t("storyHint")}</p> : kind === "cover" ? <p className="s-hint" style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--s-muted)" }}>{t("coverHint")}</p> : null}</div>
-              {kind === "text" ? null : <div className="s-opt"><p className="s-label">{t("aiImage")}</p><div className="s-chips">{(["auto", "yes", "no"] as const).map((v) => chip(ai === v, () => setAi(v), ta(v), v))}</div></div>}
             </>
           )}
           <div className="s-opt"><p className="s-label">{t("dialect")}</p><div className="s-chips">{DIALECTS.map((d) => chip(dialect === d, () => setDialect(d), td(d), d))}</div></div>
