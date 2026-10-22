@@ -556,15 +556,15 @@ export function EditRoom({
       <div className="er-wrap">
         <div className="er-slate">
           <span className="er-live"><span className="er-dot" />EDIT ROOM</span><i />
-          <span dir="ltr">{companyName} · {format} · {Math.round(LEN)}S{bpm ? ` · ${bpm} BPM` : ""}</span><i />
+          <span dir="ltr">{companyName} · {video.format} · {Math.round(LEN)}S{bpm ? ` · ${bpm} BPM` : ""}</span><i />
           <span dir="ltr">{vtag}</span>
           <Link href="/library" className="er-sp" style={{ color: "inherit", textDecoration: "none" }}>{t("back")}</Link>
         </div>
         <div className="er-head">
           <div>
-            <h1>{companyName ? <><b>{companyName}</b>: </> : null}{video.title}</h1>
+            <h1>{companyName ? <><b>{companyName}</b>: </> : null}{shortTitle(video.title, companyName)}</h1>
             <div className="er-meta">
-              <span className="er-chip">{format}</span>
+              <span className="er-chip">{format} · {video.format}</span>
               <span className="er-chip">{t("lengthScenes", { s: formatNumber(Math.round(LEN), locale), n: formatNumber(scenes.length, locale) })}</span>
               {video.dialect ? <span className="er-chip">{td(video.dialect)}</span> : null}
               {mood || bpm ? <span className="er-chip">♪ {mood ?? ""}{bpm ? ` · ${bpm} BPM` : ""}</span> : null}
@@ -884,6 +884,18 @@ export function EditRoom({
       <div className="er-toast" ref={toastRef} role="status" />
     </div>
   );
+}
+
+/** the header's headline: the video's idea is a whole sentence ("launching X at a conference: the first …, and the real
+ *  cards …"); the room shows its one short line — after a leading "…:" and up to the first clause break */
+function shortTitle(title: string, brand: string) {
+  let x = (title ?? "").trim();
+  const colon = x.search(/[:：]/);
+  if (colon > 0 && x.slice(colon + 1).trim().length >= 8) x = x.slice(colon + 1).trim();
+  x = x.split(/\s*(?:[،,؛;.!?؟|]|\s[—–-]\s)\s*/)[0].trim() || x;
+  if (brand && x.startsWith(brand)) x = x.slice(brand.length).replace(/^[\s:：—–-]+/, "").trim() || x;
+  if (x.length > 64) x = `${x.slice(0, 64).replace(/\s+\S*$/, "")}…`;
+  return x;
 }
 
 function versionNote(v: RoomVersion, t: ReturnType<typeof useTranslations<"editRoom">>) {
