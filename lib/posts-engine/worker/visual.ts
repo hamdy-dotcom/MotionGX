@@ -208,7 +208,7 @@ function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs
     refs.style ? `THE BRAND'S VISUAL STYLE (from its own website and imagery): ${refs.style}` : "",
     `THE BRAND IS THE BASE OF THIS IMAGE — it must feel like an extension of the brand itself, as if taken from its own website. Its colours dominate: ${palette}${brand.palette?.theme ? ` (a ${brand.palette.theme} brand: the image is ${brand.palette.theme})` : ""}. Its look: ${brand.look ?? ""}. Its type: ${brand.fonts?.display ?? ""} / ${brand.fonts?.body ?? ""} style. Any occasion or theme (a holiday, a season, an event) is expressed INSIDE this identity — its motifs drawn in the brand's own colours and style — never with the occasion's traditional stock palette or look, unless those are the brand's own colours.`,
     refs.roles.map((r, i) => `Reference image ${i + 1}: ${r}.`).join("\n"),
-    refs.logo ? `Reference image 1 is the brand's logo (shown on a plain tile — the tile is not part of the logo): reproduce the mark and its lettering exactly as given — same shapes, letters, colours and proportions, never redrawn, re-spelled, recoloured or altered — ${post.placement === "cover" ? "SMALL and quiet, like a signature in the upper part of the centre area — never the centrepiece, never on a tile, badge or glow (the page's profile picture already shows it)" : "clearly visible and well sized, like a signature"}.` : "",
+    refs.logo ? `Reference image 1 is the brand's logo (shown on a plain tile — the tile is not part of the logo): reproduce the mark and its lettering exactly as given — same shapes, letters, colours and proportions, never redrawn, re-spelled, recoloured or altered — ${post.placement === "cover" ? "only if it fits the design: big and cropped as a graphic shape, or small and quiet — never the centrepiece, never on a tile, badge or glow (the page's profile picture already shows it)" : "clearly visible and well sized, like a signature"}.` : "",
     refs.slot ? `THE PRODUCT DEVICE IS ADDED AFTERWARDS: a ${refs.slot.kind === "phone" ? "phone (upright, about 85% of the height)" : "laptop (about 45% of the width)"} showing ${refs.slot.shows} will be placed ${refs.slot.at === "center" ? "in the CENTRE" : `on the ${(refs.slot.at === "start") !== (post.dialect !== "en") ? "LEFT" : "RIGHT"} side`} of the picture, facing the viewer. Compose around it: keep that area a calm, clean part of the scene (the brand's colour, light and shapes behind it, so it sits in the scene naturally), and put the people / the world around it — people may look toward it or at the viewer, smiling, as if it shows them something good. Draw NO phone, laptop, tablet, screen or interface anywhere yourself.` : "",
     refs.slot ? "" : refs.screen ? "Any phone or laptop in the image shows ONLY the real screen given as a reference, exactly as it is. The scene must be physically real: a screen faces the person using it — if the viewer sees the screen, the person is beside or behind it looking the same way (over the shoulder), or the device is held / placed toward the viewer with nobody looking at it from the back." : "Do NOT show any phone, laptop, tablet, app screen or user interface — there is no real screen for this image.",
     `No other text, letters, numbers, watermarks or made-up interface anywhere. Keep all text well inside the edges. Everything physically plausible: correct perspective and light, natural hands and faces, objects used the way they really are.`,
@@ -260,8 +260,9 @@ async function checkImage(post: PostJob, slide: Slide, file: string, logo: strin
   const r = (await callTool({ ledger, step: "post-check", model: MODELS.haiku, system: "You check generated social media images against what they must show.", content, tool, maxTokens: 1500 })) as { words_exact: boolean; logo_visible: boolean; extra_text?: boolean; ui_shown?: boolean; impossible?: string; device_ok?: boolean; problems: string[] };
   const badUi = !screenAllowed && Boolean(r.ui_shown);
   const impossible = [String(r.impossible ?? "").trim(), r.device_ok === false ? "people look at a screen that faces the viewer — they would see its back: turn the device toward them and show it over their shoulder, or nobody behind it" : ""].filter(Boolean).join("; ");
-  const ok = r.words_exact && r.logo_visible && !r.extra_text && !badUi && !impossible;
-  return { ok, problems: ok ? [] : [...(r.problems ?? []), !r.words_exact ? "the words are not exactly right" : "", !r.logo_visible ? "the logo is not exactly the brand's logo" : "", r.extra_text ? "there is other text" : "", badUi ? "it shows a device / app screen — remove it (no real screen for this image)" : "", impossible ? `physically impossible: ${impossible}` : ""].filter(Boolean) };
+  const needLogo = post.placement !== "cover"; // a cover's logo is the profile picture under it
+  const ok = r.words_exact && (r.logo_visible || !needLogo) && !r.extra_text && !badUi && !impossible;
+  return { ui: badUi, ok, problems: ok ? [] : [...(r.problems ?? []), !r.words_exact ? "the words are not exactly right" : "", !r.logo_visible && needLogo ? "the logo is not exactly the brand's logo" : "", r.extra_text ? "there is other text" : "", badUi ? "it shows a device / app screen — remove it (no real screen for this image)" : "", impossible ? `physically impossible: ${impossible}` : ""].filter(Boolean) };
 }
 
 /** the brand, read once per post: its logo, the references and its visual style in words */
@@ -299,7 +300,7 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
       const roles = refs.map((r) => r.role);
       const hasScreen = false;
       const file = path.join(runDir, "slides", `${canvasKey(canvas)}-${i + 1}.jpg`);
-      let feedback: string | undefined, last: string[] = [];
+      let feedback: string | undefined, last: string[] = [], drewDevice = false;
       for (let attempt = 0; attempt < 2; attempt++) {
         if (!started) { started = true; await on?.stage("image"); }
         const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles, screen: hasScreen, style, slot: device ? { at: slot, kind: device.device!, shows: device.role } : null }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
@@ -309,13 +310,15 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
         const c = await checkImage(post, slide, file, logo, ledger, hasScreen);
         await on?.check({ canvas, n: i + 1, ok: c.ok, problems: c.problems, attempt });
         last = c.problems;
+        drewDevice = c.ui;
         if (c.ok) break;
         log(`  check ${canvas} slide ${i + 1}: ${c.problems.join(" | ")}${attempt === 0 ? " — retrying" : ""}`);
         feedback = c.problems.join("; ");
         if (ledger.total() >= post.maxUsd) break;
       }
       await exactSize(file, canvas);
-      if (device) {
+      if (device && drewDevice) log(`! slide ${i + 1}: the picture still has a drawn device — the real one is not placed over it`);
+      if (device && !drewDevice) {
         await placeDevice(file, canvas, device, slot, post.dialect !== "en").catch((err) => log(`! device not placed: ${String(err).slice(0, 160)}`));
         await on?.image(path.relative(runDir, file), canvas, i + 1);
       }
