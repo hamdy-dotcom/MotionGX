@@ -16,6 +16,7 @@ import { BrandSwitch } from "./brand-switch";
 import { Ambient, SideNav, TabBar } from "./nav";
 import { AccountBox } from "./account";
 import { Composer } from "./composer";
+import { Notices } from "./notices";
 
 const host = (url?: string | null) => { try { return url ? new URL(url).host.replace(/^www\./, "") : ""; } catch { return url ?? ""; } };
 
@@ -61,6 +62,7 @@ export async function StudioShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <TabBar />
+      <Notices key={active?.id ?? "none"} companyId={active?.id ?? null} />
       <Composer
         brand={active ? { id: active.id, name: active.name, dialect: active.default_dialect, palette: paletteHexes(active.brand_profiles?.colors), example: example.split(/\s[—-]\s/)[0] } : null}
         days={days}

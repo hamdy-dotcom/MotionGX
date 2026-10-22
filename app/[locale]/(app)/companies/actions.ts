@@ -7,6 +7,7 @@ import type { BrandFacts } from "@/lib/brand/types";
 import { redirect } from "@/i18n/navigation";
 import { DIALECTS, type BrandColor, type Dialect } from "@/lib/types";
 import { linkCapture } from "@/lib/live-engine/server/jobs";
+import { cleanMarket, saveCompanyMarket } from "@/lib/data/market";
 
 export type SaveCompanyState = { error?: "nameRequired" | "generic"; saved?: boolean };
 
@@ -55,6 +56,7 @@ function parseBrand(formData: FormData) {
     tone: String(formData.get("tone") ?? "").trim() || null,
     tagline: String(formData.get("tagline") ?? "").trim() || null,
     facts: parseFacts(formData.get("facts")),
+    market: cleanMarket(parseJson<unknown>(formData.get("market"), {})),
     // Raw Firecrawl payload is cached so only "أعد القراءة" re-scrapes. Live engine: {source: "live", capture_id}
     // — the sandbox capture + brand.json every video of this company reuses.
     raw: raw && raw.source === "firecrawl" ? raw : raw && raw.source === "live" && typeof raw.capture_id === "string" && /^[0-9a-f-]{36}$/i.test(raw.capture_id) ? { source: "live", capture_id: raw.capture_id } : null,
@@ -124,6 +126,7 @@ export async function saveCompany(_prev: SaveCompanyState, formData: FormData): 
   }
 
   if (b.raw?.source === "live") await linkCapture(ctx.workspace.id, String(b.raw.capture_id), company.id);
+  await saveCompanyMarket(ctx, company.id, b.market);
   await saveLogo(ctx, company.id, formData);
   revalidatePath("/", "layout");
   redirect({ href: "/", locale: ctx.locale });
@@ -155,6 +158,7 @@ export async function updateCompany(companyId: string, _prev: SaveCompanyState, 
   }
 
   if (b.raw?.source === "live") await linkCapture(ctx.workspace.id, String(b.raw.capture_id), companyId);
+  await saveCompanyMarket(ctx, companyId, b.market);
   await saveLogo(ctx, companyId, formData);
   revalidatePath("/", "layout");
   return { saved: true };

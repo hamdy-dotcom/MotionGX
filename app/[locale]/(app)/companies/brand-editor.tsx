@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { saveCompany, updateCompany, type SaveCompanyState } from "./actions";
 import type { BrandDraft, BrandFacts } from "@/lib/brand/types";
 import { DIALECTS, type BrandColor, type Dialect } from "@/lib/types";
@@ -9,6 +9,12 @@ import { Heading, boldTag } from "@/components/heading";
 import { CompanyMark } from "@/components/company-mark";
 import { BrandCard } from "./brand-card";
 import { CheckIcon, PlusIcon, SpinnerIcon, UploadIcon } from "@/components/icons";
+import { SearchSelect } from "@/components/market-pickers";
+import { COUNTRIES } from "@/lib/market/countries";
+import { INDUSTRIES, INDUSTRY_LABEL } from "@/lib/market/industries";
+import type { Market } from "@/lib/data/market";
+
+const SOCIALS = ["instagram", "facebook", "tiktok", "linkedin", "x", "youtube", "snapchat"] as const;
 
 const lines = (value: string) => value.split("\n").map((l) => l.trim()).filter(Boolean);
 
@@ -18,14 +24,18 @@ export function BrandEditor({
   raw,
   companyId,
   captureId = null,
+  market: initialMarket = { industry: null, countries: [], socials: {} },
 }: {
   brand: BrandDraft;
   raw: Record<string, unknown> | null;
   companyId?: string;
   /** live engine: the capture whose homepage hero the brand card shows */
   captureId?: string | null;
+  /** industry, countries, social pages (what ideas, seasons and trends are matched against) */
+  market?: Market;
 }) {
   const t = useTranslations("companies");
+  const tm = useTranslations("market");
   const td = useTranslations("dialects");
   const tc = useTranslations("common");
   const action = companyId ? updateCompany.bind(null, companyId) : saveCompany;
@@ -42,6 +52,8 @@ export function BrandEditor({
   const [offersText, setOffersText] = useState(brand.facts.offers.join("\n"));
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [market, setMarket] = useState<Market>(initialMarket);
+  const ar = useLocale() === "ar";
   const logoPreview = uploadPreview ?? brand.logoUrl;
   const factsValue: BrandFacts = { ...facts, key_features: lines(featuresText), offers: lines(offersText) };
 
@@ -64,6 +76,7 @@ export function BrandEditor({
       <input type="hidden" name="logo_on_dark" value={brand.logoOnDark == null ? "" : brand.logoOnDark ? "1" : "0"} />
       <input type="hidden" name="raw" value={raw ? JSON.stringify(raw) : ""} />
       <input type="hidden" name="facts" value={JSON.stringify(factsValue)} />
+      <input type="hidden" name="market" value={JSON.stringify(market)} />
 
       <div className="space-y-6">
         <div>
@@ -210,6 +223,42 @@ export function BrandEditor({
             ))}
           </div>
         </Field>
+
+        <div className="divider" />
+        <Field label={tm("industry")}>
+          <SearchSelect
+            label={tm("industry")}
+            options={INDUSTRIES.map((i) => ({ value: i, label: INDUSTRY_LABEL[i][ar ? "ar" : "en"] }))}
+            value={market.industry ? [market.industry] : []}
+            onChange={(v) => setMarket((m) => ({ ...m, industry: v[0] ?? null }))}
+            placeholder={tm("industryPlaceholder")}
+            empty={tm("noMatch")}
+          />
+        </Field>
+        <Field label={tm("countries")}>
+          <SearchSelect
+            multiple
+            label={tm("countries")}
+            options={COUNTRIES.map((c) => ({ value: c.code, label: ar ? c.ar : c.en, hint: c.code, group: tm(`group_${c.group}`) }))}
+            value={market.countries}
+            onChange={(v) => setMarket((m) => ({ ...m, countries: v }))}
+            placeholder={tm("countriesPlaceholder")}
+            empty={tm("noMatch")}
+          />
+          <p className="mt-1.5 text-xs text-ink-muted">{tm("countriesHint")}</p>
+        </Field>
+        <Field label={tm("socials")}>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {SOCIALS.map((p) => (
+              <input key={p} dir="ltr" value={market.socials[p] ?? ""} onChange={(e) => setMarket((m) => ({ ...m, socials: { ...m.socials, [p]: e.target.value } }))} placeholder={tm(`social_${p}`)} aria-label={tm(`social_${p}`)} className="field bg-white text-start text-sm" />
+            ))}
+          </div>
+          <label className="mt-2 flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={market.socials.use === true} onChange={(e) => setMarket((m) => ({ ...m, socials: { ...m.socials, use: e.target.checked } }))} />
+            {tm("useSocials")}
+          </label>
+        </Field>
+        <div className="divider" />
 
         <Field label={t("tagline")} htmlFor="tagline">
           <input id="tagline" name="tagline" value={tagline} onChange={(e) => setTagline(e.target.value)} className="field bg-white" />

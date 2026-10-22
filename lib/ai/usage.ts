@@ -34,7 +34,10 @@ export type AiKind =
   | "post_design"
   | "post_image"
   // content plans: the ideas for a period
-  | "content_plan";
+  | "content_plan"
+  // the studio's pop-ups: the day's industry trends (web search), and an idea drafted from a pop-up
+  | "trends"
+  | "notice_draft";
 
 /** Price per million tokens (input, output) — Claude API list prices. */
 export const PRICES: Record<string, [number, number]> = {

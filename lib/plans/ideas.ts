@@ -4,12 +4,15 @@ import { callTool, SONNET } from "@/lib/ai/claude";
 import { AiError } from "@/lib/ai/usage";
 import { addDays, daysBetween, weekday } from "@/lib/dates";
 import { PLAN_KINDS, PLAN_PLATFORMS, type PlanGoal, type PlanKind } from "./types";
+import { seasonsBetween } from "@/lib/market/seasons";
+import { industryLabel } from "@/lib/market/industries";
+import { countryName } from "@/lib/market/countries";
 
 export type IdeaDraft = { kind: PlanKind; angle: string; title: string; why: string; hook: string; platforms: string[]; occasion: string | null; suggested_on: string | null };
 
 export type IdeaBrief = {
   workspaceId: string;
-  brand: { name: string; site: string; tone: string; tagline: string; audience: string; whatItDoes: string; features: string[]; offers: string[]; numbers: string[]; dialect: string };
+  brand: { name: string; site: string; tone: string; tagline: string; audience: string; whatItDoes: string; features: string[]; offers: string[]; numbers: string[]; dialect: string; industry?: string | null; countries?: string[] };
   startsOn: string;
   endsOn: string;
   goals: PlanGoal[];
@@ -26,15 +29,6 @@ const DIALECT: Record<string, string> = {
   sa: "Saudi colloquial Arabic", gulf: "Gulf colloquial Arabic", lev: "Levantine colloquial Arabic", msa: "clear Modern Standard Arabic", en: "English",
 };
 const GOAL: Record<PlanGoal, string> = { sales: "more sales / sign-ups", awareness: "people knowing the brand", launch: "launching or spotlighting a feature", community: "engagement — comments, shares, saves", season: "occasions and seasons in the period" };
-
-// dated moments that matter to brands in Egypt and the Gulf (2026–2027)
-const OCCASIONS: { on: string; name: string }[] = [
-  { on: "2026-10-30", name: "آخر الشهر (القبض)" }, { on: "2026-11-01", name: "بداية نوفمبر" }, { on: "2026-11-27", name: "الجمعة البيضاء" },
-  { on: "2026-11-30", name: "آخر الشهر (القبض)" }, { on: "2026-12-02", name: "اليوم الوطني الإماراتي" }, { on: "2026-12-30", name: "آخر الشهر (القبض)" },
-  { on: "2026-12-31", name: "آخر السنة" }, { on: "2027-01-01", name: "رأس السنة" }, { on: "2027-01-07", name: "عيد الميلاد المجيد" },
-  { on: "2027-01-30", name: "آخر الشهر (القبض)" }, { on: "2027-02-08", name: "أول رمضان (تقريباً)" }, { on: "2027-02-14", name: "عيد الحب" },
-  { on: "2027-02-22", name: "يوم التأسيس السعودي" }, { on: "2027-03-10", name: "عيد الفطر (تقريباً)" }, { on: "2027-03-21", name: "عيد الأم" },
-];
 
 const ideaSchema = z.object({
   ideas: z.array(z.object({
@@ -84,12 +78,17 @@ export async function writeIdeas(b: IdeaBrief): Promise<IdeaDraft[]> {
   const n = daysBetween(b.startsOn, b.endsOn) + 1;
   const days = Array.from({ length: n }, (_, i) => addDays(b.startsOn, i));
   const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const occasions = OCCASIONS.filter((o) => o.on >= b.startsOn && o.on <= b.endsOn);
+  // the moments in the brand's own countries and industry (lib/market/seasons.ts)
+  const occasions = seasonsBetween({ from: b.startsOn, to: b.endsOn, countries: b.brand.countries ?? [], industry: b.brand.industry }).map((o) => ({ on: o.from < b.startsOn ? b.startsOn : o.from, name: `${o.name.ar}${o.to && o.to !== o.from ? ` (until ${o.to})` : ""}${o.approx ? " — expected date" : ""} — angle: ${o.angle.en}` }));
+  const industry = industryLabel(b.brand.industry, "en");
+  const markets = (b.brand.countries ?? []).map((c) => countryName(c, "en")).join(", ");
   const list = (xs: string[]) => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : "- (none)");
 
   const prompt = `Brand: ${b.brand.name} (${b.brand.site})
 What it does: ${b.brand.whatItDoes || b.brand.tagline}
 Tagline: ${b.brand.tagline}
+Industry: ${industry || "—"}
+Markets: ${markets || "—"}
 Voice: ${b.brand.tone || "—"}
 Audience: ${b.brand.audience || "—"}
 Features:
@@ -103,12 +102,13 @@ Plan period: ${b.startsOn} → ${b.endsOn} (${n} days: ${days.map((d) => `${d} $
 Goals: ${b.goals.map((g) => GOAL[g]).join("; ") || "a healthy mix"}
 Types to use (only these): ${b.mix.join(", ")}
 Platforms the brand posts on: ${b.platforms.join(", ")} (videos go to instagram/tiktok; text-only to x/linkedin)
-Occasions inside the period: ${occasions.length ? occasions.map((o) => `${o.on} ${o.name}`).join("; ") : "none"}
+Occasions inside the period (for the brand's countries and industry): ${occasions.length ? occasions.map((o) => `${o.on} ${o.name}`).join("; ") : "none"}
 The client's notes for this period: ${b.notes.trim() || "none"}
 ${b.avoid.length ? `Already in the plan — do NOT repeat or rephrase these:\n${list(b.avoid.slice(0, 80))}` : ""}
 
 Write exactly ${b.count} content ideas. Rules:
 - Language: ${DIALECT[b.brand.dialect] ?? DIALECT.msa}. Titles and hooks sound like this brand, not like an agency.
+- Every idea belongs to this brand's industry${industry ? ` (${industry})` : ""} and speaks to its markets — what people in this industry actually post about, ask about and buy.
 - Every idea is built on a real fact above (a feature, an offer, a number, the audience's real problem) — never invent features, prices or numbers.
 - Vary the angle: no two neighbouring ideas share an angle; at most 3 ideas per angle in the whole set.
 - Spread the types across the allowed ones; videos only if "video" is allowed.

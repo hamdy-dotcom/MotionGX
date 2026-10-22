@@ -6,13 +6,14 @@ import { Link } from "@/i18n/navigation";
 import type { BrandDraft } from "@/lib/brand/types";
 import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { BrandEditor } from "../brand-editor";
+import type { Market } from "@/lib/data/market";
 import { BrandFiles } from "../brand-files";
 import { ExtractSteps, SnapshotLink, STEP_LABEL } from "../extract-steps";
 import { useExtraction } from "../use-extraction";
 import { CaptureCodeForm, StepLog } from "@/components/live-capture";
 
 /** Company screen: edit brand + facts; "أعد القراءة" re-scrapes the site and refills the form. */
-export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, liveEngine = false, captureId = null }: { companyId: string; brand: BrandDraft; hasSnapshot?: boolean; liveEngine?: boolean; captureId?: string | null }) {
+export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, liveEngine = false, captureId = null, market }: { companyId: string; brand: BrandDraft; hasSnapshot?: boolean; liveEngine?: boolean; captureId?: string | null; market: Market }) {
   const t = useTranslations("companies");
   const td = useTranslations("dashboard");
   const [brand, setBrand] = useState(initial);
@@ -72,7 +73,7 @@ export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, 
           </div>
         ) : null}
       </div>
-      {!x.running ? <BrandEditor key={editorKey} brand={brand} raw={raw} companyId={companyId} captureId={liveCapture} /> : null}
+      {!x.running ? <BrandEditor key={editorKey} brand={brand} raw={raw} companyId={companyId} captureId={liveCapture} market={market} /> : null}
       {!x.running && liveCapture ? <BrandFiles key={liveCapture} captureId={liveCapture} /> : null}
     </div>
   );

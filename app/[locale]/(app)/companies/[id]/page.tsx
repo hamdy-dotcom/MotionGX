@@ -9,6 +9,7 @@ import { urlKey } from "@/lib/brand/url";
 import { liveEngineEnabled } from "@/lib/live-engine/config";
 import { companyCaptureId } from "@/lib/live-engine/server/jobs";
 import { CompanyScreen } from "./company-screen";
+import { companyMarket } from "@/lib/data/market";
 
 export default async function CompanyPage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { locale, id } = await params;
@@ -55,7 +56,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ locale
       </Heading>
       <p className="mt-3 max-w-2xl leading-relaxed text-ink-muted">{t("editSubtitle")}</p>
       <div className="mt-6">
-        <CompanyScreen companyId={company.id} brand={brand} hasSnapshot={hasSnapshot} liveEngine={liveEngineEnabled()} captureId={captureId} />
+        <CompanyScreen market={await companyMarket(ctx, id)} companyId={company.id} brand={brand} hasSnapshot={hasSnapshot} liveEngine={liveEngineEnabled()} captureId={captureId} />
       </div>
     </div>
   );

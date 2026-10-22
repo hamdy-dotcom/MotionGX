@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
 import { brandDetails } from "@/lib/data/works";
+import { companyMarket } from "@/lib/data/market";
 import { toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { writeIdeas } from "@/lib/plans/ideas";
 import { IDEA_COLUMNS, PLAN_GOALS, PLAN_KINDS, PLAN_PLATFORMS, postsNeeded, type Plan, type PlanIdea } from "@/lib/plans/types";
@@ -50,10 +51,11 @@ export async function suggestIdeas(planId: string, count: number, fresh: boolean
   if (fresh) await supabase.from("plan_ideas").delete().eq("plan_id", planId).in("status", ["new", "no"]);
   const kept = await loadIdeas(planId);
   const [{ data: company }, details] = await Promise.all([supabase.from("companies").select("name, website_url, default_dialect").eq("id", plan.company_id).single(), brandDetails(ctx, plan.company_id)]);
+  const market = await companyMarket(ctx, plan.company_id);
   try {
     const drafts = await writeIdeas({
       workspaceId: workspace.id,
-      brand: { name: company?.name ?? "", site: company?.website_url ?? "", tone: details.tone, tagline: details.tagline, audience: details.facts.audience ?? "", whatItDoes: details.facts.what_it_does ?? "", features: details.facts.key_features ?? [], offers: details.facts.offers?.length ? details.facts.offers : details.sellingPoints, numbers: (details.facts.numbers ?? []).map((n) => `${n.value} ${n.label}`), dialect: company?.default_dialect ?? "msa" },
+      brand: { name: company?.name ?? "", site: company?.website_url ?? "", tone: details.tone, tagline: details.tagline, audience: details.facts.audience ?? "", whatItDoes: details.facts.what_it_does ?? "", features: details.facts.key_features ?? [], offers: details.facts.offers?.length ? details.facts.offers : details.sellingPoints, numbers: (details.facts.numbers ?? []).map((n) => `${n.value} ${n.label}`), dialect: company?.default_dialect ?? "msa", industry: market.industry, countries: market.countries },
       startsOn: plan.starts_on, endsOn: plan.ends_on, goals: plan.goals, mix: plan.mix, platforms: plan.platforms.length ? plan.platforms : ["instagram", "facebook"], notes: plan.notes,
       count: Math.min(40, Math.max(1, count)), avoid: kept.map((i) => i.title),
     });
