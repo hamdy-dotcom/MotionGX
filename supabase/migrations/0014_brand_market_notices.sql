@@ -4,6 +4,8 @@
 --   companies.industry / countries / socials — the brand's industry, the countries it operates in, its social pages
 --   videos.content_type / posts.content_type — what a piece is ('standard', 'product_update', 'story', …)
 --   videos.refs / posts.refs                 — the reference media and links the client attached when creating it
+--   posts.placement                          — where a design goes: 'feed', 'story' (9:16 Stories / Status), 'cover' (profile banners)
+--   videos.format '4:5'                      — the feed video (Instagram / Facebook feed)
 --   industry_trends                          — the day's trending topics per industry + region (shared, server-written)
 --   notice_states                            — a member's answers to the studio's pop-ups (later / not for me / done)
 --   ai_usage kinds 'trends', 'notice_draft'  — the daily trend search, and drafting an idea from a pop-up
@@ -22,6 +24,10 @@ alter table public.videos add column if not exists content_type text not null de
 alter table public.posts add column if not exists content_type text not null default 'standard';
 alter table public.videos add column if not exists refs jsonb not null default '[]'::jsonb;        -- [{kind: image|video|link|file, path?, url?, name, note?}]
 alter table public.posts add column if not exists refs jsonb not null default '[]'::jsonb;
+
+alter table public.posts add column if not exists placement text not null default 'feed' check (placement in ('feed', 'story', 'cover'));
+alter table public.videos drop constraint if exists videos_format_check;
+alter table public.videos add constraint videos_format_check check (format in ('9:16', '1:1', '16:9', '4:5'));
 
 -- ── 3. Trends: one row per industry + region + day, written by the server, read by members ────────
 create table if not exists public.industry_trends (

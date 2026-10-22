@@ -8,13 +8,14 @@ import { spawnSync } from "node:child_process";
 import { chromium } from "playwright";
 import type { PostJob } from "../../live-engine/protocol";
 import { callTool, imageBlock, MODELS, type Ledger } from "../../live-engine/worker/claude";
-import { CANVAS, LANGUAGE, type Canvas } from "./platforms";
+import { CANVAS, LANGUAGE, type Canvas, PLACEMENT_RULES } from "./platforms";
 import { canvasKey, smallJpeg } from "./render";
 import { embedClones } from "../../live-engine/worker/steps/build";
 import type { Slide } from "./write";
 
 // sizes GPT Image accepts (multiples of 16) closest to each platform's canvas
-const SIZE: Record<Canvas, string> = { "4:5": "1088x1360", "9:16": "1088x1920", "16:9": "1600x896" };
+// what the image model makes (multiples of 16, at most 3:1); exactSize() then fits it to the canvas
+const SIZE: Record<Canvas, string> = { "4:5": "1088x1360", "9:16": "1088x1920", "16:9": "1600x896", "1:1": "1088x1088", "fb-cover": "1648x624", "li-cover": "1536x512", "x-cover": "1536x512" };
 // OpenAI's GPT Image price per 1M tokens: text in, image in, image out (developers.openai.com/api/docs/pricing)
 const PRICE: Record<string, [number, number, number]> = { default: [5, 8, 30], "gpt-image-1.5": [5, 8, 32], "gpt-image-1": [5, 10, 40], "gpt-image-1-mini": [2, 2.5, 8] };
 
@@ -173,7 +174,8 @@ function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs
   const rtl = post.dialect !== "en";
   const palette = brand.palette ? Object.entries(brand.palette).filter(([, v]) => typeof v === "string").map(([k, v]) => `${k} ${v}`).join(", ") : "";
   return [
-    `Create a finished, premium social media post image (${w}×${h}) for the brand ${brand.name}${brand.name_ar ? ` (${brand.name_ar})` : ""}${total > 1 ? ` — slide ${n} of ${total} of a carousel; keep one consistent design across the slides` : ""}.`,
+    `Create a finished, premium social media ${post.placement === "story" ? "story" : post.placement === "cover" ? "profile cover banner" : "post"} image (${w}×${h}) for the brand ${brand.name}${brand.name_ar ? ` (${brand.name_ar})` : ""}${total > 1 ? ` — slide ${n} of ${total} of a carousel; keep one consistent design across the slides` : ""}.`,
+    post.placement && post.placement !== "feed" ? `This is ${PLACEMENT_RULES[post.placement]}` : "",
     slide.scene ?? "",
     `Everything in the picture is newly made for this post: style references set the look, never the content.`,
     `Format: ${slide.format ?? "people_moment"}. Make it alive whatever the subject — depth, light, texture and emotion, like a top brand's campaign, ${imagery ? "in the brand's visual style above" : "in premium, natural photography or the brand's graphic style"}; never a flat badge of icons on a plain background.${slide.format && slide.format !== "people_moment" && slide.format !== "detail_closeup" ? " No people as the subject." : ""}`,

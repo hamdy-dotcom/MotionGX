@@ -25,4 +25,8 @@ export const POST_PLATFORM_INFO: Record<PostPlatformKey, { canvas: "4:5" | "9:16
   linkedin: { canvas: "4:5", maxChars: 3000 },
   x: { canvas: "16:9", maxChars: 280 },
 };
-export const CANVAS_SIZE: Record<string, [number, number]> = { "4:5": [1080, 1350], "9:16": [1080, 1920], "16:9": [1600, 900] };
+export const CANVAS_SIZE: Record<string, [number, number]> = { "4:5": [1080, 1350], "9:16": [1080, 1920], "16:9": [1600, 900], "1:1": [1080, 1080], "fb-cover": [1640, 624], "li-cover": [1584, 396], "x-cover": [1500, 500] };
+/** where a design goes (posts.placement, migration 0014) and the platforms each one is for */
+export const PLACEMENTS = ["feed", "story", "cover"] as const;
+export type Placement = (typeof PLACEMENTS)[number];
+export const PLACEMENT_PLATFORMS: Record<Placement, readonly string[]> = { feed: POST_PLATFORMS, story: ["instagram", "facebook", "tiktok"], cover: ["facebook", "linkedin", "x"] };

@@ -9,8 +9,11 @@ import { DIALECTS, GOALS, type Dialect } from "@/lib/types";
 import { RefsPicker, refsForForm, type RefItem } from "@/components/studio/refs-picker";
 import { CONTENT_TYPES, type ContentType } from "@/lib/refs";
 
-type Kind = "video" | "image" | "carousel" | "text";
-const KINDS: Kind[] = ["video", "image", "carousel", "text"];
+type Kind = "video" | "image" | "carousel" | "story" | "cover" | "text";
+const KINDS: Kind[] = ["video", "image", "carousel", "story", "cover", "text"];
+// the platforms a story / a cover is made for (each gets its own size)
+const STORY = { instagram: "9:16", facebook: "9:16", tiktok: "9:16" } as const;
+const COVER = { facebook: "1640×624", linkedin: "1584×396", x: "1500×500" } as const;
 const PLATFORMS = { instagram: "4:5", facebook: "4:5", tiktok: "9:16", linkedin: "4:5", x: "16:9" } as const;
 
 export type CreateProps = {
@@ -29,7 +32,7 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
   const tc = useTranslations("common");
   const tp = useTranslations("posts.platform");
   const [kind, setKind] = useState<Kind>(initial.kind);
-  const [format, setFormat] = useState<"9:16" | "1:1" | "16:9">("9:16");
+  const [format, setFormat] = useState<"9:16" | "4:5" | "1:1" | "16:9">("9:16");
   const [length, setLength] = useState<15 | 30 | 60>(30);
   const [goal, setGoal] = useState<(typeof GOALS)[number]>("sell");
   const [plats, setPlats] = useState<string[]>(initial.platforms.length ? initial.platforms : ["instagram", "facebook"]);
@@ -42,11 +45,14 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const video = kind === "video";
+  const placement = kind === "story" ? "story" : kind === "cover" ? "cover" : "feed";
+  const platformSizes: Record<string, string> = kind === "story" ? STORY : kind === "cover" ? COVER : PLATFORMS;
+  const shownPlats = plats.filter((p) => p in platformSizes);
   const chip = (on: boolean, onClick: () => void, children: ReactNode, key?: string) => <button key={key} type="button" className="s-chip" aria-pressed={on} onClick={onClick}>{children}</button>;
 
   function go() {
     if (!brief.trim()) { setError(t("briefRequired")); return; }
-    if (!video && !plats.length) { setError(t("platformsRequired")); return; }
+    if (!video && !shownPlats.length) { setError(t("platformsRequired")); return; }
     if (uploading) { setError(t("waitUploads")); return; }
     setError(null);
     const fd = new FormData();
@@ -58,7 +64,7 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
     start(async () => {
       let res: { error?: string; aiError?: string } | undefined;
       if (video) { fd.set("goal", goal); fd.set("format", format); fd.set("length_s", String(length)); fd.set("pace", "medium"); res = await createVideo({}, fd); }
-      else { fd.set("type", kind === "image" ? "single" : kind); fd.set("ai_image", kind === "text" ? "no" : ai); plats.forEach((p) => fd.append("platforms", p)); res = await createPost({}, fd); }
+      else { fd.set("type", kind === "image" || kind === "story" || kind === "cover" ? "single" : kind); fd.set("placement", placement); fd.set("ai_image", kind === "text" ? "no" : ai); shownPlats.forEach((p) => fd.append("platforms", p)); res = await createPost({}, fd); }
       if (res?.aiError) setError(te(res.aiError as "ai_failed"));
       else if (res?.error) setError(res.error === "briefRequired" ? t("briefRequired") : res.error === "platformsRequired" ? t("platformsRequired") : tc("error"));
     });
@@ -80,13 +86,13 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
         <div className="s-panel">
           {video ? (
             <>
-              <div className="s-opt"><p className="s-label">{t("size")}</p><div className="s-chips">{(["9:16", "1:1", "16:9"] as const).map((f) => chip(format === f, () => setFormat(f), <span dir="ltr">{f}</span>, f))}</div></div>
+              <div className="s-opt"><p className="s-label">{t("size")}</p><div className="s-chips">{(["9:16", "4:5", "1:1", "16:9"] as const).map((f) => chip(format === f, () => setFormat(f), <span dir="ltr">{f}</span>, f))}</div></div>
               <div className="s-opt"><p className="s-label">{t("length")}</p><div className="s-chips">{([15, 30, 60] as const).map((n) => chip(length === n, () => setLength(n), t("seconds", { n }), String(n)))}</div></div>
               <div className="s-opt"><p className="s-label">{t("goal")}</p><div className="s-chips">{GOALS.map((g) => chip(goal === g, () => setGoal(g), tg(g), g))}</div></div>
             </>
           ) : (
             <>
-              <div className="s-opt"><p className="s-label">{t("platforms")}</p><div className="s-chips">{Object.entries(PLATFORMS).map(([p, size]) => chip(plats.includes(p), () => setPlats((v) => (v.includes(p) ? v.filter((x) => x !== p) : [...v, p])), <><PlatformIcon p={p} />{tp(p as "x")} <span dir="ltr">{size}</span></>, p))}</div></div>
+              <div className="s-opt"><p className="s-label">{t("platforms")}</p><div className="s-chips">{Object.entries(platformSizes).map(([p, size]) => chip(plats.includes(p), () => setPlats((v) => (v.includes(p) ? v.filter((x) => x !== p) : [...v, p])), <><PlatformIcon p={p} />{tp(p as "x")} <span dir="ltr">{size}</span></>, p))}</div>{kind === "story" ? <p className="s-hint" style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--s-muted)" }}>{t("storyHint")}</p> : kind === "cover" ? <p className="s-hint" style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--s-muted)" }}>{t("coverHint")}</p> : null}</div>
               {kind === "text" ? null : <div className="s-opt"><p className="s-label">{t("aiImage")}</p><div className="s-chips">{(["auto", "yes", "no"] as const).map((v) => chip(ai === v, () => setAi(v), ta(v), v))}</div></div>}
             </>
           )}
@@ -108,7 +114,7 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>{brand.mark}<b style={{ fontSize: 17 }}>{brand.name}</b></div>
         <div className="tags">
           <span>{(t.raw(`types.${kind}`) as [string, string])[0]}</span>
-          {video ? <span dir="ltr">{format} · {length}S</span> : plats.map((p) => <span key={p}>{p.toUpperCase()}</span>)}
+          {video ? <span dir="ltr">{format} · {length}S</span> : shownPlats.map((p) => <span key={p}>{p.toUpperCase()}</span>)}
           <span>{td(dialect)}</span>
           {contentType !== "standard" ? <span>{t(`ctype.${contentType}`)}</span> : null}
           {refs.length ? <span>{t("refsCount", { n: refs.length })}</span> : null}

@@ -60,6 +60,7 @@
   },
   "formats": {
     "vertical": "Vertical",
+    "feed": "Feed vertical",
     "square": "Square",
     "landscape": "Landscape"
   },
@@ -614,6 +615,14 @@
       "text": [
         "Text only",
         "For X, LinkedIn or any platform."
+      ],
+      "story": [
+        "Story",
+        "One vertical frame for Instagram, Facebook and TikTok Stories and WhatsApp Status."
+      ],
+      "cover": [
+        "Page cover",
+        "The banner for your Facebook, LinkedIn and X page — at each platform's size."
       ]
     },
     "size": "Size",
@@ -645,7 +654,9 @@
     "updateRefs": "Show us the update",
     "updateRefsHint": "Upload screenshots or a short video of what's new — we'll show it in the content as it is.",
     "refsCount": "{n, plural, one {# reference} other {# references}}",
-    "waitUploads": "Wait until the files finish uploading."
+    "waitUploads": "Wait until the files finish uploading.",
+    "storyHint": "Short words on the image and one action; the top and bottom stay clear for the app's buttons.",
+    "coverHint": "The brand's promise and logo, sized for each platform, with the profile-picture corner kept clear."
   },
   "library": {
     "title": "Library",

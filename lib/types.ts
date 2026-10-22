@@ -4,7 +4,7 @@ export type Dialect = (typeof DIALECTS)[number];
 export const GOALS = ["sell", "launch", "offer", "about", "hiring", "occasion"] as const;
 export type Goal = (typeof GOALS)[number];
 
-export const FORMATS = ["9:16", "1:1", "16:9"] as const;
+export const FORMATS = ["9:16", "4:5", "1:1", "16:9"] as const;
 export type VideoFormat = (typeof FORMATS)[number];
 
 export const LENGTHS = [15, 30, 60] as const;

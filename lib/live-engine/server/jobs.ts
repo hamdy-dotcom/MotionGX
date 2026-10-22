@@ -302,7 +302,7 @@ export async function launch(jobId: string) {
   let brief: Brief;
   // the piece's content type and references (migration 0014; absent before it)
   let piece: { content_type?: string | null; refs?: unknown } | null = null;
-  let post: { id: string; type: "single" | "carousel" | "text"; platforms: ("facebook" | "instagram" | "tiktok" | "linkedin" | "x")[]; brief: string; dialect: string; ai_image: "auto" | "yes" | "no"; slides: number | null } | null = null;
+  let post: { id: string; type: "single" | "carousel" | "text"; platforms: ("facebook" | "instagram" | "tiktok" | "linkedin" | "x")[]; brief: string; dialect: string; ai_image: "auto" | "yes" | "no"; slides: number | null; placement?: string | null } | null = null;
   if (job.kind === "capture") brief = captureBrief(capture.site_url);
   else if (job.kind === "post") {
     post = (await db.from("posts").select("*").eq("id", job.post_id!).single()).data;
@@ -410,7 +410,7 @@ export async function launch(jobId: string) {
     ...(refs.length ? { refs } : {}),
     ...(links.length ? { links } : {}),
     ...(market ? { market } : {}),
-    ...(post ? { post: { postId: post.id, type: post.type, platforms: post.platforms, brief: post.brief, dialect: post.dialect, aiImage: post.ai_image, slides: post.slides ?? null, ...(job.input.request ? { request: job.input.request } : {}), ...(postHistory.length ? { history: postHistory } : {}), ...postsSettings() } } : {}),
+    ...(post ? { post: { postId: post.id, type: post.type, platforms: post.platforms, brief: post.brief, dialect: post.dialect, aiImage: post.ai_image, slides: post.slides ?? null, ...(post.placement === "story" || post.placement === "cover" ? { placement: post.placement } : {}), ...(job.input.request ? { request: job.input.request } : {}), ...(postHistory.length ? { history: postHistory } : {}), ...postsSettings() } } : {}),
   };
   // local runner: a capture whose agent already finished on this machine (but whose upload never reached the app) resumes
   // from that folder at the upload — a relaunch never repeats the agent and its model calls

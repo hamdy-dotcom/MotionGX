@@ -15,7 +15,7 @@ import { isContentType } from "@/lib/refs";
 // the video or post job starts in `after()` of the create actions this screen calls
 export const maxDuration = 800;
 
-const KINDS = ["video", "image", "carousel", "text"] as const;
+const KINDS = ["video", "image", "carousel", "story", "cover", "text"] as const;
 const host = (url?: string | null) => { try { return url ? new URL(url).host.replace(/^www\./, "") : ""; } catch { return url ?? ""; } };
 
 export default async function CreatePage({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ kind?: string; brief?: string; day?: string; idea?: string; company?: string; platforms?: string; type?: string }> }) {

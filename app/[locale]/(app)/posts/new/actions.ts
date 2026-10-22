@@ -8,7 +8,7 @@ import { saveCreateRefs } from "@/lib/data/refs";
 import { redirect } from "@/i18n/navigation";
 import { assertPostRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { startPostGeneration } from "@/lib/live-engine/server/jobs";
-import { POST_AI_IMAGE, POST_PLATFORMS, POST_TYPES } from "@/lib/posts/config";
+import { PLACEMENTS, PLACEMENT_PLATFORMS, POST_AI_IMAGE, POST_PLATFORMS, POST_TYPES } from "@/lib/posts/config";
 import { DIALECTS, type Dialect } from "@/lib/types";
 
 export type CreatePostState = { error?: "briefRequired" | "platformsRequired" | "generic"; aiError?: AiErrorCode };
@@ -21,7 +21,8 @@ export async function createPost(_prev: CreatePostState, formData: FormData): Pr
   const { supabase, workspace, locale } = ctx;
   const brief = String(formData.get("brief") ?? "").trim().slice(0, 2000);
   if (!brief) return { error: "briefRequired" };
-  const platforms = [...new Set(formData.getAll("platforms").map(String))].filter((p) => (POST_PLATFORMS as readonly string[]).includes(p));
+  const placement = pick(formData.get("placement"), PLACEMENTS) ?? "feed";
+  const platforms = [...new Set(formData.getAll("platforms").map(String))].filter((p) => (POST_PLATFORMS as readonly string[]).includes(p) && PLACEMENT_PLATFORMS[placement].includes(p));
   if (!platforms.length) return { error: "platformsRequired" };
   const type = pick(formData.get("type"), POST_TYPES);
   const aiImage = pick(formData.get("ai_image"), POST_AI_IMAGE) ?? "auto";
@@ -49,6 +50,10 @@ export async function createPost(_prev: CreatePostState, formData: FormData): Pr
   }
   await placeCreated(supabase, "posts", post.id, formData);
   await saveCreateRefs(ctx, "posts", post.id, companyId, formData);
+  if (placement !== "feed") {
+    const { error: pe } = await supabase.from("posts").update({ placement }).eq("id", post.id);
+    if (pe) console.error("[createPost] placement not saved (is migration 0014 applied?)", { code: pe.code, message: pe.message });
+  }
   after(() => startPostGeneration(post.id));
   revalidatePath("/posts");
   redirect({ href: `/posts/${post.id}`, locale });

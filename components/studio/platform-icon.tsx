@@ -11,6 +11,8 @@ export const KIND_PATHS: Record<string, string> = {
   carousel: '<rect x="6.5" y="4" width="11" height="16" rx="2"/><path d="M3 7v10M21 7v10"/>',
   video: '<rect x="3" y="5" width="13.5" height="14" rx="2.5"/><path d="m16.5 10 4.5-3v10l-4.5-3"/>',
   text: '<path d="M5 6h14M5 11h14M5 16h9"/>',
+  story: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10 6h4M12 16.5v.01"/><circle cx="12" cy="11" r="2.2"/>',
+  cover: '<rect x="2.5" y="6" width="19" height="9" rx="2"/><circle cx="7" cy="16" r="2.6"/><path d="M12 10h6"/>',
 };
 
 export function PlatformIcon({ p, size = 14 }: { p: string; size?: number }) {

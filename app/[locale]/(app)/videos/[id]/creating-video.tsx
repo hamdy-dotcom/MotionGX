@@ -36,7 +36,7 @@ export function CreatingVideo({ title, format, lengthS, createdAt, generation, p
   const palette = brand.colors.map((c) => c.hex).filter((h) => /^#[0-9a-f]{6}$/i.test(h));
   const storyboard = last("storyboard");
   const builds = last("build")?.n ?? 0, snaps = last("snapshot")?.n ?? 0;
-  const [w, h] = format === "16:9" ? [16, 9] : format === "1:1" ? [1, 1] : [9, 16];
+  const [w, h] = format === "16:9" ? [16, 9] : format === "1:1" ? [1, 1] : format === "4:5" ? [4, 5] : [9, 16];
 
   // the clock and the cost, ticking
   const started = new Date(createdAt).getTime();

@@ -2,8 +2,13 @@
 // One design per canvas shape: Facebook, Instagram and LinkedIn share the 4:5 feed canvas, TikTok gets 9:16, X 16:9.
 import type { PostPlatform } from "../../live-engine/protocol";
 
-export type Canvas = "4:5" | "9:16" | "16:9";
-export const CANVAS: Record<Canvas, [number, number]> = { "4:5": [1080, 1350], "9:16": [1080, 1920], "16:9": [1600, 900] };
+// Placements: a feed post (per platform, above), a story (one 9:16 frame: Instagram / Facebook / TikTok Stories,
+// WhatsApp Status) or a profile cover (each platform's banner size).
+export type Canvas = "4:5" | "9:16" | "16:9" | "1:1" | "fb-cover" | "li-cover" | "x-cover";
+export const CANVAS: Record<Canvas, [number, number]> = { "4:5": [1080, 1350], "9:16": [1080, 1920], "16:9": [1600, 900], "1:1": [1080, 1080], "fb-cover": [1640, 624], "li-cover": [1584, 396], "x-cover": [1500, 500] };
+export type Placement = "feed" | "story" | "cover";
+const COVER: Partial<Record<PostPlatform, Canvas>> = { facebook: "fb-cover", linkedin: "li-cover", x: "x-cover" };
+export const isCover = (c: Canvas) => c.endsWith("-cover");
 
 export const PLATFORM: Record<PostPlatform, { name: string; canvas: Canvas; maxChars: number; rules: string }> = {
   facebook: {
@@ -38,8 +43,18 @@ export const PLATFORM: Record<PostPlatform, { name: string; canvas: Canvas; maxC
   },
 };
 
+/** the canvas a platform gets for a placement (null: that platform has no such placement, e.g. an Instagram cover) */
+export const canvasFor = (p: PostPlatform, placement: Placement = "feed"): Canvas | null => (placement === "story" ? "9:16" : placement === "cover" ? (COVER[p] ?? null) : PLATFORM[p].canvas);
+
 /** the canvases a set of platforms needs, in a stable order */
-export const canvasesFor = (platforms: PostPlatform[]) => (["4:5", "9:16", "16:9"] as Canvas[]).filter((c) => platforms.some((p) => PLATFORM[p].canvas === c));
+export const canvasesFor = (platforms: PostPlatform[], placement: Placement = "feed") => (Object.keys(CANVAS) as Canvas[]).filter((c) => platforms.some((p) => canvasFor(p, placement) === c));
+
+/** what the writer and the image model must respect for a story or a cover */
+export const PLACEMENT_RULES: Record<Placement, string> = {
+  feed: "",
+  story: "a STORY: one vertical full-screen frame (Instagram / Facebook / TikTok Stories, WhatsApp Status). The words on the image are all most viewers read: a very short headline, at most one short second line, and one clear action (e.g. 'اسحب لفوق' / 'link in bio' / 'تواصل واتساب'). Keep the top 14% and the bottom 20% free of text (the app's own buttons sit there). The platform text is one short line.",
+  cover: "a PROFILE COVER banner: one wide image at the top of the brand's page. The brand's promise in ≤ 6 words, the logo, and the brand's look — calm and premium, no button, no price, no date. Keep the bottom-left quarter clear (the profile picture overlaps it) and keep the words in the centre band (mobile crops the sides). The platform text is a matching one-line bio (≤ 150 characters).",
+};
 
 /** the post's language, from the company's dialect */
 export const LANGUAGE: Record<string, string> = {

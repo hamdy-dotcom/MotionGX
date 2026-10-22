@@ -7,7 +7,7 @@ import path from "node:path";
 import type { JobFile } from "../../live-engine/protocol";
 import { Ledger } from "../../live-engine/worker/claude";
 import type { Sync } from "../../live-engine/worker/sync";
-import { CANVAS, PLATFORM, canvasesFor } from "./platforms";
+import { CANVAS, canvasFor, canvasesFor } from "./platforms";
 import { writePost, type Written } from "./write";
 import { makeImages } from "./images";
 import { designCanvas, repairCanvas, reviewCanvas, screenInfo, type Design, type Looks } from "./design";
@@ -52,7 +52,8 @@ export async function runPosts(job: JobFile, dirs: { root: string; brandDir: str
   log(`■ post ${post.postId} (${post.type} · ${post.platforms.join(", ")}${post.request ? " · change" : ""}) · ${post.model} · cap $${post.maxUsd}`);
   const cap$ = () => { if (ledger.total() >= post.maxUsd) throw new Error(`cost cap reached ($${ledger.total().toFixed(2)} of $${post.maxUsd})`); };
 
-  const canvases = post.type === "text" ? [] : canvasesFor(post.platforms);
+  const placement = post.placement ?? "feed";
+  const canvases = post.type === "text" ? [] : canvasesFor(post.platforms, placement);
   const imageMode = canvases.length > 0 && (post.visual ?? "image") === "image";
   // 0 — the brand (image mode): its logo, references and visual style, shown live on the post page
   let prepared: Prepared | undefined;
@@ -146,7 +147,7 @@ export async function runPosts(job: JobFile, dirs: { root: string; brandDir: str
     angle: written.angle,
     alt_text: written.alt_text,
     type: post.type,
-    platforms: Object.fromEntries(post.platforms.map((p) => [p, { ...(written.platforms[p] ?? { text: "", hashtags: [] }), canvas: post.type === "text" ? null : PLATFORM[p].canvas }])),
+    platforms: Object.fromEntries(post.platforms.map((p) => [p, { ...(written.platforms[p] ?? { text: "", hashtags: [] }), canvas: post.type === "text" ? null : canvasFor(p, placement) }])),
     slides: written.slides,
     renders,
     check: remaining,

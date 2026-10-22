@@ -34,5 +34,6 @@ export type MotionBrief = {
 export function dimensionsFor(format: VideoFormat) {
   if (format === "9:16") return { width: 1080, height: 1920 };
   if (format === "1:1") return { width: 1080, height: 1080 };
+  if (format === "4:5") return { width: 1080, height: 1350 };
   return { width: 1920, height: 1080 };
 }

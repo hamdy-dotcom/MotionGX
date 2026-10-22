@@ -16,7 +16,7 @@ import { embedClones } from "../../live-engine/worker/steps/build";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const FPS = 30;
-export const SIZES: Record<string, [number, number]> = { "9:16": [1080, 1920], "1:1": [1080, 1080], "16:9": [1920, 1080] };
+export const SIZES: Record<string, [number, number]> = { "9:16": [1080, 1920], "4:5": [1080, 1350], "1:1": [1080, 1080], "16:9": [1920, 1080] };
 const ffmpegPath = async () => process.env.FFMPEG_PATH || ((await import("ffmpeg-static").then((m: any) => m.default).catch(() => null)) as string | null) || "ffmpeg";
 /** the engine's own assets (CC0 SFX): next to the source, or next to the bundled worker in the sandbox */
 export const assetsDir = () => [path.join(here, "..", "assets"), path.join(here, "director-assets")].find((d) => fs.existsSync(path.join(d, "sfx"))) ?? path.join(here, "..", "assets");

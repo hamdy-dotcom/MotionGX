@@ -71,6 +71,8 @@ export type PostJob = {
   image: { model: string; quality: string };
   /** how slides are made: "image" = one GPT Image call per slide from the brand's references (default), "html" = designed in HTML */
   visual?: "image" | "html";
+  /** where it goes: a feed post (default), a story (one 9:16 frame) or a profile cover (each platform's banner) */
+  placement?: "feed" | "story" | "cover";
   /** the company's recent posts (newest first): the new one must not repeat their concept, subject or layout */
   history?: { angle: string; headline: string; scene: string; format?: string }[];
 };
