@@ -38,12 +38,13 @@ export function PostStudio({ post, brand, version, versions, images, liveImage, 
   const stage = String(post.generation.stage ?? "queued");
   const money = (usd: number) => formatMoney(toLocal(usd, fxRate), currency, locale);
 
-  // progress: the page re-reads the post every 2 s while its job runs
+  // progress: the page re-reads the post while its job runs — one read at a time: the next starts 2 s after the last
+  // one has arrived (a fixed interval shorter than a read kept cancelling each read with the next, so none landed)
   useEffect(() => {
     if (!generating) return;
-    const poll = setInterval(() => router.refresh(), 2000);
-    return () => clearInterval(poll);
-  }, [generating, router]);
+    const next = setTimeout(() => router.refresh(), 2000);
+    return () => clearTimeout(next);
+  }, [generating, router, post]);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string; aiError?: string }>, after?: () => void) =>
     start(async () => {

@@ -78,7 +78,16 @@ export async function brandDetails(ctx: AppContext, companyId: string) {
 }
 
 type CaptureProfile = { audience?: string; summary?: string; voice?: string; tagline?: string; selling_points?: string[]; features?: { name: string; detail?: string }[] };
+// the capture's profile changes only when a capture finishes: kept for a minute (every page's shell reads it)
+const profiles = new Map<string, { at: number; value: CaptureProfile | null }>();
 async function captureProfile(ctx: AppContext, companyId: string): Promise<CaptureProfile | null> {
+  const hit = profiles.get(companyId);
+  if (hit && Date.now() - hit.at < 60_000) return hit.value;
+  const value = await readCaptureProfile(ctx, companyId);
+  profiles.set(companyId, { at: Date.now(), value });
+  return value;
+}
+async function readCaptureProfile(ctx: AppContext, companyId: string): Promise<CaptureProfile | null> {
   const { companyCaptureId } = await import("@/lib/live-engine/server/jobs");
   const id = await companyCaptureId(companyId);
   if (!id) return null;
