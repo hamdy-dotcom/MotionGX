@@ -73,6 +73,8 @@ export type PostJob = {
   visual?: "image" | "html";
   /** where it goes: a feed post (default), a story (one 9:16 frame) or a profile cover (each platform's banner) */
   placement?: "feed" | "story" | "cover";
+  /** a cover: the client asked for words on it (else only the logo) — set by the worker from the brief */
+  coverWords?: boolean;
   /** the company's recent posts (newest first): the new one must not repeat their concept, subject or layout */
   history?: { angle: string; headline: string; scene: string; format?: string }[];
 };

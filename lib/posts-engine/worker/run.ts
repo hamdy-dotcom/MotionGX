@@ -41,6 +41,7 @@ export async function runPosts(job: JobFile, dirs: { root: string; brandDir: str
     job.links?.length ? `Links the client gave as context: ${job.links.map((l) => `${l.url}${l.note ? ` (${l.note})` : ""}`).join("; ")}` : "",
     job.market?.socials?.length ? `The brand's social handles (for a follow / find-us line): ${job.market.socials.map((x) => `${x.platform} ${x.handle}`).join(" · ")}` : "",
   ].filter(Boolean).join("\n");
+  if (post.placement === "cover") post = { ...post, coverWords: /اكتب|نص|عنوان|جمل|كلمة|كلام|شعار نصي|سلوجان|slogan|tagline|headline|text|write|«|"|“/i.test(post.brief) };
   if (extra) post = { ...post, brief: `${post.brief}\n\n${extra}` };
   const cap = fs.existsSync(path.join(brandDir, "capture.json")) ? JSON.parse(fs.readFileSync(path.join(brandDir, "capture.json"), "utf8")) : {};
   const identity = [cap.app?.identity?.email, cap.app?.identity?.name, cap.app?.identity?.phone, job.settings?.phone, job.settings?.email].filter(Boolean).map(String);
