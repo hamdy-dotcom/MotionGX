@@ -37,7 +37,9 @@ export type AiKind =
   | "content_plan"
   // the studio's pop-ups: the day's industry trends (web search), and an idea drafted from a pop-up
   | "trends"
-  | "notice_draft";
+  | "notice_draft"
+  // the daily check of the seasons calendar per country (web search): dates confirmed / moved, new seasons added
+  | "season_check";
 
 /** Price per million tokens (input, output) — Claude API list prices. */
 export const PRICES: Record<string, [number, number]> = {

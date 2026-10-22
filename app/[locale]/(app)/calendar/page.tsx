@@ -7,7 +7,10 @@ import { listWorks } from "@/lib/data/works";
 import { addDays, MONTH_MONO, todayKey, weekday } from "@/lib/dates";
 import { IDEA_COLUMNS, type PlanIdea } from "@/lib/plans/types";
 import { Rise, escapeMarkup } from "@/components/studio/rise";
-import { CalendarView } from "./calendar-view";
+import { CalendarView, type CalSeason } from "./calendar-view";
+import { companyMarket } from "@/lib/data/market";
+import { liveSeasons } from "@/lib/market/live";
+import { seasonsBetween } from "@/lib/market/seasons";
 
 // "make" on an idea starts a video or post job from this route
 export const maxDuration = 800;
@@ -36,6 +39,11 @@ export default async function CalendarPage({ params, searchParams }: { params: P
     listWorks(ctx, b.id, { limit: 300, from: cells[0].key, to: cells.at(-1)!.key }),
     ctx.supabase.from("plan_ideas").select(IDEA_COLUMNS).eq("company_id", b.id).eq("status", "ok").gte("scheduled_on", cells[0].key).lte("scheduled_on", cells.at(-1)!.key),
   ]);
+  // the brand's seasons in view: its countries and industry, from the live calendar (dates confirmed by the daily check)
+  const market = await companyMarket(ctx, b.id);
+  const L = locale === "ar" ? "ar" : "en";
+  const seasons: CalSeason[] = seasonsBetween({ from: cells[0].key, to: cells.at(-1)!.key, countries: market.countries, industry: market.industry, list: await liveSeasons(market.countries).catch(() => undefined) })
+    .map((x) => ({ id: x.id, name: x.name[L], angle: x.angle[L], from: x.from, to: x.to ?? null, approx: Boolean(x.approx), status: x.status && x.status !== "cancelled" ? x.status : null, source: x.source ?? null, kind: x.kind }));
   const monthName = new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-GB", { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(y, mo - 1, 1)));
 
   return (
@@ -52,7 +60,7 @@ export default async function CalendarPage({ params, searchParams }: { params: P
           <Link href="/plans" className="s-btn lit small">{t("newPlan")}</Link>
         </div>
       </div>
-      <CalendarView cells={cells} today={today} works={works} ideas={(ideasRes.data ?? []) as PlanIdea[]} brand={{ id: b.id, dialect: b.default_dialect }} />
+      <CalendarView cells={cells} today={today} seasons={seasons} works={works} ideas={(ideasRes.data ?? []) as PlanIdea[]} brand={{ id: b.id, dialect: b.default_dialect }} />
     </section>
   );
 }

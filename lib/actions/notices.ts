@@ -7,6 +7,7 @@ import { buildNotices, type Notice } from "@/lib/notices/build";
 import { companyMarket } from "@/lib/data/market";
 import { brandDetails } from "@/lib/data/works";
 import { ensureTrends } from "@/lib/trends/daily";
+import { ensureSeasonCheck } from "@/lib/market/live";
 import { callTool, HAIKU } from "@/lib/ai/claude";
 import { toAiErrorCode } from "@/lib/ai/usage";
 import { industryLabel } from "@/lib/market/industries";
@@ -21,6 +22,8 @@ export async function getNotices(companyId: string): Promise<Notice[]> {
   const market = await companyMarket(ctx, companyId);
   const { notices, trendsPending } = await buildNotices(ctx, companyId, market, ctx.locale);
   if (trendsPending && market.industry && ctx.role !== "viewer") after(() => ensureTrends(ctx.workspace.id, market.industry!, market.countries));
+  // the seasons calendar of each of the brand's countries is checked once a day (dates confirmed / moved, new seasons)
+  if (market.countries.length && ctx.role !== "viewer") after(async () => { for (const c of market.countries.slice(0, 4)) await ensureSeasonCheck(ctx.workspace.id, c); });
   return notices;
 }
 
@@ -59,7 +62,7 @@ export async function draftFromNotice(companyId: string, notice: Notice): Promis
   if (!company) return { ok: false, error: "not_found" };
   const [details, market] = await Promise.all([brandDetails(ctx, companyId), companyMarket(ctx, companyId)]);
   const moment = notice.kind === "season"
-    ? `A dated moment: ${notice.season.name} (${notice.season.from}${notice.season.to ? ` → ${notice.season.to}` : ""}${notice.season.approx ? ", expected date" : ""}), ${notice.season.daysAway} days from today. A fitting angle: ${notice.season.angle}.`
+    ? `A dated moment: ${notice.season.name} (${notice.season.from}${notice.season.to ? ` → ${notice.season.to}` : ""}${notice.season.approx ? ", expected date" : notice.season.status ? ", date confirmed" : ""}), ${notice.season.daysAway} days from today. A fitting angle: ${notice.season.angle}.`
     : notice.kind === "trend"
       ? `A trend in the brand's industry today: ${notice.trend.title}. Why it matters: ${notice.trend.why}. A possible angle: ${notice.trend.angle}.`
       : "";

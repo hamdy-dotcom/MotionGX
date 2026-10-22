@@ -21,6 +21,9 @@ export type Season = {
   /** a content angle that fits the moment */
   angle: { ar: string; en: string };
   kind: "national" | "religious" | "shopping" | "festival" | "school" | "payday" | "awareness" | "global";
+  /** what the daily check found (lib/market/live.ts): confirmed / moved / cancelled, or added by it */
+  status?: "confirmed" | "moved" | "cancelled" | "added";
+  source?: { url: string; title: string };
 };
 
 const S = (s: Season) => s;
@@ -61,6 +64,7 @@ export const SEASONS: Season[] = [
 
   // ── Saudi Arabia ────────────────────────────────────────────────────────────────────────────
   S({ id: "sa-riyadh-season-2026", kind: "festival", name: { ar: "موسم الرياض 2026", en: "Riyadh Season 2026" }, from: "2026-10-21", to: "2026-12-30", countries: ["SA"], industries: ["events", "food", "travel", "fashion", "media", "retail", "automotive", "telecom", "fintech"], lead: 7, angle: { ar: "اربط عرضك بزيارة الموسم وفعالياته", en: "Tie your offer to visiting the season and its events" } }),
+  S({ id: "sa-soundstorm-2026", kind: "festival", name: { ar: "ساوندستورم (MDLBEAST)", en: "MDLBEAST Soundstorm" }, from: "2026-12-03", to: "2026-12-04", countries: ["SA"], industries: ["events", "fashion", "food", "media", "telecom", "beauty", "automotive"], lead: 21, angle: { ar: "طاقة المهرجان: لوك، تجهيزات، وعروض لحضور الحفلة", en: "Festival energy: the look, the gear, offers for the crowd" } }),
   S({ id: "sa-midyear-break-2027", kind: "school", name: { ar: "إجازة منتصف العام الدراسي", en: "Mid-year school break" }, from: "2027-01-08", to: "2027-01-16", countries: ["SA"], industries: ["travel", "events", "kids", "education", "food", "retail"], lead: 21, approx: true, angle: { ar: "أنشطة العائلة في الإجازة", en: "Family activities for the break" } }),
   S({ id: "sa-founding-2027", kind: "national", name: { ar: "يوم التأسيس السعودي", en: "Saudi Founding Day" }, from: "2027-02-22", countries: ["SA"], lead: 21, angle: { ar: "فخر وتراث بهوية العلامة، بدون مبالغة", en: "Pride and heritage in the brand's own look, without excess" } }),
   S({ id: "sa-flag-2027", kind: "national", name: { ar: "يوم العلم السعودي", en: "Saudi Flag Day" }, from: "2027-03-11", countries: ["SA"], lead: 10, angle: { ar: "تحية للعلم — تصميم احترامي", en: "A salute to the flag — a respectful design" } }),
@@ -141,29 +145,40 @@ export const SEASONS: Season[] = [
   S({ id: "food-day-2027", kind: "awareness", name: { ar: "يوم الأغذية العالمي", en: "World Food Day" }, from: "2027-10-16", countries: "all", industries: ["food", "grocery", "agriculture", "nonprofit"], lead: 10, angle: { ar: "من المزرعة للطبق", en: "From the farm to the plate" } }),
 ];
 
-/** pay days: Saudi government salaries land on the 27th; elsewhere the last days of the month */
+/** the working day a Saudi salary lands on: the 27th, or the Thursday before when it falls on the weekend (Fri / Sat) */
+function saudiPayday(y: number, m: number) {
+  const d = new Date(Date.UTC(y, m - 1, 27)), wd = d.getUTCDay(); // 5 = Friday, 6 = Saturday
+  if (wd === 5) d.setUTCDate(26);
+  if (wd === 6) d.setUTCDate(25);
+  return d.toISOString().slice(0, 10);
+}
+
+/** pay days: Saudi government salaries land on the 27th (earlier on a weekend); elsewhere the last days of the month */
 function paydays(fromDay: string, months: number): Season[] {
   const out: Season[] = [];
   const [y0, m0] = fromDay.split("-").map(Number);
   for (let i = 0; i < months; i++) {
     const y = y0 + Math.floor((m0 - 1 + i) / 12), m = ((m0 - 1 + i) % 12) + 1, mm = String(m).padStart(2, "0");
     const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-    out.push({ id: `sa-payday-${y}-${mm}`, kind: "payday", name: { ar: "يوم الراتب (27)", en: "Pay day (27th)" }, from: `${y}-${mm}-27`, countries: ["SA"], industries: [...SELLERS, "travel", "events", "fitness", "fintech"], lead: 5, angle: { ar: "عرض نزول الراتب", en: "A salary-day offer" } });
+    const sa = saudiPayday(y, m), early = !sa.endsWith("-27");
+    out.push({ id: `sa-payday-${y}-${mm}`, kind: "payday", name: { ar: early ? "يوم الراتب (مبكّر لأن 27 عطلة)" : "يوم الراتب (27)", en: early ? "Pay day (early — the 27th is a weekend)" : "Pay day (27th)" }, from: sa, countries: ["SA"], industries: [...SELLERS, "travel", "events", "fitness", "fintech"], lead: 5, angle: { ar: "عرض نزول الراتب", en: "A salary-day offer" } });
     out.push({ id: `payday-${y}-${mm}`, kind: "payday", name: { ar: "آخر الشهر (القبض)", en: "End of month (pay day)" }, from: `${y}-${mm}-${String(last - 2).padStart(2, "0")}`, to: `${y}-${mm}-${last}`, countries: [...GCC.filter((c) => c !== "SA"), "EG", "JO", "LB", "IQ", "MA", "DZ", "TN"], industries: [...SELLERS, "travel", "events", "fitness"], lead: 5, angle: { ar: "عرض أول القبض", en: "A pay-day offer" } });
   }
   return out;
 }
 
-const ALL = [...SEASONS, ...paydays("2026-10", 15)];
+/** the researched calendar; the live one overlays what the daily check found (lib/market/live.ts) */
+export const BASE_SEASONS = [...SEASONS, ...paydays("2026-10", 15)];
 
 export type UpcomingSeason = Season & { daysAway: number; ongoing: boolean };
 
 /** the moments in the next `within` days (or each one's own lead) for a brand's countries and industry, soonest first */
-export function upcomingSeasons(opts: { today: string; countries: string[]; industry?: string | null; within?: number }): UpcomingSeason[] {
+export function upcomingSeasons(opts: { today: string; countries: string[]; industry?: string | null; within?: number; list?: Season[] }): UpcomingSeason[] {
   const day = (s: string) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
   const t = day(opts.today);
   const markets = opts.countries.length ? opts.countries : [...GCC, "EG"]; // a brand that hasn't said yet: the core markets
-  return ALL.filter((s) => {
+  return (opts.list ?? BASE_SEASONS).filter((s) => {
+    if (s.status === "cancelled") return false;
     if (s.countries !== "all" && !s.countries.some((c) => markets.includes(c))) return false;
     if (s.industries && opts.industry && opts.industry !== "other" && !s.industries.includes(opts.industry as Industry)) return false;
     const start = day(s.from), end = day(s.to ?? s.from);
@@ -176,8 +191,8 @@ export function upcomingSeasons(opts: { today: string; countries: string[]; indu
 }
 
 /** the dated moments inside a period (for plan ideas) */
-export function seasonsBetween(opts: { from: string; to: string; countries: string[]; industry?: string | null }) {
-  return ALL.filter((s) => (s.to ?? s.from) >= opts.from && s.from <= opts.to)
+export function seasonsBetween(opts: { from: string; to: string; countries: string[]; industry?: string | null; list?: Season[] }) {
+  return (opts.list ?? BASE_SEASONS).filter((s) => s.status !== "cancelled" && (s.to ?? s.from) >= opts.from && s.from <= opts.to)
     .filter((s) => s.countries === "all" || s.countries.some((c) => (opts.countries.length ? opts.countries : [...GCC, "EG"]).includes(c)))
     .filter((s) => !s.industries || !opts.industry || opts.industry === "other" || s.industries.includes(opts.industry as Industry))
     .sort((a, b) => a.from.localeCompare(b.from));

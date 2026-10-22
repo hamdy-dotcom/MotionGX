@@ -4,7 +4,7 @@ import { callTool, SONNET } from "@/lib/ai/claude";
 import { AiError } from "@/lib/ai/usage";
 import { addDays, daysBetween, weekday } from "@/lib/dates";
 import { PLAN_KINDS, PLAN_PLATFORMS, type PlanGoal, type PlanKind } from "./types";
-import { seasonsBetween } from "@/lib/market/seasons";
+import { seasonsBetween, type Season } from "@/lib/market/seasons";
 import { industryLabel } from "@/lib/market/industries";
 import { countryName } from "@/lib/market/countries";
 
@@ -12,7 +12,7 @@ export type IdeaDraft = { kind: PlanKind; angle: string; title: string; why: str
 
 export type IdeaBrief = {
   workspaceId: string;
-  brand: { name: string; site: string; tone: string; tagline: string; audience: string; whatItDoes: string; features: string[]; offers: string[]; numbers: string[]; dialect: string; industry?: string | null; countries?: string[] };
+  brand: { name: string; site: string; tone: string; tagline: string; audience: string; whatItDoes: string; features: string[]; offers: string[]; numbers: string[]; dialect: string; industry?: string | null; countries?: string[]; seasons?: Season[] };
   startsOn: string;
   endsOn: string;
   goals: PlanGoal[];
@@ -79,7 +79,7 @@ export async function writeIdeas(b: IdeaBrief): Promise<IdeaDraft[]> {
   const days = Array.from({ length: n }, (_, i) => addDays(b.startsOn, i));
   const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   // the moments in the brand's own countries and industry (lib/market/seasons.ts)
-  const occasions = seasonsBetween({ from: b.startsOn, to: b.endsOn, countries: b.brand.countries ?? [], industry: b.brand.industry }).map((o) => ({ on: o.from < b.startsOn ? b.startsOn : o.from, name: `${o.name.ar}${o.to && o.to !== o.from ? ` (until ${o.to})` : ""}${o.approx ? " — expected date" : ""} — angle: ${o.angle.en}` }));
+  const occasions = seasonsBetween({ from: b.startsOn, to: b.endsOn, countries: b.brand.countries ?? [], industry: b.brand.industry, list: b.brand.seasons }).map((o) => ({ on: o.from < b.startsOn ? b.startsOn : o.from, name: `${o.name.ar}${o.to && o.to !== o.from ? ` (until ${o.to})` : ""}${o.approx ? " — expected date" : o.status ? " — date confirmed" : ""} — angle: ${o.angle.en}` }));
   const industry = industryLabel(b.brand.industry, "en");
   const markets = (b.brand.countries ?? []).map((c) => countryName(c, "en")).join(", ");
   const list = (xs: string[]) => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : "- (none)");

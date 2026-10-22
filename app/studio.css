@@ -414,3 +414,9 @@ body:has(.s-app) { background: var(--s-stage); color: var(--s-ink) }
 .s-refs-x { border: 0; background: none; font-size: 18px; color: var(--s-muted); padding: 4px 8px }
 .s-refs-link { display: flex; gap: 8px } .s-refs-link input { flex: 1 }
 .s-refs-err { margin: 0; font-size: 12.5px; color: #a32012 }
+
+/* seasons on the brand calendar: ◆ fixed date · ~ expected · ✓ confirmed by the daily check */
+.s-season { display: block; width: 100%; border: 0; text-align: start; font-size: 10.5px; font-weight: 600; line-height: 1.35; padding: 2px 6px; border-radius: 6px; margin-top: 3px; background: color-mix(in srgb, var(--s-gold) 14%, #fff); color: #6b4b12; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer }
+.s-season.ok { background: color-mix(in srgb, var(--s-ok) 13%, #fff); color: #075a43 } .s-season.approx { background: var(--s-panel-2); color: var(--s-ink-2) }
+.s-season.k-national { box-shadow: inset 3px 0 0 var(--s-ok) } .s-season.k-religious { box-shadow: inset 3px 0 0 var(--s-gold) } .s-season.k-shopping { box-shadow: inset 3px 0 0 var(--s-rec) } .s-season.k-festival { box-shadow: inset 3px 0 0 var(--s-brand) }
+[dir="rtl"] .s-season.k-national { box-shadow: inset -3px 0 0 var(--s-ok) } [dir="rtl"] .s-season.k-religious { box-shadow: inset -3px 0 0 var(--s-gold) } [dir="rtl"] .s-season.k-shopping { box-shadow: inset -3px 0 0 var(--s-rec) } [dir="rtl"] .s-season.k-festival { box-shadow: inset -3px 0 0 var(--s-brand) }

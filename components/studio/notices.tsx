@@ -59,7 +59,8 @@ export function Notices({ companyId }: { companyId: string | null }) {
       {n.kind === "season" ? (
         <>
           <b className="s-notice-title">{n.season.name} <em>{when}</em></b>
-          <p>{t("seasonBody", { angle: n.season.angle })}{n.season.approx ? ` ${t("approx")}` : ""}</p>
+          <p>{t("seasonBody", { angle: n.season.angle })}{n.season.approx && !n.season.status ? ` ${t("approx")}` : ""}</p>
+          {n.season.status ? <a className="s-notice-src" href={n.season.source?.url} target="_blank" rel="noreferrer noopener">✓ {t(`status_${n.season.status}`)}{n.season.source?.title ? ` · ${n.season.source.title}` : ""}</a> : null}
         </>
       ) : n.kind === "trend" ? (
         <>

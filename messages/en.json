@@ -789,7 +789,15 @@
     "moved": "Moved to {day}",
     "removed": "Back in the plan without a day",
     "opens": "Caption opens with",
-    "best": "Best time to post"
+    "best": "Best time to post",
+    "draftSeason": "Draft an idea for it",
+    "drafting": "Drafting…",
+    "draftFailed": "Couldn't draft the idea — try again.",
+    "season_confirmed": "Date confirmed",
+    "season_moved": "Date moved — this is the new one",
+    "season_added": "Added by the daily check",
+    "season_expected": "Expected date — checked daily",
+    "season_fixed": "Fixed date"
   },
   "videoStudio": {
     "title": "<b>Making</b> the video",
@@ -1078,7 +1086,10 @@
     "minimize": "Minimize",
     "next": "Next",
     "count": "{n, plural, one {# notice} other {# notices}}",
-    "open": "Open notices ({n})"
+    "open": "Open notices ({n})",
+    "status_confirmed": "Date confirmed",
+    "status_moved": "Date moved — this is the new one",
+    "status_added": "Newly announced"
   },
   "refs": {
     "add": "Add an image or video",
