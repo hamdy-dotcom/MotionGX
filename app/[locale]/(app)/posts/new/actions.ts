@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
 import { placeCreated } from "@/lib/data/schedule";
+import { saveCreateRefs } from "@/lib/data/refs";
 import { redirect } from "@/i18n/navigation";
 import { assertPostRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { startPostGeneration } from "@/lib/live-engine/server/jobs";
@@ -16,7 +17,8 @@ const pick = <T extends string>(value: unknown, allowed: readonly T[]): T | null
 
 /** Creates the post and starts its worker job (write → images → design → slides); the post page shows progress. */
 export async function createPost(_prev: CreatePostState, formData: FormData): Promise<CreatePostState> {
-  const { supabase, workspace, locale } = await getAppContext();
+  const ctx = await getAppContext();
+  const { supabase, workspace, locale } = ctx;
   const brief = String(formData.get("brief") ?? "").trim().slice(0, 2000);
   if (!brief) return { error: "briefRequired" };
   const platforms = [...new Set(formData.getAll("platforms").map(String))].filter((p) => (POST_PLATFORMS as readonly string[]).includes(p));
@@ -46,6 +48,7 @@ export async function createPost(_prev: CreatePostState, formData: FormData): Pr
     return { error: "generic" };
   }
   await placeCreated(supabase, "posts", post.id, formData);
+  await saveCreateRefs(ctx, "posts", post.id, companyId, formData);
   after(() => startPostGeneration(post.id));
   revalidatePath("/posts");
   redirect({ href: `/posts/${post.id}`, locale });

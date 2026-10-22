@@ -10,6 +10,7 @@ import { dayMono } from "@/lib/dates";
 import { Rise, escapeMarkup } from "@/components/studio/rise";
 import { StudioMark } from "@/components/studio/mark";
 import { CreateForm } from "./create-form";
+import { isContentType } from "@/lib/refs";
 
 // the video or post job starts in `after()` of the create actions this screen calls
 export const maxDuration = 800;
@@ -17,7 +18,7 @@ export const maxDuration = 800;
 const KINDS = ["video", "image", "carousel", "text"] as const;
 const host = (url?: string | null) => { try { return url ? new URL(url).host.replace(/^www\./, "") : ""; } catch { return url ?? ""; } };
 
-export default async function CreatePage({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ kind?: string; brief?: string; day?: string; idea?: string; company?: string; platforms?: string }> }) {
+export default async function CreatePage({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ kind?: string; brief?: string; day?: string; idea?: string; company?: string; platforms?: string; type?: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const q = await searchParams;
@@ -44,7 +45,7 @@ export default async function CreatePage({ params, searchParams }: { params: Pro
       <Rise markup={t.markup("title", { b: (c) => `<b>${c}</b>`, name: escapeMarkup(brand.name) })} />
       <CreateForm
         brand={{ id: brand.id, name: brand.name, dialect: brand.default_dialect, mark: <StudioMark company={brand} size={42} /> }}
-        initial={{ kind, brief: (q.brief ?? "").slice(0, 2000), day, ideaId: q.idea ?? null, platforms: (q.platforms ?? "").split(",").filter(Boolean) }}
+        initial={{ kind, brief: (q.brief ?? "").slice(0, 2000), day, ideaId: q.idea ?? null, platforms: (q.platforms ?? "").split(",").filter(Boolean), contentType: isContentType(q.type) ? q.type : "standard" }}
         prices={{ post: n(postUsd), video: { 15: n(exportCostUsd(15, false, prices)), 30: n(exportCostUsd(30, false, prices)), 60: n(exportCostUsd(60, false, prices)) }, currency: formatMoney(0, ctx.workspace.currency_code, ctx.locale).replace(/[\d.,\s-]/g, "") || ctx.workspace.currency_code }}
       />
     </section>

@@ -397,3 +397,20 @@ body:has(.s-app) { background: var(--s-stage); color: var(--s-ink) }
 .s-notice-pill { position: fixed; z-index: 40; inset-inline-end: 20px; bottom: max(104px, calc(env(safe-area-inset-bottom, 0px) + 96px)); border: 1px solid var(--s-hair); background: #fff; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: inline-flex; gap: 8px; align-items: center; box-shadow: var(--s-lift) }
 @media (max-width: 900px) { .s-notice, .s-notice-pill { bottom: max(150px, calc(env(safe-area-inset-bottom, 0px) + 140px)); inset-inline-end: 16px } }
 @media (prefers-reduced-motion: reduce) { .s-notice { animation: none } }
+
+/* references in Create: drop zone, the list (thumbnail · name · note), a link row */
+.s-refs { display: flex; flex-direction: column; gap: 10px }
+.s-refs-drop { border: 1.5px dashed var(--s-hair); border-radius: 16px; padding: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--s-muted); background: var(--s-stage); transition: border-color .2s, background .2s }
+.s-refs-drop.over { border-color: var(--s-brand); background: color-mix(in srgb, var(--s-brand) 6%, #fff) }
+.s-refs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px }
+.s-refs-list li { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 10px; align-items: center; border: 1px solid var(--s-hair); border-radius: 14px; padding: 6px; background: #fff }
+.s-refs-list li.uploading { opacity: .7 } .s-refs-list li.failed { border-color: color-mix(in srgb, var(--s-rec) 50%, transparent) }
+.s-refs-thumb { width: 56px; height: 56px; border-radius: 10px; overflow: hidden; background: var(--s-panel-2); display: grid; place-items: center }
+.s-refs-thumb img, .s-refs-thumb video { width: 100%; height: 100%; object-fit: cover }
+.s-refs-body { display: flex; flex-direction: column; gap: 4px; min-width: 0 }
+.s-refs-name { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.s-refs-body input, .s-refs-link input { border: 1px solid var(--s-hair); background: var(--s-stage); border-radius: 10px; padding: 6px 10px; font-size: 13px; color: var(--s-ink); min-width: 0 }
+.s-refs-body input:focus, .s-refs-link input:focus { border-color: var(--s-brand); background: #fff; outline: none }
+.s-refs-x { border: 0; background: none; font-size: 18px; color: var(--s-muted); padding: 4px 8px }
+.s-refs-link { display: flex; gap: 8px } .s-refs-link input { flex: 1 }
+.s-refs-err { margin: 0; font-size: 12.5px; color: #a32012 }

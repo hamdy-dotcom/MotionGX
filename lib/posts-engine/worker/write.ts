@@ -31,7 +31,7 @@ export function brandBrief(brand: any) {
     .filter((s: any) => !s.empty && (s.clones?.screen || s.clones?.mobile))
     .map((s: any) => ({ id: s.id, shows: s.shows ?? s.label, app: Boolean(s.app), customer: Boolean(s.customer), devices: [s.clones?.mobile ? "phone" : null, s.clones?.screen ? "laptop" : null].filter(Boolean) }));
   const images = (brand.images ?? [])
-    .filter((i: any) => ["product", "lifestyle", "people", "background", "illustration", "object-images"].includes(i.kind) && i.w >= 300)
+    .filter((i: any) => i.kind === "client" || (["product", "lifestyle", "people", "background", "illustration", "object-images"].includes(i.kind) && i.w >= 300))
     .slice(0, 30)
     .map((i: any) => ({ file: i.file, kind: i.kind, about: i.note || i.alt || "", ...(i.demo ? { test_data: true } : {}) }));
   const facts = { name: brand.name, name_ar: brand.name_ar, site: brand.site, tagline: brand.tagline, summary: brand.summary, audience: brand.audience, voice: brand.voice, selling_points: brand.selling_points, features: (brand.features ?? []).map((f: any) => ({ name: f.name, detail: f.detail, benefit: f.benefit })) };

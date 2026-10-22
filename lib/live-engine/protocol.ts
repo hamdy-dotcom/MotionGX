@@ -43,6 +43,13 @@ export type JobFile = {
   director?: { model: string; maxUsd: number };
   /** a post job: what to make (lib/posts-engine) */
   post?: PostJob;
+  /** what the piece is ("product_update": built around what changed, from the client's words and references) */
+  contentType?: string;
+  /** the client's reference media (downloaded to the brand folder as refs/<file>) and links, with their notes */
+  refs?: { file: string; kind: "image" | "video"; name: string; note?: string }[];
+  links?: { url: string; name: string; note?: string }[];
+  /** the brand's market and its social pages (when the client chose to use them in content) */
+  market?: { industry: string | null; countries: string[]; socials: { platform: string; handle: string; url: string }[] };
 };
 
 export type PostPlatform = "facebook" | "instagram" | "tiktok" | "linkedin" | "x";

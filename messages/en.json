@@ -632,7 +632,20 @@
     "going": "Starting…",
     "briefRequired": "Write the idea first.",
     "platformsRequired": "Pick at least one platform.",
-    "noCompany": "Add a company first — everything is made from its brand."
+    "noCompany": "Add a company first — everything is made from its brand.",
+    "contentType": "Content type",
+    "ctype": {
+      "standard": "General",
+      "product_update": "Product update"
+    },
+    "updateBrief": "What changed?",
+    "updatePlaceholder": "e.g. We added InstaPay checkout, and orders now confirm in a minute instead of an hour. It matters to merchants because…",
+    "refs": "References (optional)",
+    "refsHint": "Images, a short video, or links — a screenshot, a design you like, a product. Note what each one is for.",
+    "updateRefs": "Show us the update",
+    "updateRefsHint": "Upload screenshots or a short video of what's new — we'll show it in the content as it is.",
+    "refsCount": "{n, plural, one {# reference} other {# references}}",
+    "waitUploads": "Wait until the files finish uploading."
   },
   "library": {
     "title": "Library",
@@ -1055,5 +1068,19 @@
     "next": "Next",
     "count": "{n, plural, one {# notice} other {# notices}}",
     "open": "Open notices ({n})"
+  },
+  "refs": {
+    "add": "Add an image or video",
+    "dropHint": "or drop files here · images up to 15MB · video up to 50MB",
+    "uploading": "uploading…",
+    "failed": "upload failed",
+    "notePlaceholder": "What is it for? (optional)",
+    "note": "Note on {name}",
+    "remove": "Remove {name}",
+    "linkPlaceholder": "or paste a link (https://…)",
+    "addLink": "Add link",
+    "badType": "{name}: unsupported file (JPG/PNG/WebP images or MP4/MOV/WebM video)",
+    "tooBig": "{name}: larger than {mb}MB",
+    "badLink": "The link must start with https://"
   }
 }

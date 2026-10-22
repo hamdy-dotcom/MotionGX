@@ -12,7 +12,7 @@ import { Ledger } from "../../live-engine/worker/claude";
 import type { Sync } from "../../live-engine/worker/sync";
 import { METHOD } from "./method";
 import { Director } from "./agent";
-import { prepare, renderVideo, SIZES } from "./renderer";
+import { prepare, renderVideo, SIZES, videoFrames } from "./renderer";
 import { bakeEdits } from "../edits";
 
 // the video steps the studio's progress follows (protocol.ts VIDEO_STEPS — repeated here: protocol.ts loads as CommonJS
@@ -39,6 +39,19 @@ export async function runDirector(job: JobFile, dirs: { root: string; brandDir: 
   const identity = [cap.app?.identity?.email, cap.app?.identity?.name, cap.app?.identity?.phone, job.settings?.phone, job.settings?.email].filter(Boolean).map(String);
   log(`■ job ${job.jobId} (video · director${job.mode ? ` · ${job.mode}` : ""})\n  brand ${job.slug} · ${brief.objective} · ${language} · ${layout} ${W}×${H} · ${length}s\n  model ${model} · cost cap $${maxUsd} (DIRECTOR_MAX_USD)`);
   fs.writeFileSync(path.join(runDir, "brief.json"), JSON.stringify({ ...brief, engine: "director", model, maxUsd, mode: job.mode, edit: job.edit ?? null }, null, 2));
+
+  // the client's reference videos as image sequences (capture/refs/<name>/0001.jpg …) the agent can look at and show
+  const refs: ClientRef[] = [];
+  for (const r of job.refs ?? []) {
+    const src = path.join(brandDir, r.file);
+    if (!fs.existsSync(src)) continue;
+    if (r.kind === "video") {
+      const dir = r.file.replace(/\.[a-z0-9]+$/i, "");
+      const n = await videoFrames(src, path.join(brandDir, dir)).catch((err) => { log(`! reference video ${r.name}: ${String(err).slice(0, 160)}`); return 0; });
+      if (n) refs.push({ ...r, frames: { dir, n, fps: 8 } });
+    } else refs.push(r);
+  }
+  if (refs.length) log(`  client references: ${refs.map((r) => (r.frames ? `${r.name} (${r.frames.n} frames)` : r.name)).join(", ")}`);
 
   // the composition's lib/ (gsap, kit), sfx/ and capture/ links are there before the agent starts
   prepare({ compDir: path.join(workDir, "composition"), brandDir, root, layout, identity });
@@ -82,7 +95,7 @@ export async function runDirector(job: JobFile, dirs: { root: string; brandDir: 
       log(`↺ director: resuming the agent of the previous version (${agent.messages.length} messages) for ${job.mode === "lines" ? "edited lines" : "a change request"}`);
     } else {
       if (job.mode === "lines" || job.mode === "edit") log("! director: the previous version has no saved agent run — starting a new one with the edit as direction");
-      agent.addUser([{ type: "text", text: firstMessage({ brand, cap, brief, language, layout, W, H, length, edit: job.mode === "edit" ? job.edit?.request : undefined }) }]);
+      agent.addUser([{ type: "text", text: firstMessage({ brand, cap, brief, language, layout, W, H, length, edit: job.mode === "edit" ? job.edit?.request : undefined, contentType: job.contentType, refs, links: job.links, socials: job.market?.socials }) }]);
     }
 
     try {
@@ -116,7 +129,19 @@ export async function runDirector(job: JobFile, dirs: { root: string; brandDir: 
 }
 
 /** the brief + what the capture holds, so the agent starts from the inventory instead of crawling */
-function firstMessage(o: { brand: any; cap: any; brief: JobFile["brief"]; language: string; layout: string; W: number; H: number; length: number; edit?: string }) {
+type ClientRef = NonNullable<JobFile["refs"]>[number] & { frames?: { dir: string; n: number; fps: number } };
+
+/** what the client added in Create — only present when they did, so a plain brief reads exactly as before */
+function clientSection(o: { contentType?: string; refs?: ClientRef[]; links?: JobFile["links"]; socials?: NonNullable<JobFile["market"]>["socials"] }) {
+  const out: string[] = [];
+  if (o.contentType === "product_update") out.push(`- Content type: PRODUCT UPDATE — the client's words above say what changed. Build the video around that change: what's new, why it matters to the user, the new thing shown big (from the client's references when they show it; else the closest real UI), and how to try it. Don't re-introduce the whole product.`);
+  if (o.refs?.length) out.push(`- The client attached reference media (root "capture"; in the composition under capture/…). They are the client's own, current material — look at each before planning, and when one shows the product (a screenshot, a new screen, a recording) put it on screen big, whole and uncropped, in the right device. A video reference is an image sequence: show frame i at time t from __seek (img.src = "<dir>/" + String(i).padStart(4, "0") + ".jpg").\n${JSON.stringify(o.refs.map((r) => ({ name: r.name, note: r.note ?? null, ...(r.frames ? { video_frames: `${r.frames.dir}/0001.jpg … ${String(r.frames.n).padStart(4, "0")}.jpg`, fps: r.frames.fps } : { image: r.file }) })))}`);
+  if (o.links?.length) out.push(`- Links the client gave as context (you can't open them; use their notes): ${JSON.stringify(o.links.map((l) => ({ url: l.url, note: l.note ?? null })))}`);
+  if (o.socials?.length) out.push(`- The brand's social pages (use the handle where a follow / find-us line fits, e.g. the end card): ${o.socials.map((s) => `${s.platform} ${s.handle}`).join(" · ")}`);
+  return out;
+}
+
+function firstMessage(o: { brand: any; cap: any; brief: JobFile["brief"]; language: string; layout: string; W: number; H: number; length: number; edit?: string; contentType?: string; refs?: ClientRef[]; links?: JobFile["links"]; socials?: NonNullable<JobFile["market"]>["socials"] }) {
   const { brand } = o;
   const screens = (brand.screens || []).map((s: any) => ({ id: s.id, label: s.label, shows: s.shows, app: !!s.app, customer: !!s.customer, empty: !!s.empty, features: s.features, screenshot: s.view || s.file, clones: Object.fromEntries(Object.entries(s.clones || {}).filter(([k]) => k !== "clip").map(([k, v]: any) => [k, v?.id])), flow: s.clones?.before ? { before: s.clones.before.id, action: s.clones.before.action, typed: s.clones.before.typed ?? null } : null, clip: s.clones?.clip ? { file: s.clones.clip.file, seconds: s.clones.clip.dur } : null }));
   const inventory = {
@@ -137,6 +162,7 @@ function firstMessage(o: { brand: any; cap: any; brief: JobFile["brief"]; langua
     `- Format: ${o.layout} — ${o.W}×${o.H} px, 30fps · Duration: exactly ${o.length} s (window.__duration = ${o.length})`,
     `- Tone: infer it (preset + creative direction) from the brief and the product`,
     o.edit ? `- Direction from the client: «${o.edit}»` : "",
+    ...clientSection(o),
     ``,
     `CAPTURE INVENTORY (root "capture"; in the composition the same files are under capture/…; clones are used with data-clone ids; test_data_images are the capture agent's test data — product-demo content, never brand photos)`,
     JSON.stringify(inventory),

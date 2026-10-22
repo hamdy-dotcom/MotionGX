@@ -27,9 +27,21 @@ async function brandLooks(brand: any, brandDir: string, runDir: string, slides: 
 
 export async function runPosts(job: JobFile, dirs: { root: string; brandDir: string; runDir: string }, sync: Sync) {
   const { brandDir, runDir } = dirs, log = sync.log, t0 = Date.now();
-  const post = job.post;
+  let post = job.post;
   if (!post) throw new Error("post job without its post");
   const brand = JSON.parse(fs.readFileSync(path.join(brandDir, "brand.json"), "utf8"));
+  // the client's reference images join the images the writer can put on a slide (kind "client"); the content type, the
+  // references' notes, links and the brand's social handles go into the brief
+  const clientImages = (job.refs ?? []).filter((r) => r.kind === "image" && fs.existsSync(path.join(brandDir, r.file)));
+  if (clientImages.length) brand.images = [...clientImages.map((r) => ({ file: r.file, kind: "client", note: `attached by the client${r.note ? `: ${r.note}` : ""}`, w: 1200 })), ...(brand.images ?? [])];
+  const extra = [
+    job.contentType === "product_update" ? "CONTENT TYPE: product update — the brief says what changed; the post is about that change (what's new, why it matters, how to try it), not the whole product." : "",
+    clientImages.length ? `The client attached ${clientImages.length} reference image(s) (in IMAGES, kind "client") — use them when they show what the post is about.` : "",
+    (job.refs ?? []).filter((r) => r.kind === "video" && r.note).map((r) => `A reference video the client attached: ${r.note}`).join("\n"),
+    job.links?.length ? `Links the client gave as context: ${job.links.map((l) => `${l.url}${l.note ? ` (${l.note})` : ""}`).join("; ")}` : "",
+    job.market?.socials?.length ? `The brand's social handles (for a follow / find-us line): ${job.market.socials.map((x) => `${x.platform} ${x.handle}`).join(" · ")}` : "",
+  ].filter(Boolean).join("\n");
+  if (extra) post = { ...post, brief: `${post.brief}\n\n${extra}` };
   const cap = fs.existsSync(path.join(brandDir, "capture.json")) ? JSON.parse(fs.readFileSync(path.join(brandDir, "capture.json"), "utf8")) : {};
   const identity = [cap.app?.identity?.email, cap.app?.identity?.name, cap.app?.identity?.phone, job.settings?.phone, job.settings?.email].filter(Boolean).map(String);
   const ledger = new Ledger(path.join(runDir, "cost.json"), log, (row) => sync.ledgerRow(row));

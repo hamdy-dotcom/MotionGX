@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
 import { placeCreated } from "@/lib/data/schedule";
+import { saveCreateRefs } from "@/lib/data/refs";
 import { redirect } from "@/i18n/navigation";
 import { runGeneration } from "@/lib/motion/app";
 import { liveEngineEnabled } from "@/lib/live-engine/config";
@@ -70,6 +71,7 @@ export async function createVideo(_prev: CreateVideoState, formData: FormData): 
   }
 
   await placeCreated(supabase, "videos", video.id, formData);
+  await saveCreateRefs(ctx, "videos", video.id, companyId, formData);
   after(() => runGeneration(video.id, { kind: "new" }));
   revalidatePath("/", "layout");
   redirect({ href: `/videos/${video.id}`, locale });

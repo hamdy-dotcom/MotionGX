@@ -197,6 +197,13 @@ export async function smallJpeg(jpg: Buffer, width = 540): Promise<Buffer> {
   return r.status === 0 && r.stdout?.length ? r.stdout : jpg;
 }
 
+/** a client's reference video as an image sequence (outDir/0001.jpg …): the agent can look at it and show it */
+export async function videoFrames(src: string, outDir: string, opts: { fps?: number; maxSeconds?: number; width?: number } = {}) {
+  fs.mkdirSync(outDir, { recursive: true });
+  await run(["-i", src, "-t", String(opts.maxSeconds ?? 12), "-vf", `fps=${opts.fps ?? 8},scale='min(${opts.width ?? 1280},iw)':-2`, "-q:v", "4", path.join(outDir, "%04d.jpg")]);
+  return fs.readdirSync(outDir).filter((f) => /^\d{4}\.jpg$/.test(f)).length;
+}
+
 const run = async (args: string[]) => { const bin = await ffmpegPath(); await new Promise<void>((ok, no) => { const p = spawn(bin, ["-loglevel", "error", "-y", ...args]); let e = ""; p.stderr.on("data", (d) => (e += d)); p.on("close", (c) => (c === 0 ? ok() : no(new Error(`ffmpeg: ${e.slice(-600)}`)))); }); };
 
 /** every frame → H.264 (parallel pages) → the music bed + the declared SFX mixed under it → poster baked as frame 0 */

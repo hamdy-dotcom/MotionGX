@@ -283,6 +283,16 @@ async function sign(path: string) {
   return data.signedUrl;
 }
 
+/** the brand's industry, countries and — when the client chose to use them — its social handles (0014) */
+async function jobMarket(companyId: string): Promise<JobFile["market"] | null> {
+  const { data, error } = await admin().from("companies").select("industry, countries, socials").eq("id", companyId).maybeSingle();
+  if (error || !data) return null;
+  const s = (data.socials ?? {}) as Record<string, unknown>;
+  const socials = s.use === true ? Object.entries(s).filter(([k, v]) => k !== "use" && typeof v === "string").map(([platform, url]) => { let parts: string[] = []; try { parts = new URL(String(url)).pathname.split("/").filter(Boolean); } catch { /* kept as saved */ } return { platform, url: String(url), handle: parts.length ? `@${parts.at(-1)!.replace(/^@/, "")}` : "" }; }).filter((x) => x.handle) : [];
+  if (!data.industry && !(data.countries as string[] | null)?.length && !socials.length) return null;
+  return { industry: (data.industry as string | null) ?? null, countries: (data.countries as string[] | null) ?? [], socials };
+}
+
 export async function launch(jobId: string) {
   const db = admin();
   const job = await getJob(jobId);
@@ -290,16 +300,20 @@ export async function launch(jobId: string) {
   const { data: capture } = job.capture_id ? await db.from("live_brand_captures").select("*").eq("id", job.capture_id).single() : { data: null };
   if (!capture) return failJob(job, "missing capture");
   let brief: Brief;
+  // the piece's content type and references (migration 0014; absent before it)
+  let piece: { content_type?: string | null; refs?: unknown } | null = null;
   let post: { id: string; type: "single" | "carousel" | "text"; platforms: ("facebook" | "instagram" | "tiktok" | "linkedin" | "x")[]; brief: string; dialect: string; ai_image: "auto" | "yes" | "no"; slides: number | null } | null = null;
   if (job.kind === "capture") brief = captureBrief(capture.site_url);
   else if (job.kind === "post") {
     post = (await db.from("posts").select("*").eq("id", job.post_id!).single()).data;
     if (!post) return failJob(job, "missing post");
+    piece = post as unknown as { content_type?: string | null; refs?: unknown };
     brief = { ...captureBrief(capture.site_url), objective: "awareness" };
   } else {
     const { data: video } = await db.from("videos").select("*").eq("id", job.video_id!).single();
     const { data: company } = await db.from("companies").select("website_url").eq("id", job.company_id!).single();
     if (!video || !company?.website_url) return failJob(job, "missing video or company website");
+    piece = video;
     // the brand folder is the capture's site (brands/<slug> as in the sandbox), the brief the video's
     brief = { ...briefFor(video, company.website_url), url: capture.site_url ?? company.website_url };
   }
@@ -336,6 +350,17 @@ export async function launch(jobId: string) {
       for (const f of await listFiles(own)) await add(f, `run/${f.split("/").pop()}`);
     }
   }
+
+  // the client's references for this piece: files into the brand folder (refs/…), links as text
+  const refs: NonNullable<JobFile["refs"]> = [], links: NonNullable<JobFile["links"]> = [];
+  for (const r of (Array.isArray(piece?.refs) ? piece!.refs : []) as { kind?: string; path?: string; url?: string; name?: string; note?: string }[]) {
+    if ((r.kind === "image" || r.kind === "video") && r.path?.startsWith(`${job.workspace_id}/refs/`)) {
+      const file = `refs/${r.path.split("/").pop()}`;
+      await add(r.path, `brand/${file}`);
+      refs.push({ file, kind: r.kind, name: String(r.name ?? ""), ...(r.note ? { note: r.note } : {}) });
+    } else if (r.kind === "link" && r.url) links.push({ url: r.url, name: String(r.name ?? ""), ...(r.note ? { note: r.note } : {}) });
+  }
+  const market = job.company_id ? await jobMarket(job.company_id) : null;
 
   // "Request a change" of a post: the version it changes (its content, design and AI images) as run/prev/…
   // the company's recent posts: a daily feed keeps one identity but never repeats a concept, subject or layout
@@ -381,6 +406,10 @@ export async function launch(jobId: string) {
     history,
     settings: job.input.settings,
     ...(job.input.engine === "director" ? { engine: "director" as const, director: directorSettings() } : {}),
+    ...(piece?.content_type && piece.content_type !== "standard" ? { contentType: piece.content_type } : {}),
+    ...(refs.length ? { refs } : {}),
+    ...(links.length ? { links } : {}),
+    ...(market ? { market } : {}),
     ...(post ? { post: { postId: post.id, type: post.type, platforms: post.platforms, brief: post.brief, dialect: post.dialect, aiImage: post.ai_image, slides: post.slides ?? null, ...(job.input.request ? { request: job.input.request } : {}), ...(postHistory.length ? { history: postHistory } : {}), ...postsSettings() } } : {}),
   };
   // local runner: a capture whose agent already finished on this machine (but whose upload never reached the app) resumes

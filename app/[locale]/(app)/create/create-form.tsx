@@ -6,6 +6,8 @@ import { createPost } from "../posts/new/actions";
 import { createVideo } from "../videos/new/actions";
 import { KindIcon, PlatformIcon } from "@/components/studio/platform-icon";
 import { DIALECTS, GOALS, type Dialect } from "@/lib/types";
+import { RefsPicker, refsForForm, type RefItem } from "@/components/studio/refs-picker";
+import { CONTENT_TYPES, type ContentType } from "@/lib/refs";
 
 type Kind = "video" | "image" | "carousel" | "text";
 const KINDS: Kind[] = ["video", "image", "carousel", "text"];
@@ -13,7 +15,7 @@ const PLATFORMS = { instagram: "4:5", facebook: "4:5", tiktok: "9:16", linkedin:
 
 export type CreateProps = {
   brand: { id: string; name: string; dialect: Dialect; mark: ReactNode };
-  initial: { kind: Kind; brief: string; day: string | null; ideaId: string | null; platforms: string[] };
+  initial: { kind: Kind; brief: string; day: string | null; ideaId: string | null; platforms: string[]; contentType?: ContentType };
   prices: { post: string; video: Record<15 | 30 | 60, string>; currency: string };
 };
 
@@ -34,6 +36,9 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
   const [ai, setAi] = useState<"auto" | "yes" | "no">("auto");
   const [dialect, setDialect] = useState<Dialect>(brand.dialect);
   const [brief, setBrief] = useState(initial.brief);
+  const [contentType, setContentType] = useState<ContentType>(initial.contentType ?? "standard");
+  const [refs, setRefs] = useState<RefItem[]>([]);
+  const uploading = refs.some((r) => r.status === "uploading");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const video = kind === "video";
@@ -42,11 +47,14 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
   function go() {
     if (!brief.trim()) { setError(t("briefRequired")); return; }
     if (!video && !plats.length) { setError(t("platformsRequired")); return; }
+    if (uploading) { setError(t("waitUploads")); return; }
     setError(null);
     const fd = new FormData();
     fd.set("brief", brief.trim()); fd.set("company_id", brand.id); fd.set("dialect", dialect);
     if (initial.day) fd.set("scheduled_on", initial.day);
     if (initial.ideaId) fd.set("plan_idea_id", initial.ideaId);
+    fd.set("content_type", contentType);
+    fd.set("refs", JSON.stringify(refsForForm(refs)));
     start(async () => {
       let res: { error?: string; aiError?: string } | undefined;
       if (video) { fd.set("goal", goal); fd.set("format", format); fd.set("length_s", String(length)); fd.set("pace", "medium"); res = await createVideo({}, fd); }
@@ -85,8 +93,14 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
           <div className="s-opt"><p className="s-label">{t("dialect")}</p><div className="s-chips">{DIALECTS.map((d) => chip(dialect === d, () => setDialect(d), td(d), d))}</div></div>
         </div>
         <div className="s-panel">
-          <label className="s-label" htmlFor="brief">{t("brief")}</label>
-          <textarea id="brief" className="s-textarea" value={brief} onChange={(e) => setBrief(e.target.value)} maxLength={2000} placeholder={t("briefPlaceholder")} />
+          <div className="s-opt"><p className="s-label">{t("contentType")}</p><div className="s-chips">{CONTENT_TYPES.map((c) => chip(contentType === c, () => setContentType(c), t(`ctype.${c}`), c))}</div></div>
+          <label className="s-label" htmlFor="brief">{contentType === "product_update" ? t("updateBrief") : t("brief")}</label>
+          <textarea id="brief" className="s-textarea" value={brief} onChange={(e) => setBrief(e.target.value)} maxLength={2000} placeholder={contentType === "product_update" ? t("updatePlaceholder") : t("briefPlaceholder")} />
+        </div>
+        <div className="s-panel">
+          <p className="s-label">{contentType === "product_update" ? t("updateRefs") : t("refs")}</p>
+          <p className="s-hint" style={{ margin: "0 0 10px", fontSize: 12.5, color: "var(--s-muted)" }}>{contentType === "product_update" ? t("updateRefsHint") : t("refsHint")}</p>
+          <RefsPicker companyId={brand.id} value={refs} onChange={setRefs} />
         </div>
       </div>
       <aside className="s-sum">
@@ -96,11 +110,13 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
           <span>{(t.raw(`types.${kind}`) as [string, string])[0]}</span>
           {video ? <span dir="ltr">{format} · {length}S</span> : plats.map((p) => <span key={p}>{p.toUpperCase()}</span>)}
           <span>{td(dialect)}</span>
+          {contentType !== "standard" ? <span>{t(`ctype.${contentType}`)}</span> : null}
+          {refs.length ? <span>{t("refsCount", { n: refs.length })}</span> : null}
         </div>
         <div className="fine">{t("priceAt", { currency: prices.currency })}</div>
         <div className="price">{video ? prices.video[length] : prices.post}</div>
         <div className="fine">{t("free")}</div>
-        <button type="button" className="go" onClick={go} disabled={pending}>{pending ? t("going") : t("go")}</button>
+        <button type="button" className="go" onClick={go} disabled={pending || uploading}>{pending ? t("going") : t("go")}</button>
         {error ? <p className="err" role="alert">{error}</p> : null}
       </aside>
     </div>
