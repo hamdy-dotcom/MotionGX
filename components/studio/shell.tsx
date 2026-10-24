@@ -4,34 +4,24 @@ import { Link } from "@/i18n/navigation";
 import { getAppContext } from "@/lib/context";
 import { listCompanies } from "@/lib/data/companies";
 import { activeCompany } from "@/lib/data/active-company";
-import { brandFontHref, brandLight, paletteHexes } from "@/lib/brand/light";
-import { getFxRate, getPrices, toLocal } from "@/lib/pricing";
-import { getPostPriceUsd } from "@/lib/posts/price";
-import { brandDetails } from "@/lib/data/works";
-import { addDays, dayLabel, todayKey } from "@/lib/dates";
+import { brandFontHref, brandLight } from "@/lib/brand/light";
+import { getFxRate, toLocal } from "@/lib/pricing";
 import { formatNumber } from "@/lib/format";
 import { dirFor } from "@/i18n/routing";
 import { StudioMark } from "./mark";
 import { BrandSwitch } from "./brand-switch";
 import { Ambient, SideNav, TabBar } from "./nav";
 import { AccountBox } from "./account";
-import { Composer } from "./composer";
 import { Notices } from "./notices";
 
 const host = (url?: string | null) => { try { return url ? new URL(url).host.replace(/^www\./, "") : ""; } catch { return url ?? ""; } };
 
-/** The studio: a brand-lit stage, the rail (brand switcher, Create, navigation, budget, account) and the phone tab bar. */
+/** The studio: a brand-lit stage, the rail (brand switcher, Create, navigation, budget, account), the phone tab bar and the notifications. */
 export async function StudioShell({ children }: { children: ReactNode }) {
   const t = await getTranslations("shell");
-  const tc = await getTranslations("compose");
   const ctx = await getAppContext();
-  const [companies, fx, prices, postUsd] = await Promise.all([listCompanies(ctx), getFxRate(ctx.supabase, ctx.workspace.currency_code), getPrices(ctx.supabase), getPostPriceUsd(ctx.supabase)]);
+  const [companies, fx] = await Promise.all([listCompanies(ctx), getFxRate(ctx.supabase, ctx.workspace.currency_code)]);
   const active = await activeCompany(companies);
-  const details = active ? await brandDetails(ctx, active.id) : null;
-  const money = (usd: number) => formatNumber(toLocal(usd, fx), ctx.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const today = todayKey();
-  const days = Array.from({ length: 14 }, (_, i) => addDays(today, i)).map((k, i) => ({ key: k, label: i ? dayLabel(k, ctx.locale, { weekday: "long", day: "numeric" }) : tc("todayOpt", { d: +k.slice(8) }) }));
-  const example = details?.facts.offers?.[0] ?? details?.facts.key_features?.[0] ?? details?.tagline ?? "";
   const light = brandLight(active?.brand_profiles?.colors);
   const fontName = active?.brand_profiles?.fonts?.arabic;
   const fontHref = brandFontHref(fontName);
@@ -63,11 +53,6 @@ export async function StudioShell({ children }: { children: ReactNode }) {
       </main>
       <TabBar />
       <Notices key={active?.id ?? "none"} companyId={active?.id ?? null} />
-      <Composer
-        brand={active ? { id: active.id, name: active.name, dialect: active.default_dialect, palette: paletteHexes(active.brand_profiles?.colors), example: example.split(/\s[—-]\s/)[0] } : null}
-        days={days}
-        prices={{ post: money(postUsd), video: money(prices.videoMinUsd * 0.5) }}
-      />
     </div>
   );
 }

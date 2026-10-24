@@ -70,7 +70,7 @@ body:has(.s-app) { background: var(--s-stage); color: var(--s-ink) }
 .s-lang { margin-inline-start: auto; border: 1px solid var(--s-hair); background: #fff; border-radius: 999px; padding: 3px 10px; font: 600 11px var(--s-mono); color: var(--s-ink-2) }
 
 /* main + type */
-.s-main { padding-block: 26px 190px; padding-inline: max(16px, 3.2vw); min-width: 0 }
+.s-main { padding-block: 26px 70px; padding-inline: max(16px, 3.2vw); min-width: 0 }
 .s-screen { animation: s-enter .6s cubic-bezier(.2, .8, .2, 1) both }
 @keyframes s-enter { from { opacity: 0; transform: translateY(14px) } }
 .s-slate-line { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font: 500 11px var(--s-mono); letter-spacing: .22em; color: var(--s-muted); text-transform: uppercase; margin-bottom: 14px }
@@ -164,38 +164,13 @@ body:has(.s-app) { background: var(--s-stage); color: var(--s-ink) }
   .s-tabbar a { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10.5px; color: var(--s-muted); padding: 4px 6px; text-decoration: none }
   .s-tabbar a[aria-current="page"] { color: var(--s-ink) }
   .s-tabbar .plus { width: 52px; height: 52px; border-radius: 18px; display: grid; place-items: center; margin-top: -26px; color: #fff; background: var(--s-ink); box-shadow: 0 12px 26px -8px rgba(20,20,30,.5) }
-  .s-main { padding-bottom: 260px }
+  .s-main { padding-bottom: 120px }
   .s-grid2 { grid-template-columns: minmax(0, 1fr) !important }
   .s-scenes { grid-template-columns: minmax(0, 1fr) }
   .s-timeline { grid-template-columns: repeat(7, 92px); overflow-x: auto }
   .s-frame { height: 140px }
 }
 @media (prefers-reduced-motion: reduce) { .s-app *, .s-app *::before, .s-app *::after { animation: none !important; transition: none !important } }
-
-/* the composer, docked on every working screen: the brand's real palette runs across its top */
-.s-dock { position: fixed; z-index: 28; left: calc((100% - 250px) / 2); transform: translateX(-50%); bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) + 10px)); width: min(860px, calc(100% - 250px - 32px)); background: rgba(255,255,255,.94); backdrop-filter: blur(16px); border: 1px solid var(--s-hair); border-radius: 22px; overflow: hidden; box-shadow: 0 2px 4px rgba(20,20,30,.05), 0 26px 50px -18px rgba(20,20,30,.35) }
-[dir="ltr"] .s-dock { left: calc(250px + (100% - 250px) / 2) }
-.s-dstrip { height: 6px; display: flex } .s-dstrip i { flex: 1 }
-.s-dock.snap .s-dstrip { animation: s-bar .5s }
-@keyframes s-bar { 40% { transform: scaleY(2.2); transform-origin: top } }
-.s-dock textarea { display: block; width: 100%; border: 0; background: transparent; resize: none; min-height: 30px; max-height: 120px; padding: 12px 18px 4px; font-size: 17px; line-height: 1.6; outline: none; color: var(--s-ink) }
-.s-dock textarea::placeholder { color: var(--s-muted) }
-.s-drow { display: flex; gap: 10px; align-items: center; padding: 6px 12px 12px }
-.s-dscroll { flex: 1; min-width: 0; display: flex; gap: 8px; align-items: center; overflow-x: auto; scrollbar-width: none; padding: 1px }
-.s-dscroll::-webkit-scrollbar { display: none }
-.s-dend { flex: none; display: flex; gap: 10px; align-items: center }
-.s-dseg { flex: none; display: inline-flex; background: var(--s-stage); border: 1px solid var(--s-hair); border-radius: 999px; padding: 3px }
-.s-dseg button { border: 0; background: none; border-radius: 999px; padding: 5px 12px; font-size: 13px; white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; color: var(--s-ink-2) }
-.s-dseg button[aria-pressed="true"] { background: var(--s-ink); color: #fff }
-.s-dsel { flex: none; border: 1px solid var(--s-hair); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; color: var(--s-ink) }
-.s-dplats { display: flex; gap: 6px; flex: none }
-.s-dplat { width: 32px; height: 32px; border-radius: 99px; border: 1px solid var(--s-hair); background: #fff; color: var(--s-muted); display: grid; place-items: center; transition: .2s }
-.s-dplat[aria-pressed="true"] { background: var(--s-ink); border-color: var(--s-ink); color: #fff }
-.s-dprice { font-size: 12px; color: var(--s-muted); white-space: nowrap } .s-dprice b { font: 600 13px var(--s-mono); color: var(--s-ink) }
-@media (max-width: 900px) {
-  .s-dock, [dir="ltr"] .s-dock { left: 50%; width: calc(100% - 2 * max(16px, env(safe-area-inset-left, 0px))); bottom: calc(max(10px, env(safe-area-inset-bottom, 0px)) + 78px) }
-  .s-dprice .lbl { display: none }
-}
 
 /* create */
 .s-types { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px }
