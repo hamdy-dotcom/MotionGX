@@ -56,7 +56,7 @@
     "lottie-web": "5.13.0",
     "lucide-static": "^1.55.0",
     "motion": "12.23.12",
-    "next": "16.4.0",
+    "next": "16.4.3",
     "next-intl": "4.14.9",
     "opentype.js": "^2.0.0",
     "playwright": "1.56.0",
@@ -87,7 +87,7 @@
     "@types/react-dom": "^19",
     "@types/three": "0.180.0",
     "eslint": "^9",
-    "eslint-config-next": "16.4.0",
+    "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
     "tsx": "4.20.3",
     "typescript": "^5"
