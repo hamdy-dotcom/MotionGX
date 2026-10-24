@@ -75,6 +75,8 @@ export type PostJob = {
   placement?: "feed" | "story" | "cover";
   /** a cover: the client asked for words on it (else only the logo) — set by the worker from the brief */
   coverWords?: boolean;
+  /** a cover's kind chosen in Create (else the writer picks among the cover kinds) */
+  coverStyle?: "people" | "graphic" | "place";
   /** the company's recent posts (newest first): the new one must not repeat their concept, subject or layout */
   history?: { angle: string; headline: string; scene: string; format?: string }[];
 };

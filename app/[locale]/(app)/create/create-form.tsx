@@ -38,6 +38,7 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
   const [dialect, setDialect] = useState<Dialect>(brand.dialect);
   const [brief, setBrief] = useState(initial.brief);
   const [contentType, setContentType] = useState<ContentType>(initial.contentType ?? "standard");
+  const [coverStyle, setCoverStyle] = useState<"auto" | "people" | "graphic" | "place">("auto");
   const [refs, setRefs] = useState<RefItem[]>([]);
   const uploading = refs.some((r) => r.status === "uploading");
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +63,7 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
     start(async () => {
       let res: { error?: string; aiError?: string } | undefined;
       if (video) { fd.set("goal", goal); fd.set("format", format); fd.set("length_s", String(length)); fd.set("pace", "medium"); res = await createVideo({}, fd); }
-      else { fd.set("type", kind === "image" || kind === "story" || kind === "cover" ? "single" : kind); fd.set("placement", placement); fd.set("ai_image", kind === "text" ? "no" : "auto"); shownPlats.forEach((p) => fd.append("platforms", p)); res = await createPost({}, fd); }
+      else { fd.set("type", kind === "image" || kind === "story" || kind === "cover" ? "single" : kind); fd.set("placement", placement); if (kind === "cover" && coverStyle !== "auto") fd.set("cover_style", coverStyle); fd.set("ai_image", kind === "text" ? "no" : "auto"); shownPlats.forEach((p) => fd.append("platforms", p)); res = await createPost({}, fd); }
       if (res?.aiError) setError(te(res.aiError as "ai_failed"));
       else if (res?.error) setError(res.error === "briefRequired" ? t("briefRequired") : res.error === "platformsRequired" ? t("platformsRequired") : tc("error"));
     });
@@ -90,7 +91,7 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
             </>
           ) : (
             <>
-              <div className="s-opt"><p className="s-label">{t("platforms")}</p><div className="s-chips">{Object.entries(platformSizes).map(([p, size]) => chip(plats.includes(p), () => setPlats((v) => (v.includes(p) ? v.filter((x) => x !== p) : [...v, p])), <><PlatformIcon p={p} />{tp(p as "x")} <span dir="ltr">{size}</span></>, p))}</div>{kind === "story" ? <p className="s-hint" style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--s-muted)" }}>{t("storyHint")}</p> : kind === "cover" ? <p className="s-hint" style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--s-muted)" }}>{t("coverHint")}</p> : null}</div>
+              <div className="s-opt"><p className="s-label">{t("platforms")}</p><div className="s-chips">{Object.entries(platformSizes).map(([p, size]) => chip(plats.includes(p), () => setPlats((v) => (v.includes(p) ? v.filter((x) => x !== p) : [...v, p])), <><PlatformIcon p={p} />{tp(p as "x")} <span dir="ltr">{size}</span></>, p))}</div>{kind === "cover" ? <div className="s-opt" style={{ marginTop: 14 }}><p className="s-label">{t("coverStyle")}</p><div className="s-chips">{(["auto", "people", "graphic", "place"] as const).map((v) => chip(coverStyle === v, () => setCoverStyle(v), t(`coverStyles.${v}`), v))}</div></div> : null}{kind === "story" ? <p className="s-hint" style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--s-muted)" }}>{t("storyHint")}</p> : kind === "cover" ? <p className="s-hint" style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--s-muted)" }}>{t("coverHint")}</p> : null}</div>
             </>
           )}
           <div className="s-opt"><p className="s-label">{t("dialect")}</p><div className="s-chips">{DIALECTS.map((d) => chip(dialect === d, () => setDialect(d), td(d), d))}</div></div>

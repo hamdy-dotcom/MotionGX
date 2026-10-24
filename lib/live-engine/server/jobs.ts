@@ -30,7 +30,7 @@ export type JobRow = {
   capture_id: string | null;
   kind: "capture" | "video" | "post";
   mode: JobMode | null;
-  input: { edit?: JobFile["edit"]; prevJobId?: string | null; first?: boolean; settings?: JobFile["settings"]; engine?: JobFile["engine"]; request?: string; prevVersion?: number | null };
+  input: { edit?: JobFile["edit"]; prevJobId?: string | null; first?: boolean; settings?: JobFile["settings"]; engine?: JobFile["engine"]; request?: string; prevVersion?: number | null; coverStyle?: "people" | "graphic" | "place" | null };
   status: "queued" | "running" | "waiting_code" | "done" | "failed";
   stage: string | null;
   done_steps: Step[];
@@ -222,7 +222,7 @@ async function postCapture(companyId: string) {
 }
 
 /** a post (lib/posts-engine): a worker job on the company's capture; "Request a change" starts from a version */
-export async function startPostGeneration(postId: string, opts: { request?: string; fromVersion?: number } = {}) {
+export async function startPostGeneration(postId: string, opts: { request?: string; fromVersion?: number; coverStyle?: "people" | "graphic" | "place" | null } = {}) {
   const db = admin();
   const { data: post } = await db.from("posts").select("*").eq("id", postId).single();
   if (!post) return;
@@ -238,7 +238,7 @@ export async function startPostGeneration(postId: string, opts: { request?: stri
   }
   const { data: job, error } = await db
     .from("live_jobs")
-    .insert({ workspace_id: post.workspace_id, video_id: null, post_id: postId, company_id: post.company_id, capture_id: capture.id, kind: "post", mode, input: { prevJobId, request: opts.request ?? null, prevVersion: opts.fromVersion ?? null }, status: "queued" })
+    .insert({ workspace_id: post.workspace_id, video_id: null, post_id: postId, company_id: post.company_id, capture_id: capture.id, kind: "post", mode, input: { prevJobId, request: opts.request ?? null, prevVersion: opts.fromVersion ?? null, coverStyle: opts.coverStyle ?? null }, status: "queued" })
     .select("id")
     .single();
   if (error || !job) {
@@ -410,7 +410,7 @@ export async function launch(jobId: string) {
     ...(refs.length ? { refs } : {}),
     ...(links.length ? { links } : {}),
     ...(market ? { market } : {}),
-    ...(post ? { post: { postId: post.id, type: post.type, platforms: post.platforms, brief: post.brief, dialect: post.dialect, aiImage: post.ai_image, slides: post.slides ?? null, ...(post.placement === "story" || post.placement === "cover" ? { placement: post.placement } : {}), ...(job.input.request ? { request: job.input.request } : {}), ...(postHistory.length ? { history: postHistory } : {}), ...postsSettings() } } : {}),
+    ...(post ? { post: { postId: post.id, type: post.type, platforms: post.platforms, brief: post.brief, dialect: post.dialect, aiImage: post.ai_image, slides: post.slides ?? null, ...(post.placement === "story" || post.placement === "cover" ? { placement: post.placement } : {}), ...(post.placement === "cover" && job.input.coverStyle ? { coverStyle: job.input.coverStyle } : {}), ...(job.input.request ? { request: job.input.request } : {}), ...(postHistory.length ? { history: postHistory } : {}), ...postsSettings() } } : {}),
   };
   // local runner: a capture whose agent already finished on this machine (but whose upload never reached the app) resumes
   // from that folder at the upload — a relaunch never repeats the agent and its model calls

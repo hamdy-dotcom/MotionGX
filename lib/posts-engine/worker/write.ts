@@ -92,7 +92,8 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
   const blocked = new Set(recent.slice(0, 3));
   // a cover picks from the cover kinds (campaign photo, product hero, graphic system, place, detail), whatever the feed used
   const COVER_FORMATS: Format[] = ["people_moment", "brand_pattern", "place_scene"];
-  const allowed = post.placement === "cover" ? COVER_FORMATS : (Object.keys(FORMATS) as Format[]).filter((f) => !blocked.has(f));
+  const chosen: Format | null = post.coverStyle ? ({ people: "people_moment", graphic: "brand_pattern", place: "place_scene" } as const)[post.coverStyle] : null;
+  const allowed = post.placement === "cover" ? (chosen ? [chosen] : COVER_FORMATS) : (Object.keys(FORMATS) as Format[]).filter((f) => !blocked.has(f));
   const used = (f: Format) => recent.filter((x) => x === f).length;
   const fresh = [...allowed].sort((a, b) => used(a) - used(b)).slice(0, 4);
   // image mode: each slide is one generated image — its exact words, and the whole picture described for the image model

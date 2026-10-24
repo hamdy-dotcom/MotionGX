@@ -54,7 +54,9 @@ export async function createPost(_prev: CreatePostState, formData: FormData): Pr
     const { error: pe } = await supabase.from("posts").update({ placement }).eq("id", post.id);
     if (pe) console.error("[createPost] placement not saved (is migration 0014 applied?)", { code: pe.code, message: pe.message });
   }
-  after(() => startPostGeneration(post.id));
+  const cs = String(formData.get("cover_style") ?? "");
+  const coverStyle = placement === "cover" && (cs === "people" || cs === "graphic" || cs === "place") ? cs : null;
+  after(() => startPostGeneration(post.id, { coverStyle }));
   revalidatePath("/posts");
   redirect({ href: `/posts/${post.id}`, locale });
   return {};

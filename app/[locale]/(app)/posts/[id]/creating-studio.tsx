@@ -54,12 +54,19 @@ export function CreatingStudio({ generation, imageUrl, brand, platforms, change,
   const forming = ["pst-forming", palette.length ? "pst-palette" : "", p.brand || brand.logoUrl ? "pst-logo" : "", stage === "image" ? "pst-working" : "", imageUrl ? "pst-reveal" : "", sharp ? "pst-sharp" : ""].join(" ");
   const checks = p.check ?? [], lastCheck = checks.at(-1), retried = checks.find((c) => !c.ok && c.attempt === 0);
 
+  // a step that takes much longer than usual (most often the worker fetching the brand's files on a slow network):
+  // say so, so the screen never looks frozen
+  const stamps = Object.entries(generation as Record<string, unknown>).filter(([k, v]) => k.startsWith("at_") && typeof v === "string").map(([, v]) => Date.parse(v as string)).filter(Number.isFinite);
+  const lastMove = Math.max(started ?? 0, ...stamps);
+  const slow = stage !== "done" && lastMove > 0 && now - lastMove > (p.brand ? 75_000 : 40_000);
+
   // the feed: newest first
   const events: ReactNode[] = [];
   if (!p.brand)
     events.push(
       <Event key="start" icon="◐">
         <p>{t.rich(stage === "queued" ? "starting" : "brandReading", { ...boldTag, name: brand.name })}</p>
+        {slow ? <p style={{ marginTop: 6, fontSize: 13, color: "var(--pst-muted, #8b8996)" }}>{t("slowNetwork")}</p> : null}
         <div className="pst-swatchRow">{known.map(([k, v], i) => <i key={k} style={{ background: v, animation: `pst-pop .4s ${i * 0.12}s both` }} />)}</div>
         <span className="pst-dots" aria-hidden="true"><i /><i /><i /></span>
       </Event>,
@@ -140,6 +147,7 @@ export function CreatingStudio({ generation, imageUrl, brand, platforms, change,
             <div className={"pst-meter"}><span>{t("cost")}</span><b dir="ltr">${cost.toFixed(3)}</b></div>
             <div className={"pst-meter"}><span>{t("step")}</span><b style={{ fontSize: 15 }}>{current >= 0 ? t(`steps.${STEPS[current]}`) : t("queued")}</b></div>
           </div>
+          {slow && p.brand ? <p style={{ marginTop: 8, fontSize: 13, color: "var(--pst-muted, #8b8996)" }} role="status">{t("slowStep")}</p> : null}
           <div className="mt-4 flex flex-wrap gap-2">
             <button type="button" onClick={onCancel} disabled={cancelling} className="btn btn-white">{t("cancel")}</button>
           </div>

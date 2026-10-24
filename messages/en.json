@@ -539,7 +539,9 @@
       "starting": "<b>Getting the studio ready</b> for {name}…",
       "brandReading": "<b>Reading {name}'s identity</b> — logo, colours, fonts…",
       "bioOf": "{platform} page bio (with the cover)",
-      "storyLineOf": "The story's line on {platform}"
+      "storyLineOf": "The story's line on {platform}",
+      "slowNetwork": "The network is slower than usual — we're still fetching the brand's files and retrying on our own; nothing is stuck.",
+      "slowStep": "Slower than usual — still working on it."
     },
     "placement": {
       "feed": "Post",
@@ -663,7 +665,14 @@
     "refsCount": "{n, plural, one {# reference} other {# references}}",
     "waitUploads": "Wait until the files finish uploading.",
     "storyHint": "Short words on the image and one action; the top and bottom stay clear for the app's buttons.",
-    "coverHint": "The brand's promise and logo, sized for each platform, with the profile-picture corner kept clear."
+    "coverHint": "The brand's promise and logo, sized for each platform, with the profile-picture corner kept clear.",
+    "coverStyle": "Design kind",
+    "coverStyles": {
+      "auto": "Pick for me",
+      "people": "People of the brand's world",
+      "graphic": "The brand's graphic system",
+      "place": "A place from its world"
+    }
   },
   "library": {
     "title": "Library",
