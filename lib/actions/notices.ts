@@ -27,13 +27,40 @@ export async function getNotices(companyId: string): Promise<Notice[]> {
   return notices;
 }
 
-/** «لاحقاً» (hidden for a day), «مش لينا» (never again), or done (acted on) */
-export async function answerNotice(companyId: string, key: string, status: "later" | "dismissed" | "acted"): Promise<boolean> {
+/** «لاحقاً» (hidden for a day), «مش لينا» (never again), or done (acted on) — with what the notice said, for the history */
+export async function answerNotice(companyId: string, key: string, status: "later" | "dismissed" | "acted", notice?: Notice): Promise<boolean> {
   const ctx = await getAppContext();
   if (!/^[\w:.-]{3,120}$/.test(key)) return false;
   const until = status === "later" ? new Date(Date.now() + 864e5).toISOString() : null;
-  const { error } = await ctx.supabase.from("notice_states").upsert({ user_id: ctx.userId, workspace_id: ctx.workspace.id, company_id: companyId, key, status, until, updated_at: new Date().toISOString() }, { onConflict: "user_id,company_id,key" });
+  const row = { user_id: ctx.userId, workspace_id: ctx.workspace.id, company_id: companyId, key, status, until, updated_at: new Date().toISOString(), ...(notice ? { notice: snapshot(notice) } : {}) };
+  let { error } = await ctx.supabase.from("notice_states").upsert(row, { onConflict: "user_id,company_id,key" });
+  if (error?.code === "42703" || error?.code === "PGRST204") ({ error } = await ctx.supabase.from("notice_states").upsert({ ...row, notice: undefined }, { onConflict: "user_id,company_id,key" })); // before 0016
   return !error;
+}
+
+/** the notices just shown: kept as 'seen' (the history), without touching ones already answered */
+export async function markSeen(companyId: string, notices: Notice[]): Promise<void> {
+  const ctx = await getAppContext();
+  const now = new Date().toISOString();
+  const rows = notices.filter((n) => /^[\w:.-]{3,120}$/.test(n.key)).slice(0, 20).map((n) => ({ user_id: ctx.userId, workspace_id: ctx.workspace.id, company_id: companyId, key: n.key, status: "seen", seen_at: now, updated_at: now, notice: snapshot(n) }));
+  if (rows.length) await ctx.supabase.from("notice_states").upsert(rows, { onConflict: "user_id,company_id,key", ignoreDuplicates: true });
+}
+
+export type NoticeHistoryItem = { key: string; status: "seen" | "later" | "dismissed" | "acted"; at: string; notice: Notice };
+
+/** the notifications page's history: what was shown to this member for this brand, newest first */
+export async function getNoticeHistory(companyId: string): Promise<NoticeHistoryItem[]> {
+  const ctx = await getAppContext();
+  const { data, error } = await ctx.supabase.from("notice_states").select("key, status, notice, updated_at").eq("company_id", companyId).eq("user_id", ctx.userId).not("notice", "is", null).order("updated_at", { ascending: false }).limit(60);
+  if (error) return [];
+  return (data ?? []).map((r) => ({ key: r.key as string, status: r.status as NoticeHistoryItem["status"], at: r.updated_at as string, notice: r.notice as Notice }));
+}
+
+/** what a notice said, small and without client fields */
+function snapshot(n: Notice): Notice {
+  const { seen: _seen, ...rest } = n;
+  void _seen;
+  return JSON.stringify(rest).length > 6000 ? ({ key: n.key, kind: n.kind } as Notice) : (rest as Notice);
 }
 
 const KINDS = ["image", "carousel", "video", "text"] as const;
@@ -90,7 +117,7 @@ Write ONE idea for this brand. The brief is 2–5 sentences the studio will make
       schema: draftSchema,
     });
     if (!res.value) return { ok: false, error: "ai_failed" };
-    await answerNotice(companyId, notice.key, "acted");
+    await answerNotice(companyId, notice.key, "acted", notice);
     const day = notice.kind === "season" ? (res.value.day_offset <= notice.season.daysAway ? addDays(todayKey(), res.value.day_offset) : notice.season.from) : addDays(todayKey(), Math.min(res.value.day_offset, 3));
     const q = new URLSearchParams({ kind: res.value.kind, brief: `${res.value.title}\n\n${res.value.brief}`, day, company: companyId });
     return { ok: true, href: `/create?${q.toString()}` };

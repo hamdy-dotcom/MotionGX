@@ -1082,7 +1082,7 @@
     "seasonEye": "Coming up",
     "trendEye": "Trending in your industry today",
     "scheduleEye": "Calendar",
-    "now": "now",
+    "now": "Now ({n})",
     "today": "today",
     "tomorrow": "tomorrow",
     "inDays": "in {n} days",
@@ -1107,7 +1107,20 @@
     "open": "Open notices ({n})",
     "status_confirmed": "Date confirmed",
     "status_moved": "Date moved — this is the new one",
-    "status_added": "Newly announced"
+    "status_added": "Newly announced",
+    "title": "Notifications",
+    "close": "Close",
+    "history": "History",
+    "empty": "No notifications right now.",
+    "noHistory": "No history yet.",
+    "now_": "now",
+    "draftShort": "Draft an idea",
+    "st": {
+      "seen": "Seen",
+      "later": "Later",
+      "dismissed": "Hidden",
+      "acted": "Done"
+    }
   },
   "refs": {
     "add": "Add an image or video",

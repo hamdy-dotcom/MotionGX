@@ -11,12 +11,16 @@ import type { Market } from "@/lib/data/market";
 // a reminder to put ready work on the calendar. Each has a stable key; a member's answer (later / not for me / done)
 // hides it (notice_states).
 
-export type Notice =
+export type Notice = (
   | { key: string; kind: "season"; season: { id: string; name: string; angle: string; from: string; to: string | null; daysAway: number; ongoing: boolean; approx: boolean; countries: string[]; status: "confirmed" | "moved" | "added" | null; source: { url: string; title: string } | null } }
   | { key: string; kind: "trend"; trend: { id: string; title: string; why: string; angle: string; sources: { title: string; url: string }[] } }
-  | { key: string; kind: "schedule"; reason: "unscheduled" | "empty_week"; count: number };
+  | { key: string; kind: "schedule"; reason: "unscheduled" | "empty_week"; count: number }
+) & {
+  /** already shown to this member (it stays in the notifications panel; the pop-up shows only new ones) */
+  seen?: boolean;
+};
 
-type State = { key: string; status: "later" | "dismissed" | "acted"; until: string | null };
+type State = { key: string; status: "seen" | "later" | "dismissed" | "acted"; until: string | null };
 
 async function states(ctx: AppContext, companyId: string): Promise<State[]> {
   const { data, error } = await ctx.supabase.from("notice_states").select("key, status, until").eq("company_id", companyId).eq("user_id", ctx.userId);
@@ -48,7 +52,8 @@ export async function buildNotices(ctx: AppContext, companyId: string, market: M
     market.industry ? trendsFor(market.industry, market.countries).catch(() => null) : Promise.resolve(null as Trend[] | null),
     liveSeasons(market.countries).catch(() => undefined),
   ]);
-  const hidden = (key: string) => answers.some((a) => a.key === key && (a.status !== "later" || (a.until && a.until > new Date().toISOString())));
+  const hidden = (key: string) => answers.some((a) => a.key === key && a.status !== "seen" && (a.status !== "later" || (a.until && a.until > new Date().toISOString())));
+  const seen = new Set(answers.map((a) => a.key));
 
   const out: Notice[] = [];
   // 1. schedule reminders first: the brand's own work waiting
@@ -65,5 +70,5 @@ export async function buildNotices(ctx: AppContext, companyId: string, market: M
     out.push({ key: `season:${s.id}${s.status === "moved" ? `:${s.from}` : ""}`, kind: "season", season: { id: s.id, name: s.name[L], angle: s.angle[L], from: s.from, to: s.to ?? null, daysAway: s.daysAway, ongoing: s.ongoing, approx: Boolean(s.approx), countries: markets.slice(0, 3).map((c) => countryName(c, L)), status: s.status && s.status !== "cancelled" ? s.status : null, source: s.source ?? null } });
   }
 
-  return { notices: out.filter((n) => !hidden(n.key)), trendsPending: Boolean(market.industry) && trends === null };
+  return { notices: out.filter((n) => !hidden(n.key)).map((n) => ({ ...n, seen: seen.has(n.key) })), trendsPending: Boolean(market.industry) && trends === null };
 }
