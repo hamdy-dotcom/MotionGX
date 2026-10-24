@@ -41,9 +41,9 @@ export function TabBar() {
   return (
     <nav className="s-tabbar" aria-label={t("menu")}>
       {tab(ITEMS[0])}
-      {tab(ITEMS[1])}
+      {tab(ITEMS[1], t("plansShort"))}
       <Link href="/create" aria-label={t("create")}><span className="plus"><Icon d='<path d="M12 5v14M5 12h14"/>' /></span></Link>
-      {tab(ITEMS[3])}
+      {tab(ITEMS[3], t("calendarShort"))}
       {tab(ITEMS[4], t("brandShort"))}
     </nav>
   );

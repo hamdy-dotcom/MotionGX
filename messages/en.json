@@ -552,17 +552,19 @@
   "shell": {
     "menu": "Menu",
     "create": "Create new",
-    "today": "Today",
-    "plans": "Plans",
-    "library": "Library",
-    "calendar": "Calendar",
+    "today": "Home",
+    "plans": "Content plans",
+    "library": "My work",
+    "calendar": "Publishing calendar",
     "brand": "Brand kit",
     "brandShort": "Brand",
     "wallet": "Wallet",
     "account": "Account",
     "switchBrand": "Choose the brand",
     "addCompany": "Add a company",
-    "addFirst": "＋ Add your first company"
+    "addFirst": "＋ Add your first company",
+    "plansShort": "Plans",
+    "calendarShort": "Calendar"
   },
   "today": {
     "title": "What are we making for <b>{name}</b> today?",

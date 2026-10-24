@@ -56,7 +56,8 @@ export default async function TodayPage({ params }: { params: Promise<{ locale: 
     { text: feature(facts.key_features?.[0]) || feature(facts.offers?.[1]) || t("howItWorks"), kind: "video", tag: "REEL · 30S" },
     { text: t("reasons", { n: Math.min(3, (facts.key_features?.length ?? 0) + (facts.offers?.length ?? 0)) || 3, name: brand.name }), kind: "carousel", tag: "CAROUSEL · LI + IG" },
   ];
-  const frames = works.filter((w) => w.status !== "failed").slice(0, 14);
+  // the strip shows designs: no text-only posts (no image to show)
+  const frames = works.filter((w) => w.status !== "failed" && !(w.kind === "post" && w.type === "text")).slice(0, 14);
 
   return (
     <section className="s-screen">
@@ -66,7 +67,7 @@ export default async function TodayPage({ params }: { params: Promise<{ locale: 
       <div className="s-reel" aria-label={t("recent")}>
         <div className="s-track">
           {(frames.length ? [...frames, ...frames] : []).map((w, i) => (
-            <Link key={`${w.id}-${i}`} href={w.href} className={`s-frame${w.kind === "video" && w.type === "9:16" ? " v" : ""}`} data-tc={`Nº ${String((i % frames.length) + 1).padStart(3, "0")}`} style={w.thumb ? { backgroundImage: `url(${w.thumb})` } : undefined} aria-label={w.title}>
+            <Link key={`${w.id}-${i}`} href={w.href} className={`s-frame${(w.kind === "video" && w.type === "9:16") || w.type === "story" ? " v" : w.type === "cover" ? " cover" : ""}`} data-tc={`Nº ${String((i % frames.length) + 1).padStart(3, "0")}`} style={w.thumb ? { backgroundImage: `url(${w.thumb})` } : undefined} aria-label={w.title}>
               {w.thumb ? null : <span className="tile" dir="auto">{w.title}</span>}
             </Link>
           ))}

@@ -118,7 +118,7 @@ body:has(.s-app) { background: var(--s-stage); color: var(--s-ink) }
 @keyframes s-roll { to { transform: translateX(50%) } } @keyframes s-roll-ltr { to { transform: translateX(-50%) } }
 .s-frame { position: relative; height: 180px; aspect-ratio: 4/5; background: var(--s-panel-2) center/cover; flex: none; border: 6px solid #fff; padding: 0; border-radius: 4px; box-shadow: 0 2px 4px rgba(20,20,30,.06), 0 18px 34px -14px rgba(20,20,30,.35); transform: rotate(var(--r, 0deg)); transition: transform .35s; display: block }
 .s-frame:nth-child(3n) { --r: -2deg } .s-frame:nth-child(3n+1) { --r: 1.5deg } .s-frame:nth-child(4n) { --r: -.5deg }
-.s-frame.v { aspect-ratio: 9/16 }
+.s-frame.v { aspect-ratio: 9/16 } .s-frame.cover { aspect-ratio: 1640/624; height: 140px; align-self: center }
 .s-frame::before { content: ""; position: absolute; top: -12px; left: 50%; width: 46px; height: 16px; transform: translateX(-50%) rotate(-3deg); background: rgba(255,240,200,.75); box-shadow: 0 1px 2px rgba(0,0,0,.08) }
 .s-frame::after { content: attr(data-tc); position: absolute; bottom: -26px; inset-inline-start: 0; font: 500 9.5px var(--s-mono); color: var(--s-muted); letter-spacing: .12em }
 .s-frame:hover { transform: rotate(0) translateY(-6px) scale(1.04); z-index: 2 }
