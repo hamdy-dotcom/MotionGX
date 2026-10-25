@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { routing, type Locale } from "@/i18n/routing";
 
@@ -28,16 +29,25 @@ export async function bootstrapAccount(locale: Locale): Promise<string> {
     throw profileError;
   }
 
+  // the first currency follows where the visitor is (the host's geo header); changed later on the wallet page
+  const country = await visitorCountry();
   const { data: workspaceId, error } = await supabase.rpc("bootstrap_workspace", {
     p_name: fullName || "Workspace",
-    p_country_code: "EG",
-    p_currency_code: "EGP",
+    p_country_code: country,
+    p_currency_code: CURRENCY_OF[country] ?? "USD",
   });
   if (error) {
     console.error("[bootstrap] bootstrap_workspace failed", { userId, code: error.code, message: error.message, details: error.details, hint: error.hint });
     throw error;
   }
   return workspaceId as string;
+}
+
+const CURRENCY_OF: Record<string, string> = { EG: "EGP", SA: "SAR", AE: "AED", KW: "KWD", JO: "JOD", US: "USD" };
+async function visitorCountry() {
+  const h = await headers();
+  const c = (h.get("x-vercel-ip-country") ?? h.get("cf-ipcountry") ?? "").toUpperCase();
+  return /^[A-Z]{2}$/.test(c) ? c : "EG";
 }
 
 /** Remember the UI language on the profile (the NEXT_LOCALE cookie covers anonymous visits). */

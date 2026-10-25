@@ -82,6 +82,9 @@ or new seasons added, with sources).
 - **No fixed prices: the workspace pays what its work costs.** Every AI job the user starts is billed at **2× its real
   AI cost** (`prices.cost_multiplier`; the extra 100% is the margin), from a prepaid wallet shown in its currency:
   videos, director edits, another direction, posts, change requests, plan ideas, "draft an idea".
+  - **Minimum**: a **new piece** (video, image post, carousel, story, page cover, text) is charged **at least 20 EGP**
+    (converted at the day's rate); edits, change requests, another direction, plan ideas, idea drafts and captures
+    have no minimum.
   - **Brand capture**: the workspace's **first brand is free**; later captures (new brands, re-reads) are billed at
     **1× the real cost** (`prices.capture_multiplier`).
   - **Free**: exports, downloads, on-screen edits (a re-render without a model call), text edits, undo / restore, and
@@ -90,7 +93,10 @@ or new seasons added, with sources).
   jobs like it × 2) and the wallet holds a margin above it; the job can't start on a short wallet. While it runs the
   cost ticks live; when it ends the real cost × 2 is charged (never more than the hold) and the rest is released. A job
   that fails on our side costs nothing; one the user cancels pays what it used.
-- The rail shows the balance; the wallet page shows the ledger, what is held, typical costs and top-up.
+- **Currency**: every amount (balance, estimates, live costs, ledger) is shown in the workspace's currency — set on
+  first sign-in from the visitor's country (EG → EGP, SA → SAR, AE → AED, KW → KWD, JO → JOD, else USD) and changed on
+  the wallet page by an owner / admin. The wallet itself stays in USD; `fx_rates` converts.
+- The rail shows the balance; the wallet page shows the ledger, what is held, typical costs, the currency and top-up.
 - **Top-up is a mock today** (`mockTopUp`: $5 / $10 / $25 / $50 via Vodafone Cash, InstaPay, Fawry, card — disabled in
   production, owner/admin only). A real payment provider (Paymob / Fawry) is a planned phase.
 

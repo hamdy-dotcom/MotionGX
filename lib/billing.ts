@@ -15,8 +15,22 @@ export type EstimateInput =
   | { kind: "capture" }
   | { kind: "idea" }
   | { kind: "plan" };
-/** usd: the billed estimate shown to the user; holdUsd: what is held until the job ends (billed units too) */
-export type Estimate = { usd: number; holdUsd: number; free: boolean };
+/** usd: the billed estimate shown to the user; holdUsd: what is held until the job ends; minimumUsd: the least a new
+ *  piece is charged (billed units, USD) */
+export type Estimate = { usd: number; holdUsd: number; free: boolean; minimumUsd: number };
+
+/** a new piece (video, post, story, cover, carousel, text) costs at least this — edits, changes, ideas and captures don't */
+export const MIN_NEW_PIECE_EGP = 20;
+const isNewPiece = (i: EstimateInput) => (i.kind === "video" && i.mode === "new") || (i.kind === "post" && !i.change);
+let egp: { at: number; rate: number } | null = null;
+/** the minimum in USD at the latest EGP rate */
+export async function minimumUsd() {
+  if (!egp || Date.now() - egp.at > 10 * 60_000) {
+    const { data } = await admin().from("fx_rates").select("usd_rate").eq("currency_code", "EGP").lte("rate_date", new Date().toISOString().slice(0, 10)).order("rate_date", { ascending: false }).limit(1).maybeSingle();
+    egp = { at: Date.now(), rate: Number(data?.usd_rate) || 50 };
+  }
+  return r4(MIN_NEW_PIECE_EGP / egp.rate);
+}
 
 export class InsufficientBalance extends Error {
   constructor(public needUsd: number, public availableUsd: number) { super("insufficient_balance"); }
@@ -108,9 +122,10 @@ export async function estimate(workspaceId: string, i: EstimateInput): Promise<E
   const free = i.kind === "capture" && (await firstCaptureFree(workspaceId));
   const factor = free ? 0 : i.kind === "capture" ? m.capture : m.cost;
   const real = await realEstimate(i);
-  if (real <= 0) return { usd: 0, holdUsd: 0, free };
+  const min = isNewPiece(i) ? await minimumUsd() : 0;
+  if (real <= 0 && !min) return { usd: 0, holdUsd: 0, free, minimumUsd: 0 };
   const hold = Math.min(capOf(i), Math.max(real * 3, FLOOR[i.kind]));
-  return { usd: r4(real * factor), holdUsd: r4(hold * factor), free };
+  return { usd: r4(Math.max(real * factor, min)), holdUsd: r4(Math.max(hold * factor, min)), free, minimumUsd: min };
 }
 
 // ── holds ────────────────────────────────────────────────────────────────────────────────────────────
@@ -122,7 +137,7 @@ export async function available(workspaceId: string) {
 type Refs = { videoId?: string | null; postId?: string | null; captureId?: string | null };
 /** hold an estimate before the job is made; throws InsufficientBalance when it does not fit */
 export async function reserve(workspaceId: string, kind: BillKind, est: Estimate, refs: Refs = {}, note?: string | null) {
-  const { data, error } = await admin().rpc("wallet_hold", { p_workspace_id: workspaceId, p_kind: kind, p_amount: est.holdUsd, p_video_id: refs.videoId ?? null, p_post_id: refs.postId ?? null, p_capture_id: refs.captureId ?? null, p_note: note?.slice(0, 200) ?? null });
+  const { data, error } = await admin().rpc("wallet_hold", { p_workspace_id: workspaceId, p_kind: kind, p_amount: est.holdUsd, p_video_id: refs.videoId ?? null, p_post_id: refs.postId ?? null, p_capture_id: refs.captureId ?? null, p_note: note?.slice(0, 200) ?? null, p_minimum: est.minimumUsd });
   if (error) {
     if (/insufficient_balance/.test(error.message)) throw new InsufficientBalance(est.holdUsd, await available(workspaceId));
     throw new Error(`wallet_hold: ${error.message}`);
@@ -138,7 +153,7 @@ export async function attachHold(job: { id: string; workspace_id: string; kind: 
   q = refs.postId ? q.eq("post_id", refs.postId) : refs.videoId && job.kind === "video" ? q.eq("video_id", refs.videoId) : refs.captureId ? q.eq("capture_id", refs.captureId) : q.eq("id", "00000000-0000-0000-0000-000000000000");
   const { data: open } = await q.order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (open) { await db.from("wallet_holds").update({ job_id: job.id }).eq("id", open.id); return; }
-  const { data: id } = await db.rpc("wallet_hold", { p_workspace_id: job.workspace_id, p_kind: job.kind, p_amount: 0, p_video_id: refs.videoId ?? null, p_post_id: refs.postId ?? null, p_capture_id: refs.captureId ?? null, p_note: note?.slice(0, 200) ?? null });
+  const { data: id } = await db.rpc("wallet_hold", { p_workspace_id: job.workspace_id, p_kind: job.kind, p_amount: 0, p_video_id: refs.videoId ?? null, p_post_id: refs.postId ?? null, p_capture_id: refs.captureId ?? null, p_note: note?.slice(0, 200) ?? null, p_minimum: 0 });
   if (id) await db.from("wallet_holds").update({ job_id: job.id }).eq("id", id as string);
 }
 

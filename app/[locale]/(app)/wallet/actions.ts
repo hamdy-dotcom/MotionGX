@@ -42,3 +42,15 @@ export async function mockTopUp(amountUsd: number, method: string): Promise<TopU
   revalidatePath("/", "layout");
   return { ok: true, amountUsd };
 }
+
+/** the wallet page's currency picker (owner / admin): every amount in the studio is shown in it */
+export async function setWorkspaceCurrency(currency: string): Promise<{ ok: boolean }> {
+  const ctx = await getAppContext();
+  if (ctx.role !== "owner" && ctx.role !== "admin") return { ok: false };
+  const { data: rate } = await ctx.supabase.from("fx_rates").select("currency_code").eq("currency_code", currency).limit(1).maybeSingle();
+  if (!rate) return { ok: false };
+  const { error } = await ctx.supabase.from("workspaces").update({ currency_code: currency }).eq("id", ctx.workspace.id);
+  if (error) { console.error("[currency] update failed", { code: error.code, message: error.message }); return { ok: false }; }
+  revalidatePath("/", "layout");
+  return { ok: true };
+}

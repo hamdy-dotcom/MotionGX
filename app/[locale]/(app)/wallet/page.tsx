@@ -1,11 +1,12 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
 import { getFxRate, toLocal } from "@/lib/pricing";
-import { available, estimate } from "@/lib/billing";
+import { available, estimate, minimumUsd } from "@/lib/billing";
 import { formatDate, formatMoney, formatNumber } from "@/lib/format";
 import type { LedgerKind, LedgerRow } from "@/lib/types";
 import { TOP_UP_AMOUNTS_USD } from "@/lib/wallet";
 import { TopUp } from "./top-up";
+import { CurrencyPicker } from "./currency-picker";
 
 // the docked composer starts jobs from this route
 export const maxDuration = 800;
@@ -21,12 +22,12 @@ const KIND_KEY: Record<LedgerKind, "kindTopup" | "kindExport" | "kindRefund" | "
 export default async function WalletPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const { supabase, workspace } = await getAppContext();
+  const { supabase, workspace, role } = await getAppContext();
   const t = await getTranslations("wallet");
 
   const ws = workspace.id;
   // no price list: each piece costs what it costs — these are the typical (billed) costs right now
-  const [fx, availableUsd, post, carousel, story, cover, video30, video60, capture, ledgerRes] = await Promise.all([
+  const [fx, availableUsd, post, carousel, story, cover, video30, video60, capture, ratesRes, ledgerRes] = await Promise.all([
     getFxRate(supabase, workspace.currency_code),
     available(ws),
     estimate(ws, { kind: "post", type: "single" }),
@@ -36,6 +37,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
     estimate(ws, { kind: "video", lengthS: 30, mode: "new" }),
     estimate(ws, { kind: "video", lengthS: 60, mode: "new" }),
     estimate(ws, { kind: "capture" }),
+    supabase.from("fx_rates").select("currency_code"),
     supabase
       .from("wallet_ledger")
       .select("id, kind, amount_usd, amount_local, currency_code, fx_rate, note, created_at")
@@ -73,7 +75,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
                         <td>{t(KIND_KEY[row.kind])}</td>
                         <td dir="auto">{noteLabel(row.note, t)}</td>
                         <td className="s-num" style={{ color: positive ? "var(--s-ok)" : "var(--s-ink)" }} dir="ltr">
-                          {positive ? "+" : ""}{row.amount_local != null && row.currency_code ? formatNumber(Number(row.amount_local), locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : n(usd)}
+                          {positive ? "+" : ""}{row.amount_local != null && row.currency_code === workspace.currency_code ? formatNumber(Number(row.amount_local), locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : n(usd)}
                         </td>
                       </tr>
                     );
@@ -90,6 +92,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
             {heldUsd > 0.0001 ? <p style={{ color: "var(--s-gold)", margin: "8px 0 0" }}>{t("held", { amount: n(heldUsd) })}</p> : null}
             <p style={{ color: "var(--s-ink-2)", margin: "8px 0 0" }}>{t("estimate", { posts: formatNumber(posts, locale), videos: formatNumber(videos, locale) })}</p>
             <TopUp amounts={TOP_UP_AMOUNTS_USD} fxRate={fx} currency={workspace.currency_code} />
+            <CurrencyPicker key={workspace.currency_code} current={workspace.currency_code} options={[...new Set((ratesRes.data ?? []).map((r) => r.currency_code as string))].sort()} canEdit={role === "owner" || role === "admin"} />
           </div>
           <div className="s-panel">
             <p className="s-label">{t("typicalIn", { currency: cur })}</p>
@@ -97,7 +100,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
               <div key={k} className="s-count"><span>{t(k)}</span><b style={{ fontSize: 20 }} dir="ltr">~{n(e.usd)}</b></div>
             ))}
             <div className="s-count"><span>{t("typCapture")}</span><b style={{ fontSize: 20 }} dir="ltr">{capture.free ? t("freeFirst") : `~${n(capture.usd)}`}</b></div>
-            <p style={{ color: "var(--s-muted)", fontSize: 12.5, margin: "10px 0 0" }}>{t("howBilled")}</p>
+            <p style={{ color: "var(--s-muted)", fontSize: 12.5, margin: "10px 0 0" }}>{t("howBilled", { min: formatMoney(toLocal(await minimumUsd(), fx), workspace.currency_code, locale) })}</p>
           </div>
         </div>
       </div>

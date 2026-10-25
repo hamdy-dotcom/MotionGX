@@ -68,7 +68,7 @@ global: industry_trends (industry + region + day), season_updates / season_check
 | Table | Key columns | A row is |
 |---|---|---|
 | `wallet_ledger` | workspace; `kind` ∈ topup, usage, export (before 0017), refund, adjustment; signed `amount_usd`; `amount_local`, `currency_code`, `fx_rate`; `ref_render_id`; `ref_post_id`; `ref_hold_id` (0017); one usage charge per hold | an append-only money movement |
-| `wallet_holds` (0017) | workspace; `kind` ∈ video, post, capture, idea, plan; `amount_usd` (held); `video_id` / `post_id` / `capture_id` / `job_id`; `status` ∈ open, charged, released; `cost_usd` (real), `charged_usd` (billed) | one job's estimate held, then charged or released |
+| `wallet_holds` (0017) | workspace; `kind` ∈ video, post, capture, idea, plan; `amount_usd` (held); `video_id` / `post_id` / `capture_id` / `job_id`; `status` ∈ open, charged, released; `cost_usd` (real), `charged_usd` (billed), `minimum_usd` (0018: a new piece's floor) | one job's estimate held, then charged or released |
 | `prices` | `key` ∈ cost_multiplier (2), capture_multiplier (1); video_min / voiceover_min / post (no longer charged); `active_from` | a rate from a date |
 | `fx_rates` | `currency_code`, `usd_rate`, `rate_date` | a daily FX rate |
 
@@ -105,7 +105,7 @@ Helpers (security definer): `is_member(ws)`, `has_role(ws, roles)`, `can_edit(ws
 | `wallet_available(ws)` | read | balance − open holds |
 | `wallet_hold(ws, kind, amount, video, post, capture, note)` | signed-in (editor) / service | holds an estimate; raises `insufficient_balance` when it doesn't fit |
 | `billed_usd(ws, kind, cost, capture)` | read | the billing rule: × cost_multiplier; capture × capture_multiplier, 0 for the workspace's first finished capture |
-| `wallet_settle(hold, cost)` | service | charges the billed cost (≤ the hold, ≤ the balance) as a `usage` row, closes the hold |
+| `wallet_settle(hold, cost)` | service | charges the billed cost (≥ the hold's minimum, ≤ the hold, ≤ the balance) as a `usage` row, closes the hold |
 | `wallet_release(hold)` | service | closes a hold with no charge |
 | `export_video(video_id)` / `export_post(post_id)` | signed-in | free since 0017: a `renders` row / sets `exported_at` |
 | `charge_export(render_id)` | service | the old per-minute export charge (no longer called) |

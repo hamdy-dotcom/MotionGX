@@ -329,8 +329,10 @@
     "typVideo60": "60-second video",
     "typCapture": "Reading a new brand",
     "freeFirst": "First brand free",
-    "howBilled": "Everything is billed at what it actually costs, as it's made: before it starts we hold the expected amount, and when it ends we charge only what was used. If something fails on our side, you pay nothing. Downloads and exports are free.",
-    "kindUsage": "Usage"
+    "howBilled": "Everything is billed at what it actually costs, as it's made; any new piece (video, post, story, cover) costs at least {min}. Before it starts we hold the expected amount, and when it ends we charge only what was used. If something fails on our side, you pay nothing. Downloads and exports are free.",
+    "kindUsage": "Usage",
+    "currency": "Currency",
+    "currencyOwners": "Only the owner or an admin can change it."
   },
   "aiErrors": {
     "rate_limited": "You've hit the limit of 30 AI requests per workspace per hour. Try again a bit later.",
@@ -648,7 +650,7 @@
     "briefPlaceholder": "e.g. a weekend offer — short and friendly, with a clear call to sign up",
     "summary": "Summary",
     "priceAt": "Expected cost · {currency}",
-    "free": "You pay the actual cost only. We hold the expected amount until it's done and give back the rest.",
+    "free": "You pay the actual cost only (at least {min} for any new piece). We hold the expected amount until it's done and give back the rest.",
     "go": "Make it →",
     "going": "Starting…",
     "briefRequired": "Write the idea first.",

@@ -20,7 +20,7 @@ export type CreateProps = {
   brand: { id: string; name: string; dialect: Dialect; mark: ReactNode };
   initial: { kind: Kind; brief: string; day: string | null; ideaId: string | null; platforms: string[]; contentType?: ContentType };
   /** billed estimates, formatted in the workspace's currency */
-  prices: { video: Record<15 | 30 | 60, string>; image: string; carousel: string; story: string; cover: string; text: string; currency: string };
+  prices: { video: Record<15 | 30 | 60, string>; image: string; carousel: string; story: string; cover: string; text: string; min: string; currency: string };
 };
 
 /** The create screen: what, its options, the idea, and the brand-coloured summary that starts it. */
@@ -120,7 +120,7 @@ export function CreateForm({ brand, initial, prices }: CreateProps) {
         </div>
         <div className="fine">{t("priceAt", { currency: prices.currency })}</div>
         <div className="price"><small>~</small>{video ? prices.video[length] : prices[kind]}</div>
-        <div className="fine">{t("free")}</div>
+        <div className="fine">{t("free", { min: prices.min })}</div>
         <button type="button" className="go" onClick={go} disabled={pending || uploading}>{pending ? t("going") : t("go")}</button>
         {error ? <p className="err" role="alert">{error}</p> : null}
       </aside>

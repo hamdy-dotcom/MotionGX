@@ -1,5 +1,4 @@
 import type { CSSProperties, ReactNode } from "react";
-import { formatMoney } from "@/lib/format";
 import { estimate } from "@/lib/billing";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
@@ -8,7 +7,7 @@ import { listCompanies } from "@/lib/data/companies";
 import { activeCompany } from "@/lib/data/active-company";
 import { brandFontHref, brandLight } from "@/lib/brand/light";
 import { getFxRate, toLocal } from "@/lib/pricing";
-import { formatNumber } from "@/lib/format";
+import { formatMoney, formatNumber } from "@/lib/format";
 import { dirFor } from "@/i18n/routing";
 import { StudioMark } from "./mark";
 import { BrandSwitch } from "./brand-switch";
@@ -45,7 +44,7 @@ export async function StudioShell({ children }: { children: ReactNode }) {
         <Link href="/create" className="s-action"><span className="s-dot" style={{ background: "#fff" }} />{t("create")}</Link>
         <SideNav />
         <div className="foot">
-          <Link href="/wallet" className="s-ticket"><span><small>BUDGET</small><br />{t("wallet")}</span><b className="s-num">{balance}</b></Link>
+          <Link href="/wallet" className="s-ticket"><span><small>BUDGET</small><br />{t("wallet")}</span><b className="s-num">{balance} <small style={{ fontSize: ".62em", opacity: 0.7 }}>{ctx.workspace.currency_code}</small></b></Link>
           <AccountBox name={ctx.fullName} email={ctx.email} />
         </div>
       </aside>
