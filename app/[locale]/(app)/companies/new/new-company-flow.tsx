@@ -8,9 +8,9 @@ import { BrandEditor } from "../brand-editor";
 import { BrandFiles } from "../brand-files";
 import { ExtractSteps, SnapshotLink, STEP_LABEL } from "../extract-steps";
 import { useExtraction } from "../use-extraction";
-import { CaptureCodeForm, StepLog } from "@/components/live-capture";
+import { CaptureCodeForm, CaptureCost, StepLog, type CaptureBilling } from "@/components/live-capture";
 
-export function NewCompanyFlow({ liveEngine = false }: { liveEngine?: boolean }) {
+export function NewCompanyFlow({ liveEngine = false, billing }: { liveEngine?: boolean; billing: CaptureBilling }) {
   const t = useTranslations("companies");
   const [url, setUrl] = useState("");
   const [brand, setBrand] = useState<BrandDraft | null>(null);
@@ -57,6 +57,7 @@ export function NewCompanyFlow({ liveEngine = false }: { liveEngine?: boolean })
             {!x.running ? <ArrowIcon className="size-4" /> : null}
           </button>
         </div>
+        {liveEngine && !x.running ? <p className="mt-2 text-sm text-ink-muted">{billing.note}</p> : null}
         {x.invalidUrl ? (
           <p role="alert" className="mt-2 text-sm text-danger-ink">
             {t("invalidUrl")}
@@ -67,6 +68,7 @@ export function NewCompanyFlow({ liveEngine = false }: { liveEngine?: boolean })
           <>
             <p className="mt-3 text-sm text-ink-muted">{t("liveHint")}</p>
             <StepLog lines={x.log} />
+            <CaptureCost cost={x.cost} billing={billing} />
             {x.ask ? <CaptureCodeForm askedTo={x.ask.to} onSend={x.sendCode} /> : null}
           </>
         ) : null}

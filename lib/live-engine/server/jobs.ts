@@ -18,6 +18,7 @@ import { startSandbox } from "./runner-sandbox";
 import { insertLiveVersion } from "./versions";
 import { postsSettings } from "@/lib/posts/config";
 import { insertPostVersion, mergePostGeneration, setPostGeneration } from "@/lib/posts/server/versions";
+import { attachHold, billed, closeJobHold, estimate, firstCaptureFree, releasePiece, reserve } from "@/lib/billing";
 
 export type LiveMode = { kind: "new" } | { kind: "direction" } | { kind: "lines"; beats: ScriptBeat[] } | { kind: "edit"; instruction: string } | { kind: "rerender"; edits: NonNullable<NonNullable<JobFile["edit"]>["edits"]> };
 
@@ -120,10 +121,12 @@ export async function startBrandCapture(workspaceId: string, siteUrl: string, op
     const reuse = (rows as CaptureRow[] | null)?.find((c) => usable(c) || ["queued", "running"].includes(c.status));
     if (reuse) return { captureId: reuse.id, reused: true };
   }
+  const hold = await reserve(workspaceId, "capture", await estimate(workspaceId, { kind: "capture" }), {}, domain);
   const { data: cap, error } = await db.from("live_brand_captures").insert({ workspace_id: workspaceId, company_id: opts.companyId ?? null, site_url: url, domain, status: "queued" }).select("id").single();
   if (error || !cap) throw new Error(`live_brand_captures insert: ${error?.message}`);
   const { data: job, error: e2 } = await db.from("live_jobs").insert({ workspace_id: workspaceId, video_id: null, company_id: opts.companyId ?? null, capture_id: cap.id, kind: "capture", input: {}, status: "queued" }).select("id").single();
   if (e2 || !job) throw new Error(`live_jobs insert: ${e2?.message}`);
+  await db.from("wallet_holds").update({ capture_id: cap.id, job_id: job.id }).eq("id", hold);
   await launch(job.id);
   return { captureId: cap.id, reused: false };
 }
@@ -140,7 +143,7 @@ export async function captureProgress(workspaceId: string, captureId: string) {
   }
   const { data: cap } = await db.from("live_brand_captures").select("*").eq("id", captureId).eq("workspace_id", workspaceId).maybeSingle();
   if (!cap) return null;
-  const { data: job } = await db.from("live_jobs").select("id, status, stage, log, ask, error, done_steps").eq("capture_id", captureId).eq("kind", "capture").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const { data: job } = await db.from("live_jobs").select("id, status, stage, log, ask, error, done_steps, cost_usd").eq("capture_id", captureId).eq("kind", "capture").order("created_at", { ascending: false }).limit(1).maybeSingle();
   return {
     status: cap.status as string,
     stage: (job?.stage as string | null) ?? null,
@@ -150,6 +153,9 @@ export async function captureProgress(workspaceId: string, captureId: string) {
     error: (cap.error as string | null) ?? (job?.error as string | null) ?? null,
     profile: cap.status === "done" ? (cap.profile as Record<string, unknown> | null) : null,
     prefix: storagePath("brand/x", { workspaceId, captureId }).replace(/\/x$/, ""),
+    // what this capture costs the user so far (0 while it is the workspace's free first one)
+    costUsd: await billed(workspaceId, "capture", Number(job?.cost_usd ?? 0), captureId),
+    free: await firstCaptureFree(workspaceId, captureId),
   };
 }
 
@@ -176,12 +182,12 @@ export async function startLiveGeneration(videoId: string, mode: LiveMode) {
   const { data: video } = await db.from("videos").select("*").eq("id", videoId).single();
   if (!video) return;
   const { data: company } = await db.from("companies").select("id, website_url").eq("id", video.company_id).single();
-  if (!company?.website_url) return setGeneration(videoId, { stage: "error", mode: mode.kind, error: "brand missing" }, "failed");
+  if (!company?.website_url) { await releasePiece({ videoId }); return setGeneration(videoId, { stage: "error", mode: mode.kind, error: "brand missing" }, "failed"); }
 
   let prevJobId: string | null = null;
   if (mode.kind === "lines" || mode.kind === "edit" || mode.kind === "rerender") {
     const { data: prev } = await db.from("video_versions").select("live_job_id").eq("video_id", videoId).eq("engine", "live").order("version", { ascending: false }).limit(1).maybeSingle();
-    if (!prev?.live_job_id) return setGeneration(videoId, { stage: "edit_failed", mode: mode.kind }, "ready");
+    if (!prev?.live_job_id) { await releasePiece({ videoId }); return setGeneration(videoId, { stage: "edit_failed", mode: mode.kind }, "ready"); }
     prevJobId = prev.live_job_id;
   }
   const capture = await usableCapture(company.id);
@@ -195,8 +201,10 @@ export async function startLiveGeneration(videoId: string, mode: LiveMode) {
     .single();
   if (error || !job) {
     console.error("[live] could not create the video job", { videoId, message: error?.message });
+    await releasePiece({ videoId });
     return setGeneration(videoId, { stage: "error", mode: mode.kind, error: "could not start" }, mode.kind === "lines" || mode.kind === "edit" || mode.kind === "rerender" ? "ready" : "needs_direction");
   }
+  await attachHold(job as JobRow, { videoId }, video.title);
   await setGeneration(videoId, { stage: capture ? "queued" : "plan", mode: mode.kind, first: !capture }, "generating");
   if (capture) return launch(job.id);
   // a company saved before the live "Add company" flow has no capture yet: capture it now (once), the video waits
@@ -228,13 +236,13 @@ export async function startPostGeneration(postId: string, opts: { request?: stri
   if (!post) return;
   const capture = await postCapture(post.company_id);
   const mode = opts.request ? "edit" : "new";
-  if (!capture) return setPostGeneration(postId, { stage: "error", mode, error: "no_capture" }, opts.request ? "ready" : "failed");
+  if (!capture) { await releasePiece({ postId }); return setPostGeneration(postId, { stage: "error", mode, error: "no_capture" }, opts.request ? "ready" : "failed"); }
   let prevJobId: string | null = null;
   if (opts.request) {
     const q = db.from("post_versions").select("version, job_id").eq("post_id", postId);
     const { data: prev } = await (opts.fromVersion ? q.eq("version", opts.fromVersion) : q.order("version", { ascending: false }).limit(1)).maybeSingle();
     prevJobId = prev?.job_id ?? null;
-    if (!prevJobId) return setPostGeneration(postId, { stage: "error", mode, error: "no_version" }, "ready");
+    if (!prevJobId) { await releasePiece({ postId }); return setPostGeneration(postId, { stage: "error", mode, error: "no_version" }, "ready"); }
   }
   const { data: job, error } = await db
     .from("live_jobs")
@@ -243,8 +251,10 @@ export async function startPostGeneration(postId: string, opts: { request?: stri
     .single();
   if (error || !job) {
     console.error("[posts] could not create the post job", { postId, message: error?.message });
+    await releasePiece({ postId });
     return setPostGeneration(postId, { stage: "error", mode, error: "could not start" }, opts.request ? "ready" : "failed");
   }
+  await attachHold({ id: job.id, workspace_id: post.workspace_id, kind: "post" }, { postId }, post.title);
   await setPostGeneration(postId, { stage: "queued", mode, job_id: job.id, started_at: now(), progress: {} }, "generating");
   return launch(job.id);
 }
@@ -254,7 +264,7 @@ export async function startPostGeneration(postId: string, opts: { request?: stri
 export async function cancelPostJob(postId: string) {
   const db = admin();
   const { data: jobs } = await db.from("live_jobs").select("id").eq("post_id", postId).in("status", ["queued", "running"]);
-  for (const j of jobs ?? []) await patchJob(j.id, { status: "failed", error: "cancelled by the user" });
+  for (const j of jobs ?? []) { await patchJob(j.id, { status: "failed", error: "cancelled by the user" }); await closeJobHold(j.id, true); }
   const { count } = await db.from("post_versions").select("id", { count: "exact", head: true }).eq("post_id", postId);
   await setPostGeneration(postId, { stage: "cancelled" }, count ? "ready" : "failed");
 }
@@ -269,6 +279,7 @@ async function ensureCaptureJob(video: { id: string; workspace_id: string; compa
   if (error || !cap) throw new Error(`live_brand_captures insert: ${error?.message}`);
   const { data: job, error: e2 } = await db.from("live_jobs").insert({ workspace_id: video.workspace_id, video_id: video.id, company_id: video.company_id, capture_id: cap.id, kind: "capture", input: {}, status: "queued" }).select("id").single();
   if (e2 || !job) throw new Error(`live_jobs insert: ${e2?.message}`);
+  await attachHold({ id: job.id, workspace_id: video.workspace_id, kind: "capture" }, { captureId: cap.id }, url);
   await launch(job.id);
 }
 
@@ -585,6 +596,7 @@ async function finishJob(job: JobRow, summary: Record<string, unknown>) {
   await patchJob(job.id, { status: "done", stage: "done" });
   if (job.kind === "capture") {
     await db.from("live_brand_captures").update({ status: "done", updated_at: now() }).eq("id", job.capture_id!);
+    await closeJobHold(job.id, true);
     if (!job.company_id) return { ok: true }; // "Add company": the page picks brand.json up from the capture row
     // waiting video jobs continue with this capture (as the sandbox does within one run)
     const { data: waiting } = await db.from("live_jobs").select("id").eq("company_id", job.company_id).eq("kind", "video").eq("status", "queued").is("capture_id", null);
@@ -595,6 +607,7 @@ async function finishJob(job: JobRow, summary: Record<string, unknown>) {
     return { ok: true };
   }
   const fresh = (await getJob(job.id)) ?? job;
+  await closeJobHold(job.id, true);
   if (job.kind === "post") {
     const version = await insertPostVersion(fresh, summary);
     await setPostGeneration(job.post_id!, { stage: "done", mode: job.mode ?? "new", version, cost_usd: Number(Number(fresh.cost_usd).toFixed(4)), seconds: Math.round((Date.now() - new Date(job.created_at).getTime()) / 1000) }, "ready");
@@ -609,12 +622,14 @@ async function finishJob(job: JobRow, summary: Record<string, unknown>) {
 async function failJob(job: JobRow, error: string) {
   const db = admin();
   await patchJob(job.id, { status: "failed", error: error.slice(0, 2000) });
+  await closeJobHold(job.id, error.startsWith("cancelled by the user"));
   const targets: { videoId: string; mode: string }[] = [];
   if (job.kind === "capture") {
     if (job.capture_id) await db.from("live_brand_captures").update({ status: "failed", error: error.slice(0, 1000), updated_at: now() }).eq("id", job.capture_id);
     const { data: waiting } = !job.company_id ? { data: [] as { id: string; video_id: string | null; mode: string | null }[] } : await db.from("live_jobs").select("id, video_id, mode").eq("company_id", job.company_id).eq("kind", "video").eq("status", "queued").is("capture_id", null);
     for (const w of waiting ?? []) {
       await db.from("live_jobs").update({ status: "failed", error: "the brand capture failed", updated_at: now() }).eq("id", w.id);
+      await closeJobHold(w.id, false);
       if (w.video_id) targets.push({ videoId: w.video_id, mode: w.mode ?? "new" });
     }
   } else if (job.kind === "post" && job.post_id) {

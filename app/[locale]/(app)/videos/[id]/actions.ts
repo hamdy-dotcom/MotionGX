@@ -16,6 +16,7 @@ import { liveEngineEnabled } from "@/lib/live-engine/config";
 import { answerCode, companyCaptureId, reviveStalledJobs } from "@/lib/live-engine/server/jobs";
 import { liveRevision, restoreLive } from "@/lib/live-engine/server/versions";
 import type { CompositionEdits } from "@/lib/director-engine/edits";
+import { holdPiece, releasePiece } from "@/lib/billing";
 
 export type ActionResult = { ok: true } | { ok: false; error: AiErrorCode | "generic" };
 
@@ -59,25 +60,33 @@ async function startGeneration(videoId: string, mode: Parameters<typeof runGener
   } catch (err) {
     return { ok: false, error: toAiErrorCode(err) };
   }
+  // a live job holds its estimate first (the legacy engine of older videos is not billed)
+  const marker = await liveMarker(videoId, mode.kind);
+  if (marker.engine === "live") {
+    const { data: v } = await supabase.from("videos").select("length_s, title").eq("id", videoId).maybeSingle();
+    if (!v) return { ok: false, error: "generic" };
+    const hold = await holdPiece(workspace.id, { kind: "video", lengthS: v.length_s, mode: mode.kind }, { videoId }, v.title);
+    if (!hold.ok) return { ok: false, error: hold.error };
+  }
   const { error } = await supabase
     .from("videos")
-    .update({ status: "generating", generation: { stage: "queued", mode: mode.kind, ...(await liveMarker(videoId, mode.kind)), updated_at: new Date().toISOString() } })
+    .update({ status: "generating", generation: { stage: "queued", mode: mode.kind, ...marker, updated_at: new Date().toISOString() } })
     .eq("id", videoId);
-  if (error) return { ok: false, error: "generic" };
+  if (error) { await releasePiece({ videoId }); return { ok: false, error: "generic" }; }
   after(() => runGeneration(videoId, mode));
   revalidatePath(`/videos/${videoId}`);
   return { ok: true };
 }
 
 /** the progress panel shows the live engine's timing hint from the first poll */
-async function liveMarker(videoId: string, kind: string) {
-  if (kind === "new" || kind === "direction") return liveEngineEnabled() ? { engine: "live" } : {};
+async function liveMarker(videoId: string, kind: string): Promise<{ engine?: "live" }> {
+  if (kind === "new" || kind === "direction") return liveEngineEnabled() ? { engine: "live" as const } : {};
   const { supabase } = await getAppContext();
   const { data } = await supabase.from("video_versions").select("engine").eq("video_id", videoId).order("version", { ascending: false }).limit(1).maybeSingle();
-  return data?.engine === "live" ? { engine: "live" } : {};
+  return data?.engine === "live" ? { engine: "live" as const } : {};
 }
 
-/** "اتجاه تاني": a fresh treatment + composition. Free; counts toward the AI rate limit. */
+/** "اتجاه تاني": a fresh treatment + composition (billed at its real cost, like every job). */
 export async function anotherDirection(videoId: string) {
   return startGeneration(videoId, { kind: "direction" });
 }

@@ -184,7 +184,11 @@
     "kind_people": "People",
     "kind_background": "Background",
     "kind_partner_logo": "Partner logos",
-    "filesAll": "Everything captured"
+    "filesAll": "Everything captured",
+    "captureFree": "Reading your first brand is free.",
+    "captureEstimate": "Expected cost of reading the brand ~{price}",
+    "captureFreeNow": "This read is free — your first brand.",
+    "captureCostNow": "Cost so far: {price}"
   },
   "videos": {
     "title": "<b>New</b> video",
@@ -206,7 +210,6 @@
     "summaryVoice": "Voiceover: {voice}",
     "summaryNoVoice": "No voiceover",
     "price": "Price on export",
-    "priceNote": "Billed on {seconds}s. Drafts and previews are free; failed exports are refunded.",
     "writeScript": "Write the script",
     "writing": "Writing the script…",
     "briefRequired": "Describe the video.",
@@ -232,9 +235,9 @@
     "timeline": "<b>Timeline</b>",
     "voiceTrack": "Voiceover",
     "noVoice": "This video has no voiceover",
-    "export": "Export MP4 · {price}",
+    "export": "Export MP4",
     "exporting": "Exporting…",
-    "exportQueued": "Export queued — {price} charged to your wallet.",
+    "exportQueued": "Export queued.",
     "insufficient": "Not enough balance to export. Top up your wallet first.",
     "topUp": "Top up wallet",
     "version": "Version {n}",
@@ -292,9 +295,6 @@
   "wallet": {
     "title": "<b>Wallet</b>",
     "balance": "Current balance",
-    "minutesLeft": "<b>Minutes</b> left",
-    "withoutVoice": "Without voiceover",
-    "withVoice": "With voiceover",
     "topUp": "<b>Top up</b> wallet",
     "topUpHint": "The amount is locked in USD at top-up time.",
     "methods": "Payment method",
@@ -306,39 +306,39 @@
     "paying": "Topping up…",
     "topUpDone": "Added {amount}.",
     "paymentsSoon": "Real payments are coming soon.",
-    "priceList": "<b>Pricing</b>",
-    "priceVideo": "Video",
-    "priceVoice": "Voiceover",
-    "priceVoiceValue": "+{price} / min",
-    "priceRounding": "Billed per second, rounded up to the next 5 seconds.",
-    "priceDrafts": "Drafts and previews are free. You only pay on export.",
-    "priceRefund": "If an export fails, you're refunded automatically.",
     "transactions": "<b>Transactions</b>",
     "noTransactions": "No transactions yet.",
-    "colDate": "Date",
     "colKind": "Type",
     "colNote": "Details",
     "colLocal": "Amount",
-    "colUsd": "USD",
     "kindTopup": "Top-up",
     "kindExport": "Export",
     "kindRefund": "Refund",
     "kindAdjustment": "Adjustment",
     "studioTitle": "Budget",
-    "freeNote": "Creating and editing are free — you pay only at download",
+    "freeNote": "You pay what your work costs — no fixed prices",
     "balanceIn": "Balance · {currency}",
-    "estimate": "≈ {posts} posts or {minutes} minutes of video",
-    "pricesIn": "Prices · {currency}",
-    "pricePost": "Post — every platform",
-    "priceVideoMin": "Video — per minute",
-    "priceVoiceMin": "Voiceover — per minute"
+    "estimate": "≈ {posts} posts or {videos} 30-second videos",
+    "held": "Held for work in progress: {amount}",
+    "typicalIn": "Typical cost · {currency}",
+    "typPost": "Post — image",
+    "typCarousel": "Carousel — 3 slides",
+    "typStory": "Story",
+    "typCover": "Page cover",
+    "typVideo30": "30-second video",
+    "typVideo60": "60-second video",
+    "typCapture": "Reading a new brand",
+    "freeFirst": "First brand free",
+    "howBilled": "Everything is billed at what it actually costs, as it's made: before it starts we hold the expected amount, and when it ends we charge only what was used. If something fails on our side, you pay nothing. Downloads and exports are free.",
+    "kindUsage": "Usage"
   },
   "aiErrors": {
     "rate_limited": "You've hit the limit of 30 AI requests per workspace per hour. Try again a bit later.",
     "not_configured": "AI isn't connected yet. Contact your account admin.",
     "ai_failed": "The AI didn't respond. Please try again.",
     "ai_invalid": "The AI returned an invalid result. Please try again.",
-    "scrape_failed": "We couldn't read that website. Fill in the details yourself or try again."
+    "scrape_failed": "We couldn't read that website. Fill in the details yourself or try again.",
+    "insufficient_balance": "Your balance doesn't cover the expected cost. Top up your wallet and try again."
   },
   "visual": {
     "layout_hero": "Big statement",
@@ -414,7 +414,6 @@
     "dialect": "Language",
     "summary": "Your <b>post</b>",
     "price": "Price",
-    "priceNote": "Charged once, on the first download. Creating the post and changing it are free.",
     "create": "Create the post",
     "creating": "Creating…",
     "briefRequired": "Describe what the post is about.",
@@ -435,7 +434,6 @@
     "download": "Download",
     "downloadAll": "Download all slides",
     "downloading": "Preparing…",
-    "chargedNote": "Downloads of this post are free from now on.",
     "insufficient": "Not enough balance for this download — top up your wallet.",
     "editText": "Edit text",
     "save": "Save",
@@ -547,7 +545,10 @@
       "feed": "Post",
       "story": "Story",
       "cover": "Page cover"
-    }
+    },
+    "paidNote": "This post has cost {price} so far · downloads are free",
+    "downloadFree": "Downloads are free",
+    "changeEstimate": "Expected cost of the change ~{price}"
   },
   "shell": {
     "menu": "Menu",
@@ -646,8 +647,8 @@
     "brief": "The idea — what is it about?",
     "briefPlaceholder": "e.g. a weekend offer — short and friendly, with a clear call to sign up",
     "summary": "Summary",
-    "priceAt": "Price at download · {currency}",
-    "free": "Creating and editing are free.",
+    "priceAt": "Expected cost · {currency}",
+    "free": "You pay the actual cost only. We hold the expected amount until it's done and give back the rest.",
     "go": "Make it →",
     "going": "Starting…",
     "briefRequired": "Write the idea first.",
@@ -792,7 +793,8 @@
     "migrate": "Plans and the calendar need the database update 0013_plans_calendar.",
     "inCalendar": "On the calendar: {day}",
     "am": "{h} am",
-    "pm": "{h} pm"
+    "pm": "{h} pm",
+    "ideasCost": "Expected cost ~{price}"
   },
   "calendar": {
     "title": "<b>{name}</b> calendar · {month}",
@@ -877,7 +879,7 @@
     "working": "Director at work",
     "ready": "Ready",
     "another": "Another direction",
-    "export": "Export MP4 · {price}",
+    "export": "Export MP4",
     "download": "Download MP4",
     "topUp": "Top up wallet",
     "compTitle": "Video composition",
@@ -1027,12 +1029,13 @@
     "updating": "The director is updating the video",
     "directionStarted": "The director started a new idea — free",
     "exporting": "Exporting the full video — MP4 {w}×{h}",
-    "exportQueued": "Export started · {price} charged",
+    "exportQueued": "Export started",
     "exportDone": "Your video is ready — downloading",
     "exportFailed": "The export failed — nothing was charged, try again.",
     "insufficient": "Your balance isn't enough for this export.",
     "editFailed": "The edit couldn't be applied — the current version is unchanged.",
-    "editStale": "The video changed before your request arrived — reopen it and ask again."
+    "editStale": "The video changed before your request arrived — reopen it and ask again.",
+    "estimate": "Expected cost ~{price}"
   },
   "gallery": {
     "screens": "Captured screens ({n})",
@@ -1122,7 +1125,8 @@
       "later": "Later",
       "dismissed": "Hidden",
       "acted": "Done"
-    }
+    },
+    "draftNoBalance": "Your balance isn't enough — top up and try again."
   },
   "refs": {
     "add": "Add an image or video",

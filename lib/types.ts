@@ -15,7 +15,7 @@ export type Pace = (typeof PACES)[number];
 
 export type VideoStatus = "draft" | "generating" | "ready" | "review" | "exporting" | "failed" | "needs_direction";
 export type RenderStatus = "queued" | "rendering" | "done" | "failed";
-export type LedgerKind = "topup" | "export" | "refund" | "adjustment";
+export type LedgerKind = "topup" | "export" | "refund" | "adjustment" | "usage";
 export type Role = "owner" | "admin" | "editor" | "viewer";
 
 export type Workspace = {

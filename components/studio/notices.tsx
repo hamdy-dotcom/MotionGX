@@ -9,7 +9,7 @@ import type { Notice } from "@/lib/notices/build";
 /** The studio's notifications: a bell (top corner, away from the rail and the composer) with the count; a new notice
  *  pops up once under it; the panel lists what's active now and the history of everything shown (seen, done, later,
  *  hidden) for this brand. */
-export function Notices({ companyId }: { companyId: string | null }) {
+export function Notices({ companyId, draftCost }: { companyId: string | null; draftCost: string }) {
   const t = useTranslations("notices");
   const locale = useLocale();
   const router = useRouter();
@@ -58,7 +58,7 @@ export function Notices({ companyId }: { companyId: string | null }) {
     setBusy(n.key);
     const res = await draftFromNotice(companyId, n);
     setBusy(null);
-    if (!res.ok) { setError(t("draftFailed")); return; }
+    if (!res.ok) { setError(res.error === "insufficient_balance" ? t("draftNoBalance") : t("draftFailed")); return; }
     drop(n, "acted");
     setPanel(null);
     router.push(res.href);
@@ -81,7 +81,7 @@ export function Notices({ companyId }: { companyId: string | null }) {
         {n.kind === "schedule" ? (
           <Link href={n.reason === "unscheduled" ? "/calendar" : "/plans"} className="s-btn lit small" onClick={() => { drop(n, "acted"); setPanel(null); }}>{n.reason === "unscheduled" ? t("scheduleGo") : t("planGo")}</Link>
         ) : (
-          <button type="button" className="s-btn lit small" onClick={() => draft(n)} disabled={busy === n.key}>{busy === n.key ? t("drafting") : n.kind === "trend" ? t("draftTrend") : t("draftSeason")}</button>
+          <button type="button" className="s-btn lit small" onClick={() => draft(n)} disabled={busy === n.key}>{busy === n.key ? t("drafting") : n.kind === "trend" ? t("draftTrend") : t("draftSeason")} <small dir="ltr">~{draftCost}</small></button>
         )}
         <button type="button" className="s-btn ghost small" onClick={() => drop(n, "later")}>{t("later")}</button>
       </div>

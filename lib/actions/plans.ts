@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { metered } from "@/lib/billing";
 import { getAppContext } from "@/lib/context";
 import { brandDetails } from "@/lib/data/works";
 import { companyMarket } from "@/lib/data/market";
@@ -54,12 +55,13 @@ export async function suggestIdeas(planId: string, count: number, fresh: boolean
   const [{ data: company }, details] = await Promise.all([supabase.from("companies").select("name, website_url, default_dialect").eq("id", plan.company_id).single(), brandDetails(ctx, plan.company_id)]);
   const market = await companyMarket(ctx, plan.company_id);
   try {
-    const drafts = await writeIdeas({
+    // billed at its real cost (lib/billing): the estimate is held, the calls are measured and charged
+    const drafts = await metered(workspace.id, "plan", plan.notes?.slice(0, 80) || "content plan", async () => writeIdeas({
       workspaceId: workspace.id,
       brand: { name: company?.name ?? "", site: company?.website_url ?? "", tone: details.tone, tagline: details.tagline, audience: details.facts.audience ?? "", whatItDoes: details.facts.what_it_does ?? "", features: details.facts.key_features ?? [], offers: details.facts.offers?.length ? details.facts.offers : details.sellingPoints, numbers: (details.facts.numbers ?? []).map((n) => `${n.value} ${n.label}`), dialect: company?.default_dialect ?? "msa", industry: market.industry, countries: market.countries, seasons: await liveSeasons(market.countries).catch(() => undefined) },
       startsOn: plan.starts_on, endsOn: plan.ends_on, goals: plan.goals, mix: plan.mix, platforms: plan.platforms.length ? plan.platforms : ["instagram", "facebook"], notes: plan.notes,
       count: Math.min(40, Math.max(1, count)), avoid: kept.map((i) => i.title),
-    });
+    }));
     const base = kept.reduce((m, i) => Math.max(m, i.position), 0);
     if (drafts.length) {
       const { error } = await supabase.from("plan_ideas").insert(drafts.map((d, i) => ({ ...d, plan_id: planId, workspace_id: workspace.id, company_id: plan.company_id, position: base + i + 1 })));

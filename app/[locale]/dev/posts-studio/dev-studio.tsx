@@ -37,7 +37,7 @@ export function DevStudio() {
         {(["mobile", "desktop"] as const).map((x) => <button key={x} type="button" className="chip chip-white" aria-pressed={d === x} onClick={() => setD(x)}>{x}</button>)}
       </div>
       {view === "creating" ? (
-        <CreatingStudio generation={gen} imageUrl={image} brand={brand} platforms={["instagram", "facebook", "x"]} change={false} onCancel={() => {}} cancelling={false} />
+        <CreatingStudio money={(usd) => `$${usd.toFixed(3)}`} generation={gen} imageUrl={image} brand={brand} platforms={["instagram", "facebook", "x"]} change={false} onCancel={() => {}} cancelling={false} />
       ) : (
         <section className="panel"><PlatformPreview platform={p} device={d} image={IMG} text={"جاي جديد على سلر؟ ٥٠ ريال بونص مستنيينك 💚\n\nأول ٥ أوردرات يتسلّموا لعملائك، وتاخد عليهم بونص ٥٠ ريال."} hashtags={["دروبشيبنج", "السعودية", "سلر"]} brand={brand} /></section>
       )}

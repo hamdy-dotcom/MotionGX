@@ -1,6 +1,7 @@
 "use server";
 
 import { after } from "next/server";
+import { metered } from "@/lib/billing";
 import { z } from "zod";
 import { getAppContext } from "@/lib/context";
 import { buildNotices, type Notice } from "@/lib/notices/build";
@@ -96,7 +97,7 @@ export async function draftFromNotice(companyId: string, notice: Notice): Promis
   if (!moment) return { ok: false, error: "bad_request" };
   const dialect = { eg: "Egyptian colloquial Arabic", sa: "Saudi colloquial Arabic", gulf: "Gulf colloquial Arabic", lev: "Levantine colloquial Arabic", msa: "Modern Standard Arabic", en: "English" }[company.default_dialect as string] ?? "Arabic";
   try {
-    const res = await callTool({
+    const res = await metered(ctx.workspace.id, "idea", notice.kind === "season" ? notice.season.name : notice.kind === "trend" ? notice.trend.title : "idea", () => callTool({
       workspaceId: ctx.workspace.id,
       kind: "notice_draft",
       model: HAIKU,
@@ -115,7 +116,7 @@ ${moment}
 Write ONE idea for this brand. The brief is 2–5 sentences the studio will make the piece from.`,
       tool: draftTool,
       schema: draftSchema,
-    });
+    }));
     if (!res.value) return { ok: false, error: "ai_failed" };
     await answerNotice(companyId, notice.key, "acted", notice);
     const day = notice.kind === "season" ? (res.value.day_offset <= notice.season.daysAway ? addDays(todayKey(), res.value.day_offset) : notice.season.from) : addDays(todayKey(), Math.min(res.value.day_offset, 3));

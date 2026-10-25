@@ -8,6 +8,7 @@ import { brandDraftFrom } from "@/lib/live-engine/server/brand-draft";
 import { brandFiles } from "@/lib/live-engine/server/brand-files";
 import { brandCard } from "@/lib/live-engine/server/brand-card";
 import { captureGallery } from "@/lib/live-engine/server/capture-gallery";
+import { InsufficientBalance } from "@/lib/billing";
 
 /**
  * "طلّع الهوية" with VIDEO_ENGINE=live: the sandbox's capture (public crawl + sign-up agent + feature tour)
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
     await assertWithinRateLimit(ctx.workspace.id);
     return Response.json(await startBrandCapture(ctx.workspace.id, url, { refresh: Boolean(body.refresh), companyId: body.companyId ?? null }));
   } catch (err) {
+    if (err instanceof InsufficientBalance) return Response.json({ error: "insufficient_balance", needUsd: err.needUsd, availableUsd: err.availableUsd }, { status: 402 });
     console.error("[brand/capture] start failed", { url, err });
     return Response.json({ error: toAiErrorCode(err) }, { status: 500 });
   }

@@ -204,5 +204,6 @@ export async function logUsage(
 }
 
 export function toAiErrorCode(err: unknown): AiErrorCode {
+  if (err instanceof Error && err.message === "insufficient_balance") return "insufficient_balance"; // lib/billing InsufficientBalance
   return err instanceof AiError ? err.code : "ai_failed";
 }

@@ -79,13 +79,18 @@ writes a brand-true brief and opens Create. A daily web check keeps the seasons 
 or new seasons added, with sources).
 
 ### 4.7 Wallet and pricing
-- Creating, change requests, another direction and edits are free; the workspace **pays only for results**, from a
-  prepaid wallet shown in its currency (`fx_rates`):
-  - **Video export**: $1.50 per minute, billed per 5 s rounded up (voiceover +$1.00/min exists in `prices` but the
-    live / director engines make music-only videos). Charged when the export starts (`export_video` →
-    `charge_export`), refunded automatically if the render fails.
-  - **Post**: $0.50, charged once, on the post's first download (`export_post`).
-- The rail shows the balance; the wallet page lists the ledger, estimates posts / minutes left, and tops up.
+- **No fixed prices: the workspace pays what its work costs.** Every AI job the user starts is billed at **2× its real
+  AI cost** (`prices.cost_multiplier`; the extra 100% is the margin), from a prepaid wallet shown in its currency:
+  videos, director edits, another direction, posts, change requests, plan ideas, "draft an idea".
+  - **Brand capture**: the workspace's **first brand is free**; later captures (new brands, re-reads) are billed at
+    **1× the real cost** (`prices.capture_multiplier`).
+  - **Free**: exports, downloads, on-screen edits (a re-render without a model call), text edits, undo / restore, and
+    the shared background work (daily trends, season checks).
+- **Estimate → hold → charge**: before a job starts the user sees its expected cost (the median real cost of the last
+  jobs like it × 2) and the wallet holds a margin above it; the job can't start on a short wallet. While it runs the
+  cost ticks live; when it ends the real cost × 2 is charged (never more than the hold) and the rest is released. A job
+  that fails on our side costs nothing; one the user cancels pays what it used.
+- The rail shows the balance; the wallet page shows the ledger, what is held, typical costs and top-up.
 - **Top-up is a mock today** (`mockTopUp`: $5 / $10 / $25 / $50 via Vodafone Cash, InstaPay, Fawry, card — disabled in
   production, owner/admin only). A real payment provider (Paymob / Fawry) is a planned phase.
 
@@ -94,7 +99,7 @@ or new seasons added, with sources).
 1. **Brand-true** — only the brand's real facts, colours, fonts and screens; no invented features, prices or numbers.
 2. **Real product as the hero** — captured UI, shown whole, in the right device.
 3. **Arabic first** — dialect-correct copy and RTL layout by default.
-4. **Free to try, pay for results** — no AI cost passed to the user for drafts and edits; one clear price at download.
+4. **Pay for what it costs** — no fixed prices; every job shows its expected cost before and its real cost while it runs.
 5. **Show the work** — live progress screens with steps, time and AI cost while things are made.
 
 ## 6. Out of scope today (see the build plan)

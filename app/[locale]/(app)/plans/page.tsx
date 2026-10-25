@@ -9,6 +9,9 @@ import { addDays, todayKey } from "@/lib/dates";
 import { IDEA_COLUMNS, type Plan, type PlanIdea } from "@/lib/plans/types";
 import { StudioMark } from "@/components/studio/mark";
 import { PlansView } from "./plans-view";
+import { estimate } from "@/lib/billing";
+import { getFxRate, toLocal } from "@/lib/pricing";
+import { formatMoney } from "@/lib/format";
 
 // "make" on an idea starts a video or post job from this route
 export const maxDuration = 800;
@@ -41,6 +44,7 @@ export default async function PlansPage({ params }: { params: Promise<{ locale: 
         plan={plan}
         ideas={(ideasRes.data ?? []) as PlanIdea[]}
         works={works}
+        ideasCost={formatMoney(toLocal((await estimate(ctx.workspace.id, { kind: "plan" })).usd, await getFxRate(ctx.supabase, ctx.workspace.currency_code)), ctx.workspace.currency_code, ctx.locale)}
       />
     </section>
   );

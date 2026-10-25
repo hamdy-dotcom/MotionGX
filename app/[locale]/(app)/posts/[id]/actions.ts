@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getAppContext } from "@/lib/context";
 import { assertPostRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { cancelPostJob, startPostGeneration } from "@/lib/live-engine/server/jobs";
+import { holdPiece } from "@/lib/billing";
 import { LIVE_BUCKET } from "@/lib/live-engine/protocol";
 import { POST_PLATFORMS } from "@/lib/posts/config";
 import type { PostContent } from "@/lib/posts/server/versions";
@@ -24,6 +25,15 @@ async function nextVersion(postId: string) {
   return (data?.version ?? 0) + 1;
 }
 
+/** the post's job holds its estimate first; a Result to return when the wallet can't cover it */
+async function holdFor(postId: string, workspaceId: string, change: boolean): Promise<Result | null> {
+  const { supabase } = await getAppContext();
+  const { data: p } = await supabase.from("posts").select("type, placement, slides, title").eq("id", postId).maybeSingle();
+  if (!p) return { ok: false, error: "generic" };
+  const hold = await holdPiece(workspaceId, { kind: "post", type: p.type, placement: p.placement, slides: p.slides, change }, { postId }, p.title);
+  return hold.ok ? null : { ok: false, error: "insufficient", aiError: hold.error };
+}
+
 /** "Request a change": the worker rewrites / redesigns from the shown version */
 export async function requestPostChange(postId: string, version: number, request: string): Promise<Result> {
   const text = request.trim().slice(0, 1000);
@@ -34,6 +44,8 @@ export async function requestPostChange(postId: string, version: number, request
   } catch (err) {
     return { ok: false, error: "generic", aiError: toAiErrorCode(err) };
   }
+  const held = await holdFor(postId, workspace.id, true);
+  if (held) return held;
   const { error } = await supabase.from("posts").update({ status: "generating", generation: { stage: "queued", mode: "edit", updated_at: new Date().toISOString() } }).eq("id", postId);
   if (error) return { ok: false, error: "generic" };
   after(() => startPostGeneration(postId, { request: text, fromVersion: version }));
@@ -41,7 +53,7 @@ export async function requestPostChange(postId: string, version: number, request
   return { ok: true };
 }
 
-/** stop a post that is being made (nothing is charged: creating is free) */
+/** stop a post that is being made: what it used so far is charged, the rest of its hold released */
 export async function cancelPost(postId: string): Promise<Result> {
   if (!isId(postId)) return { ok: false, error: "generic" };
   const { supabase } = await getAppContext();
@@ -61,6 +73,8 @@ export async function retryPost(postId: string): Promise<Result> {
   } catch (err) {
     return { ok: false, error: "generic", aiError: toAiErrorCode(err) };
   }
+  const held = await holdFor(postId, workspace.id, false);
+  if (held) return held;
   await supabase.from("posts").update({ status: "generating", generation: { stage: "queued", mode: "new", updated_at: new Date().toISOString() } }).eq("id", postId);
   after(() => startPostGeneration(postId));
   revalidatePath(`/posts/${postId}`);
@@ -94,7 +108,7 @@ export async function undoPost(postId: string, version: number): Promise<Result>
   return { ok: true };
 }
 
-/** Download: the first one charges the wallet once (export_post); returns signed download links for the slides */
+/** Download (free: the post was paid for when it was made); returns signed download links for the slides */
 export async function downloadPost(postId: string, version: number, canvas: string | null): Promise<{ ok: true; files: { url: string; name: string }[] } | { ok: false; error: "generic" | "insufficient" }> {
   if (!isId(postId)) return { ok: false, error: "generic" };
   const { supabase } = await getAppContext();

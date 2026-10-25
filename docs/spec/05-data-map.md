@@ -67,8 +67,9 @@ global: industry_trends (industry + region + day), season_updates / season_check
 ### Money
 | Table | Key columns | A row is |
 |---|---|---|
-| `wallet_ledger` | workspace; `kind` ∈ topup, export, refund, adjustment; signed `amount_usd`; `amount_local`, `currency_code`, `fx_rate`; `ref_render_id`; `ref_post_id`; one export per render / per post, one refund per render | an append-only money movement |
-| `prices` | `key` ∈ video_min ($1.50), voiceover_min ($1.00), post ($0.50); `active_from` | a price from a date |
+| `wallet_ledger` | workspace; `kind` ∈ topup, usage, export (before 0017), refund, adjustment; signed `amount_usd`; `amount_local`, `currency_code`, `fx_rate`; `ref_render_id`; `ref_post_id`; `ref_hold_id` (0017); one usage charge per hold | an append-only money movement |
+| `wallet_holds` (0017) | workspace; `kind` ∈ video, post, capture, idea, plan; `amount_usd` (held); `video_id` / `post_id` / `capture_id` / `job_id`; `status` ∈ open, charged, released; `cost_usd` (real), `charged_usd` (billed) | one job's estimate held, then charged or released |
+| `prices` | `key` ∈ cost_multiplier (2), capture_multiplier (1); video_min / voiceover_min / post (no longer charged); `active_from` | a rate from a date |
 | `fx_rates` | `currency_code`, `usd_rate`, `rate_date` | a daily FX rate |
 
 ### Market and notifications (0014–0016)
@@ -101,10 +102,14 @@ Helpers (security definer): `is_member(ws)`, `has_role(ws, roles)`, `can_edit(ws
 | Function | Who | What |
 |---|---|---|
 | `bootstrap_workspace(name, country, currency)` | signed-in | idempotent first-workspace setup (the first user claims the demo workspace) |
-| `export_video(video_id)` | signed-in | latest version → `renders` row → `charge_export` → video `exporting` |
-| `export_post(post_id)` | signed-in | charges the post price once (first download), sets `exported_at`; raises `insufficient_balance` |
-| `charge_export(render_id)` | service | bills 5-second blocks × (video_min [+ voiceover_min]) per minute; locks the workspace; ledger row with FX |
-| `refund_render(render_id, error)` | service | marks failed, refund ledger row |
+| `wallet_available(ws)` | read | balance − open holds |
+| `wallet_hold(ws, kind, amount, video, post, capture, note)` | signed-in (editor) / service | holds an estimate; raises `insufficient_balance` when it doesn't fit |
+| `billed_usd(ws, kind, cost, capture)` | read | the billing rule: × cost_multiplier; capture × capture_multiplier, 0 for the workspace's first finished capture |
+| `wallet_settle(hold, cost)` | service | charges the billed cost (≤ the hold, ≤ the balance) as a `usage` row, closes the hold |
+| `wallet_release(hold)` | service | closes a hold with no charge |
+| `export_video(video_id)` / `export_post(post_id)` | signed-in | free since 0017: a `renders` row / sets `exported_at` |
+| `charge_export(render_id)` | service | the old per-minute export charge (no longer called) |
+| `refund_render(render_id, error)` | service | marks a render failed; refunds it if it was charged (exports before 0017) |
 | `current_price(key)`, `latest_fx_rate(currency)` | read helpers | |
 | triggers on `wallet_ledger` | — | `apply_ledger_entry` updates the balance; update / delete / truncate raise (append-only) |
 

@@ -18,7 +18,7 @@ const GEN_OF: Record<string, number> = { queued: 0, awaiting_code: 0, plan: 1, m
 
 export type CreatingBrand = { name: string; colors: BrandColor[]; logoUrl: string | null; logoOnDark: boolean | null; screens: string[] };
 
-export function CreatingVideo({ title, format, lengthS, createdAt, generation, progress, brand, edit, codeForm }: { title: string; format: string; lengthS: number; createdAt: string; generation: Record<string, unknown> | null; progress: VideoProgress | null; brand: CreatingBrand; edit: boolean; codeForm: ReactNode }) {
+export function CreatingVideo({ title, format, lengthS, createdAt, generation, progress, brand, edit, codeForm, money }: { title: string; format: string; lengthS: number; createdAt: string; generation: Record<string, unknown> | null; progress: VideoProgress | null; brand: CreatingBrand; edit: boolean; codeForm: ReactNode; money: (usd: number) => string }) {
   const t = useTranslations("videoStudio");
   const stage = String(generation?.stage ?? "queued");
   const capturing = progress?.kind === "capture";
@@ -135,7 +135,7 @@ export function CreatingVideo({ title, format, lengthS, createdAt, generation, p
           ) : null}
           <div className="pst-meters">
             <div className="pst-meter"><span>{t("time")}</span><b>{t("seconds", { n: Math.max(0, (now - started) / 1000).toFixed(1) })}</b></div>
-            <div className="pst-meter"><span>{t("cost")}</span><b dir="ltr">${cost.toFixed(3)}</b></div>
+            <div className="pst-meter"><span>{t("cost")}</span><b dir="ltr">{money(cost)}</b></div>
             <div className="pst-meter"><span>{t("step")}</span><b style={{ fontSize: 15 }}>{stage === "queued" && !progress ? t("queued") : t(`steps.${STEPS[current]}`)}</b></div>
           </div>
         </div>

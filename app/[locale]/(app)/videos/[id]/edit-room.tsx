@@ -41,7 +41,7 @@ export function EditRoom({
   bpm,
   drops,
   mood,
-  costUsd,
+  estimates,
   fxRate,
   currency,
   initialRender,
@@ -57,7 +57,8 @@ export function EditRoom({
   bpm: number | null;
   drops: number[];
   mood: string | null;
-  costUsd: number;
+  /** billed estimates (USD) of a director edit and of another direction */
+  estimates: { edit: number; direction: number };
   fxRate: number;
   currency: string;
   initialRender: RenderInfo | null;
@@ -140,7 +141,8 @@ export function EditRoom({
   const generating = status === "generating";
   const genMode = String(gen?.mode ?? "");
   const renderActive = render?.status === "queued" || render?.status === "rendering";
-  const price = formatMoney(toLocal(costUsd, fxRate), currency, locale);
+  // every amount is the billed one, in the workspace's currency
+  const money = (usd: number) => formatMoney(toLocal(usd, fxRate), currency, locale);
 
   const toast = useCallback((m: string) => {
     const el = toastRef.current;
@@ -515,7 +517,7 @@ export function EditRoom({
     if (render?.status === "done" && render.downloadUrl) { window.location.href = render.downloadUrl; return; }
     run("export", async () => {
       const res = await exportVideoAction(video.id);
-      if (res.ok) { setRender({ id: res.renderId, status: "queued", progress: 0, downloadUrl: null }); toast(t("exportQueued", { price: formatMoney(toLocal(res.costUsd, fxRate), currency, locale) })); }
+      if (res.ok) { setRender({ id: res.renderId, status: "queued", progress: 0, downloadUrl: null }); toast(t("exportQueued")); }
       else if (res.error === "insufficient") setNotice({ tone: "error", text: t("insufficient"), topUp: true });
       else throw new Error();
     });
@@ -572,8 +574,8 @@ export function EditRoom({
             </div>
           </div>
           <div className="er-chips">
-            <button className="er-btn ghost" onClick={onDirection} disabled={generating || busy === "direction"}>✦ {t("another")}</button>
-            <button className="er-btn lit" onClick={onExport} disabled={generating || renderActive || busy === "export"}>⬇ {render?.status === "done" && render.downloadUrl ? t("download") : t("export", { price })}</button>
+            <button className="er-btn ghost" onClick={onDirection} disabled={generating || busy === "direction"} title={t("estimate", { price: money(estimates.direction) })}>✦ {t("another")} <small dir="ltr">~{money(estimates.direction)}</small></button>
+            <button className="er-btn lit" onClick={onExport} disabled={generating || renderActive || busy === "export"}>⬇ {render?.status === "done" && render.downloadUrl ? t("download") : t("export")}</button>
           </div>
         </div>
 
@@ -840,6 +842,7 @@ export function EditRoom({
                     </label>
                     <div className="er-chips">{(["bigger", "deviceRight", "strongerBg", "fasterTitle", "textUp"] as const).map((k) => <button key={k} className="er-chip" onClick={() => setAsk((a) => (a ? `${a}، ${t(`sug.${k}`)}` : t(`sug.${k}`)))} disabled={generating}>{t(`sug.${k}`)}</button>)}</div>
                     <button className="er-btn lit" onClick={() => onAsk()} disabled={generating || busy === "ask"}>✦ {t("askGo", { n: s.n })}</button>
+                    <p className="er-hint">{t("estimate", { price: money(estimates.edit) })}</p>
                     {generating && genMode === "edit" ? (
                       <div>
                         <div className="er-steps">
@@ -847,7 +850,7 @@ export function EditRoom({
                         </div>
                         <div className="er-meters" style={{ marginTop: 10 }}>
                           <div>{t("mTime")}<b>{elapsed.toFixed(1)}s</b></div>
-                          <div>{t("mCost")}<b>${(progress?.cost ?? 0).toFixed(3)}</b></div>
+                          <div>{t("mCost")}<b dir="ltr">{money(progress?.cost ?? 0)}</b></div>
                           <div>{t("mFrames")}<b>{stepIdx >= 4 ? totalFrames : 0}</b></div>
                         </div>
                       </div>
@@ -869,7 +872,7 @@ export function EditRoom({
                           {versionNote(v, t)}
                           <small>{new Date(v.at).toLocaleString(locale, { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })} · {v.version === current.version ? t("currentVer") : t("tapRestore")}</small>
                         </span>
-                        <span className="c">${v.costUsd.toFixed(3)}</span>
+                        <span className="c" dir="ltr">{v.costUsd > 0 ? money(v.costUsd) : "—"}</span>
                         {v.version === current.version ? null : <button className="er-btn ghost small" style={{ gridColumn: "1/-1" }} onClick={() => onRestore(v.version)} disabled={generating || busy === "restore"}>↺ {t("restore", { v: v.version })}</button>}
                       </div>
                     ))}

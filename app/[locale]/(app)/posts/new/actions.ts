@@ -8,6 +8,7 @@ import { saveCreateRefs } from "@/lib/data/refs";
 import { redirect } from "@/i18n/navigation";
 import { assertPostRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
 import { startPostGeneration } from "@/lib/live-engine/server/jobs";
+import { holdFor, holdPiece, releaseHold } from "@/lib/billing";
 import { PLACEMENTS, PLACEMENT_PLATFORMS, POST_AI_IMAGE, POST_PLATFORMS, POST_TYPES } from "@/lib/posts/config";
 import { DIALECTS, type Dialect } from "@/lib/types";
 
@@ -38,7 +39,10 @@ export async function createPost(_prev: CreatePostState, formData: FormData): Pr
     return { aiError: toAiErrorCode(err) };
   }
 
+  // the estimate is held before anything is made (an empty wallet stops here)
   const firstLine = brief.split("\n")[0];
+  const hold = await holdPiece(workspace.id, { kind: "post", type, placement, slides }, {}, firstLine.slice(0, 120));
+  if (!hold.ok) return { aiError: hold.error };
   const { data: post, error } = await supabase
     .from("posts")
     .insert({ workspace_id: workspace.id, company_id: companyId, title: firstLine.length > 60 ? `${firstLine.slice(0, 57)}…` : firstLine, brief, type, platforms, dialect, ai_image: type === "text" ? "no" : aiImage, slides, status: "generating", generation: { stage: "queued", mode: "new", updated_at: new Date().toISOString() } })
@@ -46,8 +50,10 @@ export async function createPost(_prev: CreatePostState, formData: FormData): Pr
     .single();
   if (error || !post) {
     console.error("[createPost] insert failed", { code: error?.code, message: error?.message });
+    if (hold.holdId) await releaseHold(hold.holdId);
     return { error: "generic" };
   }
+  if (hold.holdId) await holdFor(hold.holdId, { postId: post.id });
   await placeCreated(supabase, "posts", post.id, formData);
   await saveCreateRefs(ctx, "posts", post.id, companyId, formData);
   if (placement !== "feed") {

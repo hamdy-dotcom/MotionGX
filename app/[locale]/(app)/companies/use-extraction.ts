@@ -14,7 +14,7 @@ export function normalizeInputUrl(url: string) {
   return /^https?:\/\//i.test(u) ? u : `https://${u}`;
 }
 
-type LiveProgress = { status: string; waitingCode: boolean; askedTo: string | null; log: string[]; error: string | null; brand: BrandDraft | null; raw: Record<string, unknown> | null };
+type LiveProgress = { status: string; waitingCode: boolean; askedTo: string | null; log: string[]; error: string | null; brand: BrandDraft | null; raw: Record<string, unknown> | null; costUsd?: number; free?: boolean };
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 
 /** Streams POST /api/brand/extract (NDJSON) and ticks each step as it finishes.
@@ -28,10 +28,13 @@ export function useExtraction(live = false) {
   const [started, setStarted] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const [ask, setAsk] = useState<{ captureId: string; to: string } | null>(null);
+  // the capture's billed cost so far (free while it is the workspace's first)
+  const [cost, setCost] = useState<{ usd: number; free: boolean } | null>(null);
 
   async function runLive(target: string, refresh: boolean, companyId?: string) {
     setLog([]);
     setAsk(null);
+    setCost(null);
     const res = await fetch("/api/brand/capture", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: target, refresh, companyId }) });
     if (res.status === 400) return "invalid" as const;
     const start = (await res.json().catch(() => ({}))) as { captureId?: string; reused?: boolean; error?: AiErrorCode };
@@ -44,6 +47,7 @@ export function useExtraction(live = false) {
       const p = r?.ok ? ((await r.json()) as LiveProgress) : null;
       if (p) {
         setLog(p.log);
+        setCost({ usd: Number(p.costUsd ?? 0), free: Boolean(p.free) });
         setAsk(p.waitingCode ? { captureId: start.captureId, to: p.askedTo ?? "" } : null);
         if (p.status === "done" && p.brand) return { brand: p.brand, raw: p.raw, cached: Boolean(start.reused) };
         if (p.status === "failed") {
@@ -133,5 +137,5 @@ export function useExtraction(live = false) {
 
   // Brand fields the user must fill in by hand (the page snapshot is a bonus, not a field).
   const failed = EXTRACT_STEPS.filter((s) => s !== "snapshot" && steps[s] === "failed");
-  return { run, running, steps, errorCode, invalidUrl, started, failed, log, ask, sendCode, live };
+  return { run, running, steps, errorCode, invalidUrl, started, failed, log, ask, sendCode, live, cost };
 }

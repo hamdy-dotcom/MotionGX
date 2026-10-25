@@ -9,6 +9,7 @@ import { redirect } from "@/i18n/navigation";
 import { runGeneration } from "@/lib/motion/app";
 import { liveEngineEnabled } from "@/lib/live-engine/config";
 import { assertWithinRateLimit, toAiErrorCode, type AiErrorCode } from "@/lib/ai/usage";
+import { holdFor, holdPiece, releaseHold } from "@/lib/billing";
 import { DIALECTS, FORMATS, GOALS, LENGTHS, PACES, type Dialect, type Goal, type Pace, type VideoFormat, type VideoLength } from "@/lib/types";
 
 export type CreateVideoState = { error?: "briefRequired" | "generic"; aiError?: AiErrorCode };
@@ -45,7 +46,10 @@ export async function createVideo(_prev: CreateVideoState, formData: FormData): 
     return { aiError: toAiErrorCode(err) };
   }
 
+  // the estimate is held before anything is made (an empty wallet stops here)
   const firstLine = brief.split("\n")[0];
+  const hold = live ? await holdPiece(workspace.id, { kind: "video", lengthS: length, mode: "new" }, {}, firstLine.slice(0, 120)) : ({ ok: true, holdId: null } as const);
+  if (!hold.ok) return { aiError: hold.error };
   const { data: video, error } = await supabase
     .from("videos")
     .insert({
@@ -67,8 +71,10 @@ export async function createVideo(_prev: CreateVideoState, formData: FormData): 
     .single();
   if (error || !video) {
     console.error("[createVideo] insert video failed", { code: error?.code, message: error?.message });
+    if (hold.holdId) await releaseHold(hold.holdId);
     return { error: "generic" };
   }
+  if (hold.holdId) await holdFor(hold.holdId, { videoId: video.id });
 
   await placeCreated(supabase, "videos", video.id, formData);
   await saveCreateRefs(ctx, "videos", video.id, companyId, formData);

@@ -15,7 +15,7 @@
 | Plans + calendar | plan setup → ideas → accept / swap / schedule / auto → make; month calendar with work, ideas and seasons | `plans`, `calendar` |
 | Seasons + trends | per-country seasons calendar, daily live web check (confirm / move / cancel / add), daily industry trends | `lib/market`, `lib/trends/daily.ts` |
 | Notifications | bell, one-time pop-up, panel Now / History, later / dismiss / acted, draft an idea | `components/studio/notices.tsx`, `lib/notices` |
-| Money | prepaid wallet, append-only ledger, FX, video export per 5 s, post on first download, refunds | migrations 0001–0006, `wallet` |
+| Money | prepaid wallet, append-only ledger, FX; usage billing: 2× real cost (capture 1×, first free), estimate → hold → charge, live costs | migrations 0001–0006, 0017, `lib/billing.ts`, `wallet` |
 | Jobs | resumable `live_jobs`, per-attempt callback tokens, 12-minute watchdog, AI usage logging + limits | `lib/live-engine/server`, `instrumentation.ts` |
 
 ## 2. Next — in order
@@ -24,19 +24,21 @@
 1. **Real payments**: Paymob (cards, wallets) and Fawry; webhook → `topup` ledger row; remove `mockTopUp` from production.
 2. **AI service unavailable** message when a provider has no credit or is down (today the job just fails).
 3. **Run the job runner off this machine**: test the sandbox runner end to end; today only the local detached worker is proven.
-4. **Repo hygiene**: fix the migration comments and `lib/types.ts` lengths (see the data map §7).
+4. **Measure every cost**: Anthropic web-search fees, Firecrawl credits and sandbox compute are not counted yet (their
+   jobs are billed on tokens only); GPT Image edits without a usage block book $0.
+5. **Repo hygiene**: fix the migration comments and `lib/types.ts` lengths (see the data map §7).
 
 ### Phase 2 — Clean up
-5. (Kept for now: 2 older videos use it.) Remove the legacy engine and the code that still touches dropped tables (`lib/motion/*`,
+6. (Kept for now: 2 older videos use it.) Remove the legacy engine and the code that still touches dropped tables (`lib/motion/*`,
    `lib/render/run.ts`, `/api/brand/extract`), the unused v2 tables and the `music` / `video-assets` buckets.
-6. Drop the unused `voices` seed (or wire real voiceover) and `ELEVENLABS_API_KEY`.
+7. Drop the unused `voices` seed (or wire real voiceover) and `ELEVENLABS_API_KEY`.
 
 ### Phase 3 — Grow (decided "later" with the user)
-7. **Publishing** straight to the platforms from the calendar.
-8. **Ad accounts** integration, then the **reply assistant** on top of it.
-9. **Learning from results** (what performed → next ideas).
-10. **Reading social pages' content** into the brand (beyond the handles saved today).
-11. **More formats**: profile picture, highlight icons, YouTube thumbnail, ad sizes.
+8. **Publishing** straight to the platforms from the calendar.
+9. **Ad accounts** integration, then the **reply assistant** on top of it.
+10. **Learning from results** (what performed → next ideas).
+11. **Reading social pages' content** into the brand (beyond the handles saved today).
+12. **More formats**: profile picture, highlight icons, YouTube thumbnail, ad sizes.
 
 ## 3. How a round is done
 

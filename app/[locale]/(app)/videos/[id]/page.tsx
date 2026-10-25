@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
-import { exportCostUsd, getFxRate, getPrices } from "@/lib/pricing";
+import { getFxRate } from "@/lib/pricing";
+import { estimate } from "@/lib/billing";
 import { briefFor, runtimeInputWithAssets } from "@/lib/motion/app";
 import type { Plan } from "@/lib/motion/plan";
 import type { MotionSpec } from "@/lib/motion/spec";
@@ -30,11 +31,10 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
 
   const ctx = await getAppContext();
   const { supabase, workspace } = ctx;
-  const [videoRes, versionRes, renderRes, prices, fx] = await Promise.all([
+  const [videoRes, versionRes, renderRes, fx] = await Promise.all([
     supabase.from("videos").select("*, companies(name, brand_profiles(colors))").eq("id", id).maybeSingle(),
     supabase.from("video_versions").select("*").eq("video_id", id).order("version", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("renders").select("id, status, progress, output_path, error, created_at").eq("video_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    getPrices(supabase),
     getFxRate(supabase, workspace.currency_code),
   ]);
 
@@ -96,11 +96,14 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
   const brand: CreatingBrand = { name: video.companies?.name ?? "", colors: video.companies?.brand_profiles?.colors ?? [], logoUrl: company?.logo_url ?? null, logoOnDark: company?.logo_on_dark ?? null, screens };
 
   // director / live versions open in the edit room: the player, the scenes on the beat, on-screen edits, the versions
-  let room: { versions: RoomVersion[]; bpm: number | null; drops: number[]; mood: string | null } | null = null;
+  let room: { versions: RoomVersion[]; bpm: number | null; drops: number[]; mood: string | null; estimates: { edit: number; direction: number } } | null = null;
   if (v?.engine === "live" && current) {
     const { data: rows } = await supabase.from("video_versions").select("version, created_at, qa, live_job_id").eq("video_id", id).order("version", { ascending: false }).limit(30);
     const jobIds = (rows ?? []).map((x) => x.live_job_id).filter((x): x is string => Boolean(x));
     const { data: jobs } = jobIds.length ? await supabase.from("live_jobs").select("id, mode, input").in("id", jobIds) : { data: [] };
+    // what each version cost the user: its job's charge (lib/billing)
+    const { data: holds } = jobIds.length ? await supabase.from("wallet_holds").select("job_id, charged_usd").in("job_id", jobIds) : { data: [] };
+    const charged = new Map((holds ?? []).map((h) => [h.job_id as string, Number(h.charged_usd ?? 0)]));
     const jobOf = new Map((jobs ?? []).map((j) => [j.id as string, j as { mode: string | null; input: { edit?: { request?: string; edits?: Record<string, unknown> } } | null }]));
     const versions: RoomVersion[] = (rows ?? []).map((x) => {
       const qa = (x.qa ?? {}) as { history?: { origin?: string; restored?: number }; summary?: { cost?: { per_video?: number } } };
@@ -113,12 +116,13 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
         request: job?.input?.edit?.request?.replace(/^Scene \d+ only \([^)]*\): /, "").split("\n")[0] ?? null,
         edits: Object.keys(job?.input?.edit?.edits ?? {}).length,
         restored: qa.history?.restored ?? null,
-        // a copied version (undo / restore) made no new cost
-        costUsd: origin === "restore" || origin === "undo" ? 0 : Number(qa.summary?.cost?.per_video ?? 0),
+        // a copied version (undo / restore) made no new cost; versions made before usage billing show none
+        costUsd: origin === "restore" || origin === "undo" || !x.live_job_id ? 0 : (charged.get(x.live_job_id) ?? 0),
       };
     });
     const script = (v.live_script ?? null) as LiveScript | null;
-    room = { versions, bpm: script?.bpm ?? null, drops: script?.music?.drops ?? [], mood: script?.music?.mood ?? null };
+    const [edit, direction] = await Promise.all([estimate(workspace.id, { kind: "video", lengthS: video.length_s, mode: "edit" }), estimate(workspace.id, { kind: "video", lengthS: video.length_s, mode: "direction" })]);
+    room = { versions, bpm: script?.bpm ?? null, drops: script?.music?.drops ?? [], mood: script?.music?.mood ?? null, estimates: { edit: edit.usd, direction: direction.usd } };
   }
 
   const r = renderRes.data;
@@ -141,7 +145,7 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
         bpm={room.bpm}
         drops={room.drops}
         mood={room.mood}
-        costUsd={exportCostUsd(video.length_s, video.voiceover, prices)}
+        estimates={room.estimates}
         fxRate={fx}
         currency={workspace.currency_code}
         initialRender={render}
@@ -159,7 +163,7 @@ export default async function StudioPage({ params }: { params: Promise<{ locale:
       companyName={video.companies?.name ?? ""}
       companyColors={video.companies?.brand_profiles?.colors ?? []}
       current={current}
-      costUsd={exportCostUsd(video.length_s, video.voiceover, prices)}
+      costUsd={0}
       fxRate={fx}
       currency={workspace.currency_code}
       initialRender={render}

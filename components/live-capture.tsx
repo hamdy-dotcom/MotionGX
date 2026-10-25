@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { SendIcon, SpinnerIcon } from "@/components/icons";
+import { formatMoney } from "@/lib/format";
+import { toLocal } from "@/lib/pricing";
 
 /** the live engine's SMS-code input (progress panel in the studio, "Add company" while the capture runs) */
 export function CaptureCodeForm({ askedTo, onSend }: { askedTo: string; onSend: (code: string) => Promise<boolean> }) {
@@ -56,3 +58,14 @@ export function StepLog({ lines }: { lines: string[] }) {
     </ol>
   );
 }
+
+/** a brand capture's cost while it runs: free (the workspace's first brand) or the billed amount so far */
+export function CaptureCost({ cost, billing }: { cost: { usd: number; free: boolean } | null; billing: CaptureBilling }) {
+  const t = useTranslations("companies");
+  const locale = useLocale();
+  if (!cost) return null;
+  return <p className="mt-2 text-sm text-ink-muted">{cost.free ? t("captureFreeNow") : t("captureCostNow", { price: formatMoney(toLocal(cost.usd, billing.fxRate), billing.currency, locale) })}</p>;
+}
+
+/** what the capture is expected to cost (server-made note) and how to show live amounts */
+export type CaptureBilling = { note: string; fxRate: number; currency: string };

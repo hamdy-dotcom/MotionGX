@@ -26,7 +26,7 @@
 | `/plans` **Content plans** | setup (period, rhythm, goals, mix, platforms, notes) → ideas + days panel | `savePlan`, `suggestIdeas`, `swapIdea`, `updateIdea`, `autoAssign`; make → `makeIdea` |
 | `/calendar?m=YYYY-MM` **Publishing calendar** | month grid (Sat-first): work, accepted ideas, seasons | day → `/create?day=`; drag / modal → `updateIdea`; make now → `makeIdea`; season → `draftFromNotice` |
 | `/library` **My work** | grid of videos & posts (filter, search), drawer per piece | links only |
-| `/wallet` | ledger (last 50), balance, posts / minutes left, top-up, price list | `mockTopUp` |
+| `/wallet` | ledger (last 50), balance, what is held, typical costs, top-up | `mockTopUp` |
 | `/videos/[id]` | **Edit Room** for live/director versions; the older Studio otherwise; `CreatingVideo` while the first version is made | see flow B |
 | `/posts/[id]?v=` | `CreatingStudio` while making; then versions, platform tabs, phone/desktop preview (feed / story / page header), slides, text panel | see flow C |
 | `/videos/new`, `/posts/new`, `/posts` | redirects → `/create?kind=…` / `/library` | — |
@@ -72,7 +72,7 @@
    - drag / resize / hide / retext → **Apply** → `applyEdits` → a `rerender` job (no model call);
    - **Ask the director** for one scene → `askDirectorScene` (an edit job resuming the agent);
    - another direction → `anotherDirection`; restore → `restoreVersion`.
-5. Export → `exportVideoAction` → RPC `export_video` (renders row + `charge_export` charges the wallet) →
+5. Export (free) → `exportVideoAction` → RPC `export_video` (a renders row) →
    `after(runRender)` → poll `getRenderStatus` → `renderDownloadUrl`; a failed render is refunded (`refund_render`).
    Not enough balance → "Top up".
 
@@ -89,7 +89,7 @@
    a slow step says so).
 6. Ready: platform previews, text per platform (copy / edit → `savePostText`), **request a change** →
    `requestPostChange` (free, from the shown version), undo → `undoPost`.
-7. Download → `downloadPost` → RPC `export_post` (charges once per post, on the first download) → signed links.
+7. Download (free) → `downloadPost` → RPC `export_post` (sets `exported_at`) → signed links.
 
 ### D. Content plans
 1. Setup: period (1 week / 2 weeks / 1 month / custom), posts per week (3 / 4 / 5 / daily), goals, kinds, platforms,
@@ -113,8 +113,11 @@
 ### F. Money
 - Top-up: `mockTopUp` only ($5 / $10 / $25 / $50; Vodafone Cash / InstaPay / Fawry / card; disabled in production;
   owner / admin) → `topup` ledger row with the FX rate locked.
-- Charges happen in exactly two places: video export (`export_video` → `charge_export`, refunded on failure) and a
-  post's first download (`export_post`). Everything else is free (counts only toward AI rate limits).
+- Usage billing (`lib/billing.ts`, migration 0017): every action that starts AI work first calls `holdPiece` (estimate →
+  `wallet_hold`; a short wallet returns `insufficient_balance` and nothing is made). The job takes the hold over
+  (`attachHold`); `finishJob` charges it (`wallet_settle`: real cost × 2, a capture × 1, the first capture free);
+  `failJob` releases it (cancel by the user charges what was used). App-side calls (plan ideas, "draft an idea") are
+  wrapped in `metered` (hold → measure the calls → charge). Live costs on the creating screens are the billed ones.
 
 ## 4. Navigation
 

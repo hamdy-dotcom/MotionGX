@@ -18,13 +18,15 @@ const LEN_DAYS: Record<Exclude<Len, "custom">, number> = { w1: 7, w2: 14, m1: 30
 
 export type PlansProps = {
   brand: { id: string; name: string; latin: string; dialect: string; palette: string[]; mark: ReactNode };
+  /** the billed estimate of writing a batch of ideas, formatted */
+  ideasCost: string;
   today: string;
   plan: Plan | null;
   ideas: PlanIdea[];
   works: Work[];
 };
 
-export function PlansView({ brand, today, plan: initialPlan, ideas: initialIdeas, works }: PlansProps) {
+export function PlansView({ brand, today, plan: initialPlan, ideas: initialIdeas, works, ideasCost }: PlansProps) {
   const t = useTranslations("plans");
   const tk = useTranslations("compose.kinds");
   const tp = useTranslations("posts.platform");
@@ -144,6 +146,7 @@ export function PlansView({ brand, today, plan: initialPlan, ideas: initialIdeas
             <div className="big-n">{want}</div>
             <p className="fine">{t("ideasNote")}</p>
             <button type="button" className="go" onClick={suggest} disabled={gen}>{t("suggest")}</button>
+            <p className="fine" style={{ marginTop: 8 }} dir="auto">{t("ideasCost", { price: ideasCost })}</p>
           </aside>
         </div>
         {toast}
@@ -159,7 +162,7 @@ export function PlansView({ brand, today, plan: initialPlan, ideas: initialIdeas
         <Rise markup={t.markup("workTitle", { b: (c) => `<b>${c}</b>`, name: escapeMarkup(brand.name), len: lenLabel })} style={{ margin: 0 }} />
         <div className="s-chips">
           <button type="button" className="s-btn ghost small" onClick={() => setPhase("setup")}>{t("edit")}</button>
-          <button type="button" className="s-btn ghost small" onClick={more} disabled={gen}>{t("more")}</button>
+          <button type="button" className="s-btn ghost small" onClick={more} disabled={gen} title={t("ideasCost", { price: ideasCost })}>{t("more")} <small dir="ltr">~{ideasCost}</small></button>
           <button type="button" className="s-btn lit small" onClick={async () => { if (!plan) return; const r = await autoAssign(plan.id); if (!r.ok) return fail(r.error); setIdeas(r.value.ideas); setMsg(r.value.placed ? t("placed", { n: r.value.placed }) : t("nothingToPlace")); }}>{t("auto")}</button>
         </div>
       </div>

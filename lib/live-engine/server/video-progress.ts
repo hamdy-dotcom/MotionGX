@@ -1,4 +1,5 @@
 import "server-only";
+import { billed } from "@/lib/billing";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /** What the video's job has done so far, read from its log (the director engine's tool lines) — for the live creating
@@ -62,7 +63,9 @@ export function parseVideoLog(lines: string[]): VideoEvent[] {
 /** the latest job of a video (the caller has already checked the user can see the video) */
 export async function videoProgress(videoId: string): Promise<VideoProgress | null> {
   // the video's newest job: the brand capture (a first video) until the video job itself starts
-  const { data } = await createAdminClient().from("live_jobs").select("kind, created_at, cost_usd, stage, log").eq("video_id", videoId).in("kind", ["capture", "video"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const { data } = await createAdminClient().from("live_jobs").select("kind, created_at, cost_usd, stage, log, workspace_id, capture_id").eq("video_id", videoId).in("kind", ["capture", "video"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (!data) return null;
-  return { kind: data.kind === "capture" ? "capture" : "video", startedAt: data.created_at as string, cost: Number(data.cost_usd ?? 0), step: (data.stage as string | null) ?? null, events: parseVideoLog((data.log ?? []) as string[]) };
+  // the cost as the user pays it (lib/billing): × the multiplier; a capture at cost, free when it is the first
+  const cost = await billed(data.workspace_id as string, data.kind === "capture" ? "capture" : "video", Number(data.cost_usd ?? 0), data.capture_id as string | null);
+  return { kind: data.kind === "capture" ? "capture" : "video", startedAt: data.created_at as string, cost, step: (data.stage as string | null) ?? null, events: parseVideoLog((data.log ?? []) as string[]) };
 }

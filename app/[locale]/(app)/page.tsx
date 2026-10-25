@@ -41,7 +41,7 @@ export default async function TodayPage({ params }: { params: Promise<{ locale: 
   const [works, details, spendRes, fx] = await Promise.all([
     listWorks(ctx, brand.id, { limit: 40 }),
     brandDetails(ctx, brand.id),
-    ctx.supabase.from("wallet_ledger").select("amount_usd").eq("workspace_id", ctx.workspace.id).in("kind", ["export", "refund"]).gte("created_at", monthStart),
+    ctx.supabase.from("wallet_ledger").select("amount_usd").eq("workspace_id", ctx.workspace.id).in("kind", ["export", "refund", "usage"]).gte("created_at", monthStart),
     getFxRate(ctx.supabase, ctx.workspace.currency_code),
   ]);
   const spent = toLocal(Math.max(0, -(spendRes.data ?? []).reduce((s, r) => s + Number(r.amount_usd), 0)), fx);

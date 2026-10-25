@@ -1,17 +1,18 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
-import { getFxRate, getPrices, minutesLeft, toLocal } from "@/lib/pricing";
+import { getFxRate, toLocal } from "@/lib/pricing";
+import { available, estimate } from "@/lib/billing";
 import { formatDate, formatMoney, formatNumber } from "@/lib/format";
 import type { LedgerKind, LedgerRow } from "@/lib/types";
 import { TOP_UP_AMOUNTS_USD } from "@/lib/wallet";
 import { TopUp } from "./top-up";
-import { getPostPriceUsd } from "@/lib/posts/price";
 
 // the docked composer starts jobs from this route
 export const maxDuration = 800;
 
-const KIND_KEY: Record<LedgerKind, "kindTopup" | "kindExport" | "kindRefund" | "kindAdjustment"> = {
+const KIND_KEY: Record<LedgerKind, "kindTopup" | "kindExport" | "kindRefund" | "kindAdjustment" | "kindUsage"> = {
   topup: "kindTopup",
+  usage: "kindUsage",
   export: "kindExport",
   refund: "kindRefund",
   adjustment: "kindAdjustment",
@@ -23,10 +24,18 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
   const { supabase, workspace } = await getAppContext();
   const t = await getTranslations("wallet");
 
-  const [prices, fx, postUsd, ledgerRes] = await Promise.all([
-    getPrices(supabase),
+  const ws = workspace.id;
+  // no price list: each piece costs what it costs — these are the typical (billed) costs right now
+  const [fx, availableUsd, post, carousel, story, cover, video30, video60, capture, ledgerRes] = await Promise.all([
     getFxRate(supabase, workspace.currency_code),
-    getPostPriceUsd(supabase),
+    available(ws),
+    estimate(ws, { kind: "post", type: "single" }),
+    estimate(ws, { kind: "post", type: "carousel", slides: 3 }),
+    estimate(ws, { kind: "post", type: "single", placement: "story" }),
+    estimate(ws, { kind: "post", type: "single", placement: "cover" }),
+    estimate(ws, { kind: "video", lengthS: 30, mode: "new" }),
+    estimate(ws, { kind: "video", lengthS: 60, mode: "new" }),
+    estimate(ws, { kind: "capture" }),
     supabase
       .from("wallet_ledger")
       .select("id, kind, amount_usd, amount_local, currency_code, fx_rate, note, created_at")
@@ -36,12 +45,11 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
   ]);
 
   const ledger = (ledgerRes.data ?? []) as LedgerRow[];
-  const balanceUsd = workspace.wallet_balance_usd;
-  const left = minutesLeft(balanceUsd, prices);
+  const balanceUsd = workspace.wallet_balance_usd, heldUsd = Math.max(0, balanceUsd - availableUsd);
 
   const cur = formatMoney(0, workspace.currency_code, locale).replace(/[\d.,\s-]/g, "") || workspace.currency_code;
   const n = (usd: number) => formatNumber(toLocal(usd, fx), locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const posts = postUsd > 0 ? Math.floor(balanceUsd / postUsd) : 0;
+  const posts = post.usd > 0 ? Math.floor(availableUsd / post.usd) : 0, videos = video30.usd > 0 ? Math.floor(availableUsd / video30.usd) : 0;
 
   return (
     <section className="s-screen">
@@ -79,14 +87,17 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
           <div className="s-panel">
             <p className="s-label">{t("balanceIn", { currency: cur })}</p>
             <div className="s-bal" data-testid="wallet-balance">{n(balanceUsd)}</div>
-            <p style={{ color: "var(--s-ink-2)", margin: "8px 0 0" }}>{t("estimate", { posts: formatNumber(posts, locale), minutes: formatNumber(left.withoutVoice, locale) })}</p>
+            {heldUsd > 0.0001 ? <p style={{ color: "var(--s-gold)", margin: "8px 0 0" }}>{t("held", { amount: n(heldUsd) })}</p> : null}
+            <p style={{ color: "var(--s-ink-2)", margin: "8px 0 0" }}>{t("estimate", { posts: formatNumber(posts, locale), videos: formatNumber(videos, locale) })}</p>
             <TopUp amounts={TOP_UP_AMOUNTS_USD} fxRate={fx} currency={workspace.currency_code} />
           </div>
           <div className="s-panel">
-            <p className="s-label">{t("pricesIn", { currency: cur })}</p>
-            <div className="s-count"><span>{t("pricePost")}</span><b style={{ fontSize: 20 }}>{n(postUsd)}</b></div>
-            <div className="s-count"><span>{t("priceVideoMin")}</span><b style={{ fontSize: 20 }}>{n(prices.videoMinUsd)}</b></div>
-            <div className="s-count"><span>{t("priceVoiceMin")}</span><b style={{ fontSize: 20 }}>+{n(prices.voiceoverMinUsd)}</b></div>
+            <p className="s-label">{t("typicalIn", { currency: cur })}</p>
+            {([["typPost", post], ["typCarousel", carousel], ["typStory", story], ["typCover", cover], ["typVideo30", video30], ["typVideo60", video60]] as const).map(([k, e]) => (
+              <div key={k} className="s-count"><span>{t(k)}</span><b style={{ fontSize: 20 }} dir="ltr">~{n(e.usd)}</b></div>
+            ))}
+            <div className="s-count"><span>{t("typCapture")}</span><b style={{ fontSize: 20 }} dir="ltr">{capture.free ? t("freeFirst") : `~${n(capture.usd)}`}</b></div>
+            <p style={{ color: "var(--s-muted)", fontSize: 12.5, margin: "10px 0 0" }}>{t("howBilled")}</p>
           </div>
         </div>
       </div>

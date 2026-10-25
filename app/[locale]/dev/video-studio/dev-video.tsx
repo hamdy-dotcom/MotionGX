@@ -36,6 +36,7 @@ export function DevVideo({ screens }: { screens: string[] }) {
       brand={{ name: "منتوج", colors: [{ hex: "#3b82f6" }, { hex: "#60a5fa" }, { hex: "#0f1117" }, { hex: "#1a1d24" }, { hex: "#8b8fa8" }, { hex: "#ffffff" }], logoUrl: null, logoOnDark: true, screens }}
       edit={false}
       codeForm={null}
+      money={(usd) => `$${usd.toFixed(3)}`}
     />
   );
 }

@@ -3,8 +3,8 @@ import { Link } from "@/i18n/navigation";
 import { getAppContext } from "@/lib/context";
 import { listCompanies } from "@/lib/data/companies";
 import { activeCompany } from "@/lib/data/active-company";
-import { exportCostUsd, getFxRate, getPrices, toLocal } from "@/lib/pricing";
-import { getPostPriceUsd } from "@/lib/posts/price";
+import { getFxRate, toLocal } from "@/lib/pricing";
+import { estimate } from "@/lib/billing";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { dayMono } from "@/lib/dates";
 import { Rise, escapeMarkup } from "@/components/studio/rise";
@@ -24,7 +24,18 @@ export default async function CreatePage({ params, searchParams }: { params: Pro
   const q = await searchParams;
   const ctx = await getAppContext();
   const t = await getTranslations("create");
-  const [companies, prices, postUsd, fx] = await Promise.all([listCompanies(ctx), getPrices(ctx.supabase), getPostPriceUsd(ctx.supabase), getFxRate(ctx.supabase, ctx.workspace.currency_code)]);
+  const ws = ctx.workspace.id;
+  // what each kind is expected to cost (billed: the real cost × the multiplier), from the last finished jobs like it
+  const [companies, fx, ...est] = await Promise.all([
+    listCompanies(ctx),
+    getFxRate(ctx.supabase, ctx.workspace.currency_code),
+    ...([15, 30, 60] as const).map((lengthS) => estimate(ws, { kind: "video", lengthS, mode: "new" })),
+    estimate(ws, { kind: "post", type: "single" }),
+    estimate(ws, { kind: "post", type: "carousel", slides: 3 }),
+    estimate(ws, { kind: "post", type: "single", placement: "story" }),
+    estimate(ws, { kind: "post", type: "single", placement: "cover" }),
+    estimate(ws, { kind: "post", type: "text" }),
+  ]);
   const brand = await activeCompany(companies, q.company);
   if (!brand) {
     return (
@@ -46,7 +57,7 @@ export default async function CreatePage({ params, searchParams }: { params: Pro
       <CreateForm
         brand={{ id: brand.id, name: brand.name, dialect: brand.default_dialect, mark: <StudioMark company={brand} size={42} /> }}
         initial={{ kind, brief: (q.brief ?? "").slice(0, 2000), day, ideaId: q.idea ?? null, platforms: (q.platforms ?? "").split(",").filter(Boolean), contentType: isContentType(q.type) ? q.type : "standard" }}
-        prices={{ post: n(postUsd), video: { 15: n(exportCostUsd(15, false, prices)), 30: n(exportCostUsd(30, false, prices)), 60: n(exportCostUsd(60, false, prices)) }, currency: formatMoney(0, ctx.workspace.currency_code, ctx.locale).replace(/[\d.,\s-]/g, "") || ctx.workspace.currency_code }}
+        prices={{ video: { 15: n(est[0].usd), 30: n(est[1].usd), 60: n(est[2].usd) }, image: n(est[3].usd), carousel: n(est[4].usd), story: n(est[5].usd), cover: n(est[6].usd), text: n(est[7].usd), currency: formatMoney(0, ctx.workspace.currency_code, ctx.locale).replace(/[\d.,\s-]/g, "") || ctx.workspace.currency_code }}
       />
     </section>
   );

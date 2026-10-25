@@ -1,4 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
+import { formatMoney } from "@/lib/format";
+import { estimate } from "@/lib/billing";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getAppContext } from "@/lib/context";
@@ -52,7 +54,7 @@ export async function StudioShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <TabBar />
-      <Notices key={active?.id ?? "none"} companyId={active?.id ?? null} />
+      <Notices key={active?.id ?? "none"} companyId={active?.id ?? null} draftCost={formatMoney(toLocal((await estimate(ctx.workspace.id, { kind: "idea" })).usd, fx), ctx.workspace.currency_code, ctx.locale)} />
     </div>
   );
 }

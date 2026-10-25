@@ -336,6 +336,7 @@ export function Studio({
         brand={{ ...brand, screens }}
         createdAt={video.created_at}
         edit={false}
+        money={(usd) => formatMoney(toLocal(usd, fxRate), currency, locale)}
         codeForm={
           <CaptureCodeForm
             askedTo={askedTo}

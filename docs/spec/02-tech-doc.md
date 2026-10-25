@@ -125,8 +125,9 @@ The app unpacks packs on demand into an OS-temp cache (`lib/live-engine/server/c
   `ai_usage`. App-side calls log via `logUsage`.
 - Rate limits (`lib/ai/usage.ts`): 30 AI calls / hour / workspace, 30 post jobs / hour; capture, director agent and web
   research are logged but not limited.
-- Money: `wallet_ledger` (append-only, triggers), balance only via `apply_ledger_entry`; charges via `export_video` /
-  `charge_export` and `export_post`. Top-up is mocked (`mockTopUp`).
+- Money: `wallet_ledger` (append-only, triggers), balance only via `apply_ledger_entry`. Usage billing in
+  `lib/billing.ts` + migration 0017: estimates from the median real cost of past jobs, holds (`wallet_holds`), settle /
+  release when a job ends, `metered()` for app-side calls. Exports and downloads are free. Top-up is mocked (`mockTopUp`).
 
 ## 5. External services and env vars (names)
 

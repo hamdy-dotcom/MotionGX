@@ -1,4 +1,7 @@
 import { notFound } from "next/navigation";
+import { formatMoney } from "@/lib/format";
+import { captureBilling } from "@/lib/billing";
+import { getFxRate } from "@/lib/pricing";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
 import { listCompanies } from "@/lib/data/companies";
@@ -56,7 +59,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ locale
       </Heading>
       <p className="mt-3 max-w-2xl leading-relaxed text-ink-muted">{t("editSubtitle")}</p>
       <div className="mt-6">
-        <CompanyScreen market={await companyMarket(ctx, id)} companyId={company.id} brand={brand} hasSnapshot={hasSnapshot} liveEngine={liveEngineEnabled()} captureId={captureId} />
+        <CompanyScreen market={await companyMarket(ctx, id)} companyId={company.id} brand={brand} hasSnapshot={hasSnapshot} liveEngine={liveEngineEnabled()} captureId={captureId} billing={await captureBilling(ctx.workspace.id, ctx.workspace.currency_code, await getFxRate(ctx.supabase, ctx.workspace.currency_code), t, (v) => formatMoney(v, ctx.workspace.currency_code, locale))} />
       </div>
     </div>
   );

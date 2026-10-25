@@ -21,7 +21,7 @@ type Version = { version: number; content: PostContent; parent: number | null; o
 
 const Icon = ({ p, size = 16 }: { p: string; size?: number }) => <span aria-hidden="true" className="inline-flex" dangerouslySetInnerHTML={{ __html: PLATFORM_ICON(p, size) }} />;
 
-export function PostStudio({ post, brand, version, versions, images, liveImage, priceUsd, charged, fxRate, currency, locale }: { post: Post; brand: PreviewBrand; version: Version | null; versions: number[]; images: Record<string, string[]>; liveImage: string | null; priceUsd: number; charged: boolean; fxRate: number; currency: string; locale: string }) {
+export function PostStudio({ post, brand, version, versions, images, liveImage, changeUsd, paidUsd, fxRate, currency, locale }: { post: Post; brand: PreviewBrand; version: Version | null; versions: number[]; images: Record<string, string[]>; liveImage: string | null; changeUsd: number; paidUsd: number; fxRate: number; currency: string; locale: string }) {
   const t = useTranslations("posts");
   const ts = useTranslations("posts.studio");
   const tc = useTranslations("common");
@@ -71,6 +71,7 @@ export function PostStudio({ post, brand, version, versions, images, liveImage, 
           platforms={post.platforms as PostPlatformKey[]}
           change={post.generation.mode === "edit"}
           cancelling={pending}
+          money={money}
           onCancel={() => run(() => cancelPost(post.id), () => setNotice({ tone: "info", text: ts("cancelled") }))}
         />
         {notice ? <Notice {...notice} /> : null}
@@ -182,7 +183,7 @@ export function PostStudio({ post, brand, version, versions, images, liveImage, 
                 {pending ? <SpinnerIcon className="size-4" /> : "⬇"} {slides.length > 1 ? t("downloadAll") : t("download")}
                 {size ? <span dir="ltr">· {size.join("×")}</span> : null}
               </button>
-              <p className="mt-2 text-center text-xs text-ink-muted">{charged ? t("chargedNote") : `${money(priceUsd)} — ${t("priceNote")}`}</p>
+              <p className="mt-2 text-center text-xs text-ink-muted">{paidUsd > 0 ? t("paidNote", { price: money(paidUsd) }) : t("downloadFree")}</p>
             </>
           ) : null}
         </section>
@@ -198,6 +199,7 @@ export function PostStudio({ post, brand, version, versions, images, liveImage, 
           request={request}
           setRequest={setRequest}
           onRequest={() => run(() => requestPostChange(post.id, version.version, request), () => setRequest(""))}
+          estimate={money(changeUsd)}
         />
       </div>
     </div>
@@ -214,7 +216,7 @@ function Notice({ tone, text }: { tone: "error" | "info" | "ok"; text: string })
 }
 
 /** one platform's text: shown, copied or edited (a new version), and "Request a change" under it */
-function TextPanel({ platform, text, hashtags, disabled, onSave, request, setRequest, onRequest, placement = "feed" }: { platform: PostPlatformKey; text: string; hashtags: string[]; disabled: boolean; onSave: (text: string, tags: string[]) => void; request: string; setRequest: (s: string) => void; onRequest: () => void; placement?: "feed" | "story" | "cover" }) {
+function TextPanel({ platform, text, hashtags, disabled, onSave, request, setRequest, onRequest, estimate, placement = "feed" }: { platform: PostPlatformKey; text: string; hashtags: string[]; disabled: boolean; onSave: (text: string, tags: string[]) => void; request: string; setRequest: (s: string) => void; onRequest: () => void; estimate: string; placement?: "feed" | "story" | "cover" }) {
   const t = useTranslations("posts");
   const ts = useTranslations("posts.studio");
   const [editing, setEditing] = useState(false);
@@ -271,6 +273,7 @@ function TextPanel({ platform, text, hashtags, disabled, onSave, request, setReq
       <textarea id="request" value={request} onChange={(e) => setRequest(e.target.value)} rows={3} maxLength={1000} placeholder={t("requestPlaceholder")} className="w-full resize-y rounded-[20px] bg-white p-4 text-sm text-navy outline-none placeholder:text-ink-muted/70 focus:shadow-[inset_0_0_0_1.5px_var(--primary)]" />
       <div className="mt-3">
         <button type="button" disabled={disabled || !request.trim()} onClick={onRequest} className="btn btn-primary">{t("send")}</button>
+        <p className="mt-2 text-xs text-ink-muted">{t("changeEstimate", { price: estimate })}</p>
       </div>
     </section>
   );

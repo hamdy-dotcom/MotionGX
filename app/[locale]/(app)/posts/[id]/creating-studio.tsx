@@ -28,7 +28,7 @@ type Gen = {
   };
 };
 
-export function CreatingStudio({ generation, imageUrl, brand, platforms, change, onCancel, cancelling }: { generation: Gen; imageUrl: string | null; brand: PreviewBrand; platforms: PostPlatformKey[]; change: boolean; onCancel: () => void; cancelling: boolean }) {
+export function CreatingStudio({ generation, imageUrl, brand, platforms, change, onCancel, cancelling, money }: { generation: Gen; imageUrl: string | null; brand: PreviewBrand; platforms: PostPlatformKey[]; change: boolean; onCancel: () => void; cancelling: boolean; money: (usd: number) => string }) {
   const t = useTranslations("posts.studio");
   const p = generation.progress ?? {};
   const stage = String(generation.stage ?? "queued");
@@ -144,7 +144,7 @@ export function CreatingStudio({ generation, imageUrl, brand, platforms, change,
           </div>
           <div className={"pst-meters"}>
             <div className={"pst-meter"}><span>{t("time")}</span><b>{t("seconds", { n: started ? ((now - started) / 1000).toFixed(1) : "0.0" })}</b></div>
-            <div className={"pst-meter"}><span>{t("cost")}</span><b dir="ltr">${cost.toFixed(3)}</b></div>
+            <div className={"pst-meter"}><span>{t("cost")}</span><b dir="ltr">{money(cost)}</b></div>
             <div className={"pst-meter"}><span>{t("step")}</span><b style={{ fontSize: 15 }}>{current >= 0 ? t(`steps.${STEPS[current]}`) : t("queued")}</b></div>
           </div>
           {slow && p.brand ? <p style={{ marginTop: 8, fontSize: 13, color: "var(--pst-muted, #8b8996)" }} role="status">{t("slowStep")}</p> : null}

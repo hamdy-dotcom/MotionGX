@@ -10,10 +10,10 @@ import type { Market } from "@/lib/data/market";
 import { BrandFiles } from "../brand-files";
 import { ExtractSteps, SnapshotLink, STEP_LABEL } from "../extract-steps";
 import { useExtraction } from "../use-extraction";
-import { CaptureCodeForm, StepLog } from "@/components/live-capture";
+import { CaptureCodeForm, CaptureCost, StepLog, type CaptureBilling } from "@/components/live-capture";
 
 /** Company screen: edit brand + facts; "أعد القراءة" re-scrapes the site and refills the form. */
-export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, liveEngine = false, captureId = null, market }: { companyId: string; brand: BrandDraft; hasSnapshot?: boolean; liveEngine?: boolean; captureId?: string | null; market: Market }) {
+export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, liveEngine = false, captureId = null, market, billing }: { companyId: string; brand: BrandDraft; hasSnapshot?: boolean; liveEngine?: boolean; captureId?: string | null; market: Market; billing: CaptureBilling }) {
   const t = useTranslations("companies");
   const td = useTranslations("dashboard");
   const [brand, setBrand] = useState(initial);
@@ -57,6 +57,7 @@ export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, 
           {x.running ? <SpinnerIcon className="size-4" /> : <SparkIcon className="size-4" />}
           {x.running ? t("extracting") : t("reread")}
         </button>
+        {liveEngine && !x.running ? <span className="text-xs text-ink-muted">{billing.note}</span> : null}
         {x.started ? (
           <div className="w-full">
             <ExtractSteps steps={x.steps} running={x.running} errorCode={x.errorCode} hide={x.live ? ["snapshot"] : []} />
@@ -64,6 +65,7 @@ export function CompanyScreen({ companyId, brand: initial, hasSnapshot = false, 
               <>
                 <p className="mt-3 text-sm text-ink-muted">{t("liveHint")}</p>
                 <StepLog lines={x.log} />
+                <CaptureCost cost={x.cost} billing={billing} />
                 {x.ask ? <CaptureCodeForm askedTo={x.ask.to} onSend={x.sendCode} /> : null}
               </>
             ) : null}
