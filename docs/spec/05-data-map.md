@@ -3,10 +3,9 @@
 > The data model **as it stands** after migrations 0001–0016 (Supabase Postgres). Shapes of JSON columns are taken from
 > the code that writes them.
 
-> **Repo note:** `0007_v2_engine.sql` was applied but lives only on the `v2` branch (`git show v2:supabase/migrations/0007_v2_engine.sql`).
-> It dropped the v1 engine tables (`music_tracks`, `motion_refs`, `motion_treatments`, `motion_custom_behaviors`,
+> **Note:** `0007_v2_engine.sql` dropped the v1 engine tables (`music_tracks`, `motion_refs`, `motion_treatments`, `motion_custom_behaviors`,
 > `illustrations`, `illustration_uses`, the `vector` extension) and added six v2 tables; 0008 restored the columns the
-> live engine needs. The state below includes it. Bring 0007 into `main` so a fresh database can be rebuilt.
+> live engine needs. The state below includes it.
 
 ## 1. Relationships
 
@@ -138,10 +137,9 @@ Helpers (security definer): `is_member(ws)`, `has_role(ws, roles)`, `can_edit(ws
 
 ## 7. Drift to fix
 
-- 0007 missing from `main` (see top).
 - Migration comments that don't match the code: 0008 says captures live under `{ws}/brands/…` (code: `{ws}/captures/…`);
   0014 says references go to `brand-assets` (code: `live-engine/{ws}/refs/…`); the 0012 comment on `post_versions.content`
   is out of date.
 - `lib/types.ts` lists lengths 15/30/60 while the database allows 15/30/45/60/90.
-- Legacy code still references dropped objects (`lib/video/music.ts`, `lib/motion/store.ts`, `lib/motion/illustrations.ts`,
+- Legacy code still references dropped objects (`lib/motion/store.ts`, `lib/motion/illustrations.ts`,
   `lib/render/run.ts` → `music` bucket).

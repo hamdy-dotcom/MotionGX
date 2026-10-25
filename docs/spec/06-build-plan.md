@@ -24,11 +24,10 @@
 1. **Real payments**: Paymob (cards, wallets) and Fawry; webhook → `topup` ledger row; remove `mockTopUp` from production.
 2. **AI service unavailable** message when a provider has no credit or is down (today the job just fails).
 3. **Run the job runner off this machine**: test the sandbox runner end to end; today only the local detached worker is proven.
-4. **Repo hygiene**: bring `0007_v2_engine.sql` into `main`; sync `.env.example` and the README with the real env vars; fix
-   the migration comments and `lib/types.ts` lengths (see the data map §7).
+4. **Repo hygiene**: fix the migration comments and `lib/types.ts` lengths (see the data map §7).
 
 ### Phase 2 — Clean up
-5. Remove the legacy engine and the code that still touches dropped tables (`lib/video/music.ts`, `lib/motion/*`,
+5. (Kept for now: 2 older videos use it.) Remove the legacy engine and the code that still touches dropped tables (`lib/motion/*`,
    `lib/render/run.ts`, `/api/brand/extract`), the unused v2 tables and the `music` / `video-assets` buckets.
 6. Drop the unused `voices` seed (or wire real voiceover) and `ELEVENLABS_API_KEY`.
 

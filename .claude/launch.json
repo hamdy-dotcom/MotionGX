@@ -1,0 +1,51 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev-live",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VIDEO_ENGINE=live",
+        "LIVE_ENGINE_RUNNER=local",
+        "pnpm",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "dev-director",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VIDEO_ENGINE=director",
+        "LIVE_ENGINE_RUNNER=local",
+        "pnpm",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "dev-director-sonnet",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VIDEO_ENGINE=director",
+        "LIVE_ENGINE_RUNNER=local",
+        "DIRECTOR_MODEL=claude-sonnet-5-5",
+        "pnpm",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "dev-director-haiku",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VIDEO_ENGINE=director",
+        "LIVE_ENGINE_RUNNER=local",
+        "DIRECTOR_MODEL=claude-haiku-5-5",
+        "pnpm",
+        "dev"
+      ],
+      "port": 3000
+    }
+  ]
+}

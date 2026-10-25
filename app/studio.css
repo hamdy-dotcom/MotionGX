@@ -1,4 +1,4 @@
-/* The Creative Studio shell — ported 1:1 from docs/redesign/creative-studio-light.html with an s- prefix (the app's own
+/* The Creative Studio shell — ported 1:1 from the approved Creative Studio Light design with an s- prefix (the app's own
    .chip/.btn/.panel stay untouched for the creating screens). Plain global CSS: this pipeline does not scope modules and
    drops files that use :global. Light by design in both themes; every brand-driven colour comes from --s-brand/--s-brand-2,
    which the shell sets from the active company's palette. */

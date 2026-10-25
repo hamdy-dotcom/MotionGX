@@ -41,10 +41,10 @@ lib/
   posts/                   config, price, mockups (platform previews), server/versions
   market/                  countries, industries, seasons (researched calendar), live (daily web check)
   trends/, notices/, plans/, refs.ts, pricing.ts, wallet.ts, context.ts, supabase/{admin,browser,server}
-  motion/, render/, video/ legacy MotionSpec / Remotion engine (scheduled for removal)
-supabase/migrations/       0001–0016 (0007 lives on the v2 branch — see data map)
-scripts/                   live-engine (resume-local), music, refs, video, check-logical
-docs/                      spec/ (this pack), redesign/, engine plans
+  motion/, render/, video/ legacy MotionSpec / Remotion engine (kept for older videos)
+supabase/migrations/       0001–0016 (0007 = the v2 cleanup that dropped the v1 tables)
+scripts/                   live-engine (resume-local), motion + music (legacy engine render/music), check-logical, i18n-check
+docs/                      spec/ (this pack), licenses.md (third-party motion sources)
 ```
 
 ## 3. Engines
@@ -143,8 +143,8 @@ The app unpacks packs on demand into an OS-temp cache (`lib/live-engine/server/c
 | Other | `HEADFUL`, `FFMPEG_PATH`, `PORT` |
 | Legacy engine | `MOTIONGX_SPEC_MODEL`, `MOTIONGX_CAP_USD`, `MOTIONGX_STEMS_DIR`, `MOTIONGX_WS_TAG`, `MOTIONGX_DEBUG_PATCH`, `MOTIONGX_FORCE_RENDER_FAILURE` |
 
-`ELEVENLABS_API_KEY` is set locally but unused by the code. `.env.example` lists only 5 keys — keep it in sync with
-this table.
+`ELEVENLABS_API_KEY` is set locally but unused by the code. `.env.example` lists the variables with comments — keep it
+in sync with this table.
 
 ## 6. Security
 
@@ -172,7 +172,6 @@ this table.
 
 - The sandbox runner is untested; local runner only.
 - Payments are mocked; no real payment provider yet.
-- The legacy engine (and its code touching tables dropped in 0007: `music_tracks`, `motion_*`, `illustrations*`, the
-  `music` bucket) is scheduled for removal.
-- The README is stale (mentions migrations up to 0003, Haiku-only).
+- The legacy engine is kept so 2 older videos still open; parts of it (music library, illustrations, motion refs) use
+  tables dropped in 0007 and no longer work.
 - Post jobs restart from scratch when relaunched; composition and capture caches live in the OS temp folder.

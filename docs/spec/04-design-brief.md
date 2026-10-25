@@ -2,8 +2,8 @@
 
 > What the product looks and feels like **as implemented**. Sources of truth: `app/studio.css` (the studio, `s-` prefix),
 > `app/globals.css` (Tailwind tokens for the older screens: company editor, post page, sheets), `app/[locale]/(app)/videos/[id]/edit-room.css`
-> (the Edit Room, `er-` prefix), `lib/brand/light.ts` (brand-driven colour). The approved visual reference is
-> `docs/redesign/creative-studio-light.html` ("Creative Studio Light").
+> (the Edit Room, `er-` prefix), `lib/brand/light.ts` (brand-driven colour). The approved look is "Creative Studio Light"; this brief and
+> `app/studio.css` are its source of truth.
 
 ## 1. Personality
 

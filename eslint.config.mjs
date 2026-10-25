@@ -21,7 +21,6 @@ const eslintConfig = defineConfig([
     "scripts/music/out/**",
     ".venv/**",
     "public/preview/**",
-    "legacy/**",
     ".motion-check/**",
   ]),
 ]);
