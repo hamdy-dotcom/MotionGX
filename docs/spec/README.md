@@ -1,10 +1,10 @@
-# Prand — Spec
+# MotionGX — Spec
 
 The project **as implemented** in this repository (not demos or plans that were never built).
 
 | # | Doc | Answers |
 |---|---|---|
-| 1 | [Product doc](01-product-doc.md) | what Prand is, who it's for, what it does, pricing |
+| 1 | [Product doc](01-product-doc.md) | what MotionGX is, who it's for, what it does, pricing |
 | 2 | [Tech doc](02-tech-doc.md) | stack, repo map, engines, jobs, AI usage, env vars, security |
 | 3 | [App flow](03-app-flow.md) | every screen, API route and end-to-end flow |
 | 4 | [Design brief](04-design-brief.md) | tokens, type, layout, components, rules for generated content |

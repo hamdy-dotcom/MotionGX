@@ -1,5 +1,5 @@
 """
-Prand music generator — ported and generalized from the motion-kit `make_beat.py`.
+MotionGX music generator — ported and generalized from the motion-kit `make_beat.py`.
 
 Every track is built on a strict beat grid (the video cuts on the same grid):
   bars 0-1   hook      impact on beat 0, filtered pad, hats

@@ -1,4 +1,4 @@
-# Prand — Build plan
+# MotionGX — Build plan
 
 > What is **built and working** in the code today, and what comes next, in order. Status as of 2026-10-25.
 

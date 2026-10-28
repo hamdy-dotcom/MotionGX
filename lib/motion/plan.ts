@@ -271,7 +271,7 @@ export function planProblems(p: Plan, b: MotionBrief): string[] {
 
 /**
  * A reference as the AI sees it: its full prompt (internal only — never shown in the UI), trimmed to
- * ~1,500 chars, plus the Prand behaviors that implement its techniques.
+ * ~1,500 chars, plus the MotionGX behaviors that implement its techniques.
  */
 export function refBrief(r: MotionRef, i: number, max = 1500) {
   const card = (r.card ?? {}) as { motion_language?: string; techniques?: string[]; behaviors?: string[] };

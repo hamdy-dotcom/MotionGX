@@ -39,7 +39,7 @@ export async function StudioShell({ children }: { children: ReactNode }) {
       <div className="s-grain" aria-hidden="true" />
       <Ambient />
       <aside className="s-side" aria-label={t("menu")}>
-        <Link href="/" className="s-logo" dir="ltr" style={{ color: "inherit", textDecoration: "none" }}><b>Prand</b><small>CREATIVE STUDIO</small></Link>
+        <Link href="/" className="s-logo" dir="ltr" style={{ color: "inherit", textDecoration: "none" }}><b>Motion<span>GX</span></b><small>CREATIVE STUDIO</small></Link>
         {switcher}
         <Link href="/create" className="s-action"><span className="s-dot" style={{ background: "#fff" }} />{t("create")}</Link>
         <SideNav />

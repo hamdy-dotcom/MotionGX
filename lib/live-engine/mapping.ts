@@ -1,4 +1,4 @@
-// Prand video row ↔ sandbox brief, and sandbox script → the shapes the studio already reads.
+// MotionGX video row ↔ sandbox brief, and sandbox script → the shapes the studio already reads.
 // Approved mappings (plan §2 + decisions Q5/Q13).
 import type { ScriptBeat } from "@motiongx/primitives";
 import type { Brief } from "./protocol";

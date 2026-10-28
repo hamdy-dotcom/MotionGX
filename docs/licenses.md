@@ -14,7 +14,7 @@
 
 ## GSAP — removed (Phase 3E)
 GSAP's Standard "No Charge" License prohibits use in no-code tools that let users build visual
-animations, which Prand is. The `gsap` dependency and `remotion/behaviors/gsap-lib.ts` are gone.
+animations, which MotionGX is. The `gsap` dependency and `remotion/behaviors/gsap-lib.ts` are gone.
 Replacements (all MIT): `path-morph` (flubber), `path-draw` (sampled polyline of the visible stretch),
 `path-follow` (svg-path-properties), `split-stagger` (our word-safe splitter + Motion stagger/easings).
 The old names gsap-split / gsap-morph / gsap-draw / gsap-path stay as hidden aliases so saved specs

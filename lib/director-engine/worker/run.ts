@@ -1,7 +1,7 @@
 // VIDEO_ENGINE=director: one video job = one director agent run (the /brag method, see method.ts) on the company's
 // capture. Input: the capture (brand.json, screens, parts, clones, clips, library) + the video brief. Output, uploaded
 // as a normal live version so the studio works unchanged: video.mp4, script.json (scenes for the studio), music.wav
-// (Prand's own bed), qa.json (the check), video.src.html (the composition), cost.json — plus brag-plan.md,
+// (MotionGX's own bed), qa.json (the check), video.src.html (the composition), cost.json — plus brag-plan.md,
 // share-copy.txt, poster.jpg and director.tgz (the work dir + transcript, so an edit resumes the same agent).
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import fs from "node:fs";

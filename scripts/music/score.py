@@ -1,5 +1,5 @@
 """
-Per-video score + SFX from a video's energy map (Prand Phase 3B).
+Per-video score + SFX from a video's energy map (MotionGX Phase 3B).
 
   .venv/bin/python scripts/music/score.py --energy energy.json --events sfx.json --mood energetic --seed 7 --out-dir out/dir
 

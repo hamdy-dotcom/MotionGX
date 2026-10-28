@@ -13,7 +13,7 @@ const meta = ({ props }: { props: SpecVideoProps }) => ({
 const defaults: SpecVideoProps = {
   spec: { version: 1, canvas: { bg: [{ kind: "solid", colors: ["bg"] }] }, elements: [] },
   input: {
-    brand: { name: "Prand", url: "prand.io", logoUrl: null, logoPlate: false, imageUrls: [], colors: [{ hex: "#5558E3", role: "primary" }, { hex: "#0B0D12", role: "background" }] },
+    brand: { name: "MotionGX", url: "motiongx.app", logoUrl: null, logoPlate: false, imageUrls: [], colors: [{ hex: "#5558E3", role: "primary" }, { hex: "#0B0D12", role: "background" }] },
     fontFamilies: { arabic: null, latin: null },
     lang: "en",
     dir: "ltr",
