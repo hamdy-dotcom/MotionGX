@@ -12,6 +12,7 @@ import { CANVAS, LANGUAGE, type Canvas, PLACEMENT_RULES } from "./platforms";
 import { canvasKey, smallJpeg } from "./render";
 import { embedClones } from "../../live-engine/worker/steps/build";
 import type { Slide } from "./write";
+import { worthRedo } from "./redo-lite";
 
 // sizes GPT Image accepts (multiples of 16) closest to each platform's canvas
 // what the image model makes (multiples of 16, at most 3:1); exactSize() then fits it to the canvas
@@ -262,7 +263,7 @@ async function checkImage(post: PostJob, slide: Slide, file: string, logo: strin
   const impossible = [String(r.impossible ?? "").trim(), r.device_ok === false ? "people look at a screen that faces the viewer — they would see its back: turn the device toward them and show it over their shoulder, or nobody behind it" : ""].filter(Boolean).join("; ");
   const needLogo = post.placement !== "cover"; // a cover's logo is the profile picture under it
   const ok = r.words_exact && (r.logo_visible || !needLogo) && !r.extra_text && !badUi && !impossible;
-  return { ui: badUi, ok, problems: ok ? [] : [...(r.problems ?? []), !r.words_exact ? "the words are not exactly right" : "", !r.logo_visible && needLogo ? "the logo is not exactly the brand's logo" : "", r.extra_text ? "there is other text" : "", badUi ? "it shows a device / app screen — remove it (no real screen for this image)" : "", impossible ? `physically impossible: ${impossible}` : ""].filter(Boolean) };
+  return { ui: badUi, ok, flags: { words: r.words_exact, logo: r.logo_visible || !needLogo, extraText: Boolean(r.extra_text), ui: Boolean(r.ui_shown), impossible: Boolean(impossible) }, problems: ok ? [] : [...(r.problems ?? []), !r.words_exact ? "the words are not exactly right" : "", !r.logo_visible && needLogo ? "the logo is not exactly the brand's logo" : "", r.extra_text ? "there is other text" : "", badUi ? "it shows a device / app screen — remove it (no real screen for this image)" : "", impossible ? `physically impossible: ${impossible}` : ""].filter(Boolean) };
 }
 
 /** the brand, read once per post: its logo, the references and its visual style in words */
@@ -312,6 +313,7 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
         last = c.problems;
         drewDevice = c.ui;
         if (c.ok) break;
+        if (attempt === 0 && !worthRedo(c.flags, Boolean(device))) { log(`  check ${canvas} slide ${i + 1}: ${c.problems.join(" | ")} — kept (POSTS_REDO=serious)`); break; }
         log(`  check ${canvas} slide ${i + 1}: ${c.problems.join(" | ")}${attempt === 0 ? " — retrying" : ""}`);
         feedback = c.problems.join("; ");
         if (ledger.total() >= post.maxUsd) break;
