@@ -5,6 +5,7 @@
 import type { PostJob, PostPlatform } from "../../live-engine/protocol";
 import { callTool, type Ledger } from "../../live-engine/worker/claude";
 import { LANGUAGE, PLATFORM, PLACEMENT_RULES } from "./platforms";
+import { noDeviceScene } from "./redo-lite";
 
 export type Visual = { kind: "screen" | "image" | "ai_image" | "logo" | "none"; screen?: string; device?: "phone" | "laptop"; at?: string; image?: string; prompt?: string };
 /** the kinds of picture a feed rotates through — a brand's posts share one identity, never one formula */
@@ -158,6 +159,7 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
       s.refs = (s.refs ?? []).filter((r) => screens.some((x: any) => x.id === r && x.app)).slice(0, 1);
       if (!s.format || !allowed.includes(s.format)) s.format = fresh[0];
       if (s.format !== "product_in_use" || post.placement === "cover") s.refs = []; // a device and a real screen belong to the product format only — never on a cover
+      s.scene = noDeviceScene(s.scene, s.refs);
       continue;
     }
     const v = s.visual ?? { kind: "none" };
