@@ -20,6 +20,15 @@ Reading: when the first image passes, both modes cost the same (~$0.052, one ima
 on the runs whose first image fails a minor check (291781c1 → one redo, +$0.027, +23 s). It needs more runs to say how
 often that happens.
 
+## Hard single post — a person, a phone, objects, night (Instagram, feed, eg, AI image auto)
+
+Brief: «بوست لصاحبة متجر أونلاين مصرية قاعدة في مكتبها الصغير بالليل، ماسكة موبايلها وبتسأل ChatGPT «أحسن متجر هدايا في مصر؟» ومستغربة إن منافسها هو اللي طلع في الإجابة مش هي. حواليها كوباية شاي، كراتين شحن عليها لوجو متجرها، ونوت مكتوب عليها أرقام المبيعات. الرسالة: ظاهر بيوريكي ليه منافسك ظاهر وإنتي لأ، وبيقولك تعملي إيه بالظبط عشان تظهري إنتي»
+
+| Run | Mode | Image calls | Real cost | Time | Charged | Notes |
+|---|---|---|---|---|---|---|
+| d21737f4 | normal | 2 | $0.0824 | 86 s | 20 EGP (min) | 1st image had the phone in her hand; the check failed it (any device banned, a wrong "impossible", the notebook's figures as stray text) → the redo removed the phone, blanked the notebook, lost the night: worse than the 1st |
+| 55551204 | `POSTS_REDO=serious` (5edb6ca: a phone may be a prop) | 1 | $0.0541 | 61 s | 20 EGP (min) | phone in her hand, screen toward her (back to the viewer, correct); notebook keeps its figures; the device finding was kept, not redone. Neither run got the night lighting |
+
 ## Carousel — 5 slides, Instagram + Facebook («3 أسباب تختار ظاهر»)
 
 | Run | Mode | Real cost | Time | Charged | Notes |
