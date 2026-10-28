@@ -135,7 +135,14 @@ export async function writePost(opts: { post: PostJob; brand: any; ledger: Ledge
     prev ? `THE CURRENT VERSION\n${JSON.stringify(prev)}\n\nTHE CLIENT ASKS FOR THIS CHANGE: ${post.request}\nChange what they ask for and keep everything else as it is.` : "",
   ].filter(Boolean).join("\n\n");
   const out = (await callTool({ ledger, step: "post-write", model: post.model, system: `${SYSTEM}`, content, tool, maxTokens: 8000, effort: "medium" })) as Written;
-  out.slides = visualPost ? (out.slides ?? []).slice(0, post.type === "single" ? 1 : 10) : [];
+  // the model now and then sends a nested field as a JSON string instead of the array / object itself
+  const unwrap = <T,>(v: unknown, fallback: T): T => {
+    if (typeof v !== "string") return (v ?? fallback) as T;
+    try { return JSON.parse(v) as T; } catch { return fallback; }
+  };
+  out.platforms = unwrap(out.platforms, {} as Written["platforms"]);
+  const slides = unwrap<unknown[]>(out.slides, []);
+  out.slides = visualPost ? (Array.isArray(slides) ? slides : []).filter((s): s is Written["slides"][number] => Boolean(s) && typeof s === "object").slice(0, post.type === "single" ? 1 : 10) : [];
   if (visualPost && !out.slides.length) throw new Error("the writer returned no slides");
   // X: the text and its hashtags must fit in 280 characters — hashtags go first, then the text is cut at a word
   const x = out.platforms.x;
