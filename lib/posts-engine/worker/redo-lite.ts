@@ -1,12 +1,8 @@
-// EXPERIMENT — fewer redos (POSTS_REDO=serious). Off by default: without the switch every failed check is redone and the
-// writer's scenes go to the image model as they are, as before. With it:
-// - a slide is redone only for what breaks the brand — wrong words, a wrong or missing logo, or a drawn device where the
-//   real phone / laptop must go; a smaller flaw (stray text the check is unsure of, an unwanted device, odd
-//   perspective) is kept;
-// - a slide with no real screen may still show a phone / laptop as a prop of the story (a person asking ChatGPT on her
-//   phone), but never a made-up interface on it: its screen faces away or is only a soft glow (the writer sometimes
-//   describes "a laptop showing the product" without picking a screen, and the image model then invents the UI).
-// To remove: delete this file and the `worthRedo` line in visual.ts and the `noDeviceScene` line in write.ts.
+// EXPERIMENT — fewer redos (POSTS_REDO=serious). Off by default: without the switch every failed check is redone, as
+// before. With it, a slide is redone only for what breaks the brand — wrong words, a wrong or missing logo, or a drawn
+// device where the real phone / laptop must go; a smaller flaw (stray text the check is unsure of, a made-up interface,
+// odd perspective) is kept.
+// To remove: delete this file and the `worthRedo` line in visual.ts.
 
 export type CheckFlags = { words: boolean; logo: boolean; extraText: boolean; ui: boolean; impossible: boolean };
 
@@ -16,10 +12,4 @@ export const redoLite = () => process.env.POSTS_REDO === "serious";
 export function worthRedo(flags: CheckFlags, needsRealDevice: boolean) {
   if (!redoLite()) return true;
   return !flags.words || !flags.logo || (needsRealDevice && flags.ui);
-}
-
-/** a slide without a real screen: a device may be a prop, never a made-up interface */
-export function noDeviceScene(scene: string | undefined, refs: string[]) {
-  if (!redoLite() || refs.length || !scene) return scene;
-  return `${scene} Any phone, laptop or tablet in the image is only a prop of the scene: its screen faces away from the viewer or shows nothing but a soft glow — never an app, website, chat or any readable interface.`;
 }
