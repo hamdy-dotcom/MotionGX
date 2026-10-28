@@ -3,8 +3,9 @@
 // - a slide is redone only for what breaks the brand — wrong words, a wrong or missing logo, or a drawn device where the
 //   real phone / laptop must go; a smaller flaw (stray text the check is unsure of, an unwanted device, odd
 //   perspective) is kept;
-// - a slide with no real screen is told plainly to draw no device (the writer sometimes describes "a laptop showing the
-//   product" without picking a screen, and the check then fails the image every time).
+// - a slide with no real screen may still show a phone / laptop as a prop of the story (a person asking ChatGPT on her
+//   phone), but never a made-up interface on it: its screen faces away or is only a soft glow (the writer sometimes
+//   describes "a laptop showing the product" without picking a screen, and the image model then invents the UI).
 // To remove: delete this file and the `worthRedo` line in visual.ts and the `noDeviceScene` line in write.ts.
 
 export type CheckFlags = { words: boolean; logo: boolean; extraText: boolean; ui: boolean; impossible: boolean };
@@ -17,8 +18,8 @@ export function worthRedo(flags: CheckFlags, needsRealDevice: boolean) {
   return !flags.words || !flags.logo || (needsRealDevice && flags.ui);
 }
 
-/** a slide without a real screen: its scene must not ask for a device */
+/** a slide without a real screen: a device may be a prop, never a made-up interface */
 export function noDeviceScene(scene: string | undefined, refs: string[]) {
   if (!redoLite() || refs.length || !scene) return scene;
-  return `${scene} No laptop, phone, tablet, monitor, screen or app interface anywhere in the image — show the idea without a device.`;
+  return `${scene} Any phone, laptop or tablet in the image is only a prop of the scene: its screen faces away from the viewer or shows nothing but a soft glow — never an app, website, chat or any readable interface.`;
 }
