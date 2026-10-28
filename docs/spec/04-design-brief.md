@@ -1,4 +1,4 @@
-# MotionGX — Design brief
+# Prand — Design brief
 
 > What the product looks and feels like **as implemented**. Sources of truth: `app/studio.css` (the studio, `s-` prefix),
 > `app/globals.css` (Tailwind tokens for the older screens: company editor, post page, sheets), `app/[locale]/(app)/videos/[id]/edit-room.css`
@@ -66,7 +66,7 @@ Uppercase mono "slate" lines sit above page titles (e.g. `LOOKBOOK — SLLLR.COM
 
 ## 5. Layout
 
-- **Studio shell** (`components/studio/shell.tsx`): 250px rail (logo "MotionGX · CREATIVE STUDIO", brand switcher,
+- **Studio shell** (`components/studio/shell.tsx`): 250px rail (logo "Prand · CREATIVE STUDIO", brand switcher,
   **«اصنع جديد»** create button, nav, budget ticket, account) + main column with `max(16px, 3.2vw)` gutters.
 - Nav (Arabic / English): **الرئيسية** Home · **خطط المحتوى** Content plans · **أعمالي** My work · **جدول النشر**
   Publishing calendar · **هوية البراند** Brand kit.

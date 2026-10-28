@@ -11,7 +11,7 @@ export const MotionProvider: React.FC<{ value: MotionInput; children: React.Reac
 /** The video input: brand, palette, fonts, script, energy map, size. */
 export function useMotion(): MotionInput {
   const ctx = useContext(MotionContext);
-  if (!ctx) throw new Error("useMotion() must be used inside the MotionGX runtime");
+  if (!ctx) throw new Error("useMotion() must be used inside the Prand runtime");
   return ctx;
 }
 

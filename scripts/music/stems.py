@@ -1,5 +1,5 @@
 """
-Stem library for per-video music (MotionGX Phase 3C). Rendered ONCE, offline; videos are then arranged
+Stem library for per-video music (Prand Phase 3C). Rendered ONCE, offline; videos are then arranged
 from these stems along their energy map with ffmpeg in ~1–3 s (lib/motion/music.ts).
 
   .venv/bin/python scripts/music/stems.py [--out .stems] [--moods energetic,warm,corporate,luxury] [--bpms 90,110,128]

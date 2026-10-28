@@ -1,4 +1,4 @@
-# MotionGX — Data map
+# Prand — Data map
 
 > The data model **as it stands** after migrations 0001–0016 (Supabase Postgres). Shapes of JSON columns are taken from
 > the code that writes them.

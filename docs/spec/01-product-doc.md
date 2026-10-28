@@ -1,12 +1,12 @@
-# MotionGX — Product doc
+# Prand — Product doc
 
-> What MotionGX is and does **today**, as implemented in this repository. For how it is built see `02-tech-doc.md`;
+> What Prand is and does **today**, as implemented in this repository. For how it is built see `02-tech-doc.md`;
 > screens and flows `03-app-flow.md`; look and feel `04-design-brief.md`; data `05-data-map.md`; what's next
 > `06-build-plan.md`.
 
 ## 1. One line
 
-**MotionGX is an Arabic-first AI creative studio that reads a brand from its website and app, then makes its social
+**Prand is an Arabic-first AI creative studio that reads a brand from its website and app, then makes its social
 content — motion videos built on the brand's real product UI, designed posts, stories and page covers — and plans what
 to post and when, for the brand's own markets and seasons.**
 
@@ -24,7 +24,7 @@ world; content in Egyptian, Saudi, Gulf, Levantine Arabic, MSA or English.
 ## 3. The problem it solves
 
 Coming up with ideas, keeping a brand consistent, and producing enough content for several platforms is the hard part
-for small teams. MotionGX removes the blank page: it already knows the brand (logo, colours, fonts, voice, features,
+for small teams. Prand removes the blank page: it already knows the brand (logo, colours, fonts, voice, features,
 real screens), proposes what to post for the brand's industry and countries, and produces finished pieces that look
 like the brand made them.
 

@@ -33,6 +33,6 @@ SOFTWARE.
   "Keyboard Soundpack #1" by unicae_games (opengameart.org), all **CC0** (public domain). `sfx-analysis.md`
   is /brag's analysis of them (MIT).
 - /brag's bundled music ("Happy Beats / Business Moves" by ende.app) is **not** included: its licence is not
-  cleared for commercial use. Director videos use MotionGX's own synthesized music
+  cleared for commercial use. Director videos use Prand's own synthesized music
   (`lib/live-engine/worker/steps/music.ts`).
-- Hyperframes (Apache-2.0) is not used: the composition is rendered by MotionGX's own Playwright + ffmpeg renderer.
+- Hyperframes (Apache-2.0) is not used: the composition is rendered by Prand's own Playwright + ffmpeg renderer.

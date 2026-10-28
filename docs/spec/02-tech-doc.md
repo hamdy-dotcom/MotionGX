@@ -1,6 +1,6 @@
-# MotionGX — Tech doc
+# Prand — Tech doc
 
-> How MotionGX is built and runs **as implemented**. Product: `01-product-doc.md` · flows: `03-app-flow.md` ·
+> How Prand is built and runs **as implemented**. Product: `01-product-doc.md` · flows: `03-app-flow.md` ·
 > data: `05-data-map.md`. Env var **names** only — never commit values.
 
 ## 1. Stack

@@ -320,7 +320,7 @@ export async function buildSnapshot(opts: {
     .replace(/<link\s[^>]*rel\s*=\s*["']?(modulepreload|preload)["']?[^>]*as\s*=\s*["']?script["']?[^>]*>/gi, "");
   const docUrl = opts.pageUrl;
   for (const [url, { path }] of [...saved].sort((a, b) => b[0].length - a[0].length)) html = rewriteRefs(html, url, path, docUrl);
-  html = html.replace(/<head([^>]*)>/i, `<head$1>\n<!-- Saved by MotionGX from ${opts.pageUrl.replace(/--/g, "")} -->`);
+  html = html.replace(/<head([^>]*)>/i, `<head$1>\n<!-- Saved by Prand from ${opts.pageUrl.replace(/--/g, "")} -->`);
   files.unshift({ path: "page.html", bytes: new TextEncoder().encode(html), contentType: "text/html" });
 
   const manifest: SnapshotManifest = {

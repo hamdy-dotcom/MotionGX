@@ -4,7 +4,7 @@ A port of the open-source **/brag** method (MIT — see `LICENSE-brag.md`): one 
 capture and the video brief — Inspect (the 9-question rubric) → Plan (`brag-plan.md`, a timed storyboard) → Build (one
 HTML composition, every frame a pure function of time, real captured UI only) → Check (stills of every scene and
 mid-transition + an automatic gate: off-frame text, margins, small text, WCAG contrast, overlaps, unblurred personal
-data, blank frames) → Render (Playwright frames + ffmpeg, MotionGX's own music bed + CC0 SFX, poster baked as frame 0)
+data, blank frames) → Render (Playwright frames + ffmpeg, Prand's own music bed + CC0 SFX, poster baked as frame 0)
 → Deliver (share copy).
 
 - `worker/method.ts` — the method, as the agent's system prompt (ported from brag-slim + /brag's references).

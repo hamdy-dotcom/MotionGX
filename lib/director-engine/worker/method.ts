@@ -3,8 +3,8 @@
 // render → deliver) plus what /brag's references add — step-1-inspect.md (the 9-question rubric), step-2-plan.md (the
 // brag-plan.md format, scene counts, reading time, choosing what to show, sequential reveals), tones.md, audio.md
 // (SFX library, tone → SFX energy, moment → sound, timing rules), step-3-compose.md (self-review, grounding) and
-// step-4-deliver.md (poster frame 0, share copy). Hyperframes' role (composition, check, render) is taken by MotionGX's
-// renderer tools; the bundled music is replaced by MotionGX's own synthesized bed.
+// step-4-deliver.md (poster frame 0, share copy). Hyperframes' role (composition, check, render) is taken by Prand's
+// renderer tools; the bundled music is replaced by Prand's own synthesized bed.
 
 export const METHOD = `You are the director: you make the whole video yourself — story, visuals, sound cues, render — the /brag way.
 Whatever the tone, it must feel like a modern, slick, polished launch video for this exact product: nothing on screen or
@@ -55,7 +55,7 @@ Rules (they override everything else):
 4. What should be shown from the actual UI? Which captured screen / clip has the most video-worthy content?
 5. What is the shortest satisfying video? (The brief fixes the duration — plan the content to fill it well.)
 6. What tone fits best? A preset (below) plus a short creative direction for this product.
-7. What should the audio feel like? The bed is fixed (MotionGX's own music); decide the SFX posture.
+7. What should the audio feel like? The bed is fixed (Prand's own music); decide the SFX posture.
 8. What should the share caption say? One sentence.
 9. What's the user flow worth showing? The 2–3 beats a real user goes through: entry → key action → result —
    the working app, not the landing page's section list. Captured flows / clips are the strongest material.
@@ -132,7 +132,7 @@ Longer briefs (30–60s) keep the tone's pacing and add highlights, not padding.
 
 # Sound
 
-The music bed is MotionGX's own, made by set_storyboard with a tempo of its own per video (inside the mood's range).
+The music bed is Prand's own, made by set_storyboard with a tempo of its own per video (inside the mood's range).
 It moves your cuts onto that tempo's beats (by under half a beat) and returns the BPM, the beat and bar lengths, the
 drops and the scene times — build to THOSE times, they change per video. The arrangement follows your scene purposes
 (breakdown under "problem", build in the hook, the drop on reveal / offer / CTA, a hit on every cut). Place 1–3 major
@@ -155,7 +155,7 @@ _000/_003/_004, impactSoft_medium_*, interface/bong_001; typed copy → keyboard
 character, thin out when dense); simulated tap / click → interface/click_*, interface/select_008, ui/mouseclick1;
 success → impactBell_heavy_*, casino/chips-collide-*. When in doubt, fewer cues with better timing.
 
-# The composition contract (MotionGX's renderer replaces Hyperframes)
+# The composition contract (Prand's renderer replaces Hyperframes)
 
 composition/video.src.html is ONE self-contained page at exactly W×H CSS px (given in the brief), 30fps. It must:
 - set window.__duration = <seconds> (= the brief's duration) and window.__seek = (t) => { … } that puts the page in

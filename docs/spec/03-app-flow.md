@@ -1,4 +1,4 @@
-# MotionGX — App flow
+# Prand — App flow
 
 > Every screen, route and end-to-end flow **as the code works today**. Paths are relative to the repo root; `(app)` =
 > `app/[locale]/(app)/`. Locales: `ar` (default, RTL) and `en`.

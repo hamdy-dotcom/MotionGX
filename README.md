@@ -1,4 +1,4 @@
-# MotionGX
+# Prand
 
 An Arabic-first AI creative studio: it reads a brand from its website and app, then makes its social content
 (motion videos on the brand's real UI, posts, stories, page covers) and plans what to post for the brand's markets and
