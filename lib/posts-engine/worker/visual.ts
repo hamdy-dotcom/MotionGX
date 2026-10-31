@@ -110,7 +110,7 @@ async function phoneShot(cloneId: string, brandDir: string, out: string) {
 /** a stable pick per post: each post leans on a different one of the brand's pages / images */
 const pick = <T,>(list: T[], seed: string, salt: string) => { if (!list.length) return null; let h = 2166136261; for (const c of seed + salt) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0; return list[h % list.length]; };
 
-export async function brandRefs(brand: any, brandDir: string, runDir: string, seed = "") {
+export async function brandRefs(brand: any, brandDir: string, runDir: string, seed = "", withProduct = false) {
   const dir = path.join(runDir, "refs");
   fs.mkdirSync(dir, { recursive: true });
   const raw = await logoPng(brand, brandDir, path.join(dir, "logo-raw.png"));
@@ -131,7 +131,13 @@ export async function brandRefs(brand: any, brandDir: string, runDir: string, se
   const best = own.sort((a: any, b: any) => rank[a.kind] - rank[b.kind] || (b.w * b.h) - (a.w * a.h)).slice(0, 6);
   const img: any = pick(best, seed, "imagery");
   if (img) { const f = await refJpeg(path.join(brandDir, img.file), path.join(dir, `imagery-${path.basename(img.file).replace(/\.\w+$/, "")}.jpg`)); if (f) imagery.push({ file: f, role: `the brand's own ${img.kind === "people" || img.kind === "lifestyle" ? "photography" : img.kind} — STYLE REFERENCE ONLY — take its colours, light, mood and visual language; never reproduce it: not these people, not this photo, not this page or its layout, and never show it on a screen; create NEW people / subjects and a NEW scene in this style (its kind of subjects, light, colour grade, rendering)` }); }
-  return { logo, looks, screens, imagery };
+  // the client's own photos attached to this post (the product it announces): sent to the image model on every slide
+  const product: Ref[] = [];
+  if (withProduct) for (const i of (brand.images ?? []).filter((x: any) => x.kind === "client").slice(0, 2)) {
+    const f = await refJpeg(path.join(brandDir, i.file), path.join(dir, `product-${path.basename(i.file).replace(/\.\w+$/, "")}.jpg`));
+    if (f) product.push({ file: f, role: `THE CLIENT'S OWN PRODUCT PHOTO (${i.note ?? "attached by the client"}) — the product this post is about IS this exact product: reproduce it faithfully — the same cut and silhouette, fit, length and shape, fabric and texture, colour, and every detail (zips, seams, waistband, collar, hems, prints, logos on it) in the same proportions; never swap it for a similar or generic item. Keep its model and styling as shown (same person, same outfit) unless the brief asks otherwise; you may re-light it, re-frame it and place it in the brand's design` });
+  }
+  return { logo, looks, screens, imagery, product };
 }
 
 /** one slide's references: a product screen id → its real screenshot, as the device placed on the picture afterwards
@@ -191,7 +197,7 @@ async function styleBrief(post: PostJob, brand: any, looks: Ref[], imagery: Ref[
   return String(r.style ?? "").trim();
 }
 
-function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs: { logo: boolean; roles: string[]; screen: boolean; style: string; slot?: { at: "start" | "center" | "end"; kind: "phone" | "laptop"; shows: string } | null }, n: number, total: number, feedback?: string) {
+function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs: { logo: boolean; roles: string[]; screen: boolean; style: string; product?: boolean; slot?: { at: "start" | "center" | "end"; kind: "phone" | "laptop"; shows: string } | null }, n: number, total: number, feedback?: string) {
   const imagery = Boolean(refs.style);
   const [w, h] = SIZE[canvas].split("x");
   const words = [`Headline: «${slide.headline}»`, slide.sub ? `Second line: «${slide.sub}»` : "", slide.cta ? `Call to action (as a button or tag): «${slide.cta}»` : ""].filter(Boolean).join("\n  ");
@@ -201,7 +207,9 @@ function promptFor(post: PostJob, brand: any, slide: Slide, canvas: Canvas, refs
     `Create a finished, premium social media ${post.placement === "story" ? "story" : post.placement === "cover" ? "profile cover banner" : "post"} image (${w}×${h}) for the brand ${brand.name}${brand.name_ar ? ` (${brand.name_ar})` : ""}${total > 1 ? ` — slide ${n} of ${total} of a carousel; keep one consistent design across the slides` : ""}.`,
     post.placement && post.placement !== "feed" ? `This is ${PLACEMENT_RULES[post.placement]}` : "",
     slide.scene ?? "",
-    `Everything in the picture is newly made for this post: style references set the look, never the content.`,
+    refs.product
+      ? `THE PRODUCT IS REAL — the client's product photo is given as a reference: the product in this image must be exactly that product, true to it in every detail (a shopper who buys it must receive what they saw). Show it whole and clearly — for clothing: the full garment visible (trousers down to the hems and the shoes, a top from collar to hem), natural drape and real fabric texture, never cropped at its key feature, never hidden behind text or the logo. Everything else (background, light, layout) is newly made in the brand's style; style references set the look, never the content.`
+      : `Everything in the picture is newly made for this post: style references set the look, never the content.`,
     `Format: ${slide.format ?? "people_moment"}. Make it alive whatever the subject — depth, light, texture and emotion, like a top brand's campaign, ${imagery ? "in the brand's visual style above" : "in premium, natural photography or the brand's graphic style"}; never a flat badge of icons on a plain background.${slide.format && slide.format !== "people_moment" && slide.format !== "detail_closeup" ? " No people as the subject." : ""}`,
     slide.headline?.trim()
       ? `Text on the image — write EXACTLY these words and nothing else, in ${LANGUAGE[post.dialect] ?? post.dialect}${rtl ? " (Arabic script, right-to-left, every letter correctly joined, all dots in place, no extra or missing letters)" : ""}, large and crisp, in bold modern typography that matches the brand:\n  ${words}`
@@ -252,24 +260,26 @@ async function generate(post: PostJob, prompt: string, size: string, files: stri
 }
 
 /** Haiku reads the image: are the words exactly right, is the logo there, is there any other text? */
-async function checkImage(post: PostJob, slide: Slide, file: string, logo: string | null, ledger: Ledger, screenAllowed: boolean, realDevice: boolean) {
+async function checkImage(post: PostJob, slide: Slide, file: string, logo: string | null, ledger: Ledger, screenAllowed: boolean, realDevice: boolean, product: string[] = []) {
   const small = (await smallJpeg(file, 900)) ?? fs.readFileSync(file);
   const content: any[] = [{ type: "text", text: "THE POST IMAGE:" }, imageBlock(small)];
   if (logo) { const buf = fs.readFileSync(logo); content.push({ type: "text", text: "THE BRAND'S LOGO (for comparison):" }, imageBlock(buf, mediaOf(buf))); }
-  content.push({ type: "text", text: `${slide.headline?.trim() ? `The image must show exactly these words (and no other text):\n- «${slide.headline}»${slide.sub ? `\n- «${slide.sub}»` : ""}${slide.cta ? `\n- «${slide.cta}»` : ""}` : "The image must show NO words at all apart from the brand's logo (words_exact = true when there are none; any other lettering is extra_text)."}\nRead the image letter by letter. Not problems: a line break inside a phrase, an emoji drawn as a graphic or left out, equivalent spellings (tanween on or before the alif: مجانًا = مجاناً; hamza / taa marbuta forms the language allows), missing optional diacritics. Problems: a wrong, missing, extra or swapped letter or word. Compare the logo with the reference shape by shape and letter by letter (a re-spelled or redrawn logo is not the logo). Look for anything physically impossible: a screen seen from the front while the person using it looks at it from the other side, wrong hands or faces, impossible perspective.${screenAllowed ? "" : realDevice ? " This image must not show any phone, laptop, tablet, app screen or user interface." : " A phone, laptop or tablet may appear as a prop of the scene when its screen faces away or shows only a soft glow — that is fine; it is a problem only when a screen shows an app, website, chat or other readable interface (fake_ui)."} Report honestly.` });
-  const tool = { name: "check_image", description: "What the image shows.", input_schema: { type: "object", required: ["words_exact", "logo_visible", "problems"], properties: { words_exact: { type: "boolean", description: "every required word is spelled exactly right (every letter, joined correctly)" }, logo_visible: { type: "boolean", description: "the brand's logo appears, recognisably the same" }, extra_text: { type: "boolean", description: "other text or gibberish appears" }, ui_shown: { type: "boolean", description: "a phone, laptop, tablet, app screen or interface appears" }, fake_ui: { type: "boolean", description: "a screen in the image shows an app, website, chat or other readable interface" }, impossible: { type: "string", description: "what is physically impossible, if anything (empty when the scene is real)" }, device_ok: { type: "boolean", description: "true when no laptop / phone screen is visible; or when a visible screen faces the viewer AND every person looking at it is on the viewer's side of it (beside or behind it, looking the same way). false when anyone looks at a screen we can see from its front (they would be seeing its back)." }, problems: { type: "array", items: { type: "string" }, description: "what is wrong, precisely (which word is misspelled and how)" } } } };
-  const r = (await callTool({ ledger, step: "post-check", model: MODELS.haiku, system: "You check generated social media images against what they must show.", content, tool, maxTokens: 1500 })) as { words_exact: boolean; logo_visible: boolean; extra_text?: boolean; ui_shown?: boolean; fake_ui?: boolean; impossible?: string; device_ok?: boolean; problems: string[] };
+  for (const f of product) { const buf = fs.readFileSync(f); content.push({ type: "text", text: "THE CLIENT'S PRODUCT PHOTO (the product the post must show exactly):" }, imageBlock(buf, mediaOf(buf))); }
+  content.push({ type: "text", text: `${product.length ? "Compare the product in the post with the client's product photo: the same item — cut and silhouette, fit, length and shape (e.g. flared vs straight legs, cropped vs long), colour, fabric and details? A similar but different item, or the wrong kind of wearer when the photo's model is kept, is a problem (product_match = false); a new pose, background or light is fine. " : ""}${slide.headline?.trim() ? `The image must show exactly these words (and no other text):\n- «${slide.headline}»${slide.sub ? `\n- «${slide.sub}»` : ""}${slide.cta ? `\n- «${slide.cta}»` : ""}` : "The image must show NO words at all apart from the brand's logo (words_exact = true when there are none; any other lettering is extra_text)."}\nRead the image letter by letter. Not problems: a line break inside a phrase, an emoji drawn as a graphic or left out, equivalent spellings (tanween on or before the alif: مجانًا = مجاناً; hamza / taa marbuta forms the language allows), missing optional diacritics. Problems: a wrong, missing, extra or swapped letter or word. Compare the logo with the reference shape by shape and letter by letter (a re-spelled or redrawn logo is not the logo). Look for anything physically impossible: a screen seen from the front while the person using it looks at it from the other side, wrong hands or faces, impossible perspective.${screenAllowed ? "" : realDevice ? " This image must not show any phone, laptop, tablet, app screen or user interface." : " A phone, laptop or tablet may appear as a prop of the scene when its screen faces away or shows only a soft glow — that is fine; it is a problem only when a screen shows an app, website, chat or other readable interface (fake_ui)."} Report honestly.` });
+  const tool = { name: "check_image", description: "What the image shows.", input_schema: { type: "object", required: ["words_exact", "logo_visible", "problems"], properties: { words_exact: { type: "boolean", description: "every required word is spelled exactly right (every letter, joined correctly)" }, logo_visible: { type: "boolean", description: "the brand's logo appears, recognisably the same" }, extra_text: { type: "boolean", description: "other text or gibberish appears" }, ui_shown: { type: "boolean", description: "a phone, laptop, tablet, app screen or interface appears" }, fake_ui: { type: "boolean", description: "a screen in the image shows an app, website, chat or other readable interface" }, impossible: { type: "string", description: "what is physically impossible, if anything (empty when the scene is real)" }, ...(product.length ? { product_match: { type: "boolean", description: "the product shown is the same item as in the client's product photo (cut, silhouette, length, colour, fabric, details)" } } : {}), device_ok: { type: "boolean", description: "true when no laptop / phone screen is visible; or when a visible screen faces the viewer AND every person looking at it is on the viewer's side of it (beside or behind it, looking the same way). false when anyone looks at a screen we can see from its front (they would be seeing its back)." }, problems: { type: "array", items: { type: "string" }, description: "what is wrong, precisely (which word is misspelled and how)" } } } };
+  const r = (await callTool({ ledger, step: "post-check", model: MODELS.haiku, system: "You check generated social media images against what they must show.", content, tool, maxTokens: 1500 })) as { words_exact: boolean; logo_visible: boolean; extra_text?: boolean; ui_shown?: boolean; fake_ui?: boolean; impossible?: string; device_ok?: boolean; product_match?: boolean; problems: string[] };
   // no real screen: a device is fine as a prop, a made-up interface is not; a real one placed afterwards: no drawn device at all
   const badUi = !screenAllowed && Boolean(realDevice ? r.ui_shown : r.fake_ui);
   const impossible = [String(r.impossible ?? "").trim(), r.device_ok === false ? "people look at a screen that faces the viewer — they would see its back: turn the device toward them and show it over their shoulder, or nobody behind it" : ""].filter(Boolean).join("; ");
   const needLogo = post.placement !== "cover"; // a cover's logo is the profile picture under it
-  const ok = r.words_exact && (r.logo_visible || !needLogo) && !r.extra_text && !badUi && !impossible;
-  return { ui: badUi, ok, flags: { words: r.words_exact, logo: r.logo_visible || !needLogo, extraText: Boolean(r.extra_text), ui: Boolean(r.ui_shown), impossible: Boolean(impossible) }, problems: ok ? [] : [...(r.problems ?? []), !r.words_exact ? "the words are not exactly right" : "", !r.logo_visible && needLogo ? "the logo is not exactly the brand's logo" : "", r.extra_text ? "there is other text" : "", badUi ? (realDevice ? "it shows a device / app screen — remove it (the real device is placed afterwards)" : "a screen shows a made-up interface — turn the device away or show only a soft glow") : "", impossible ? `physically impossible: ${impossible}` : ""].filter(Boolean) };
+  const productOk = !product.length || r.product_match !== false;
+  const ok = r.words_exact && (r.logo_visible || !needLogo) && !r.extra_text && !badUi && !impossible && productOk;
+  return { ui: badUi, ok, flags: { words: r.words_exact, logo: r.logo_visible || !needLogo, extraText: Boolean(r.extra_text), ui: Boolean(r.ui_shown), impossible: Boolean(impossible), product: productOk }, problems: ok ? [] : [...(r.problems ?? []), !productOk ? "the product is not the client's product — reproduce the item in the client's photo exactly (its cut, length, shape, colour and details)" : "", !r.words_exact ? "the words are not exactly right" : "", !r.logo_visible && needLogo ? "the logo is not exactly the brand's logo" : "", r.extra_text ? "there is other text" : "", badUi ? (realDevice ? "it shows a device / app screen — remove it (the real device is placed afterwards)" : "a screen shows a made-up interface — turn the device away or show only a soft glow") : "", impossible ? `physically impossible: ${impossible}` : ""].filter(Boolean) };
 }
 
 /** the brand, read once per post: its logo, the references and its visual style in words */
 export async function prepareBrand(post: PostJob, brand: any, brandDir: string, runDir: string, ledger: Ledger, log: (l: string) => void) {
-  const refs = await brandRefs(brand, brandDir, runDir, post.postId);
+  const refs = await brandRefs(brand, brandDir, runDir, post.postId, post.placement !== "cover");
   const style = await styleBrief(post, brand, refs.looks, refs.imagery, ledger).catch(() => "");
   if (style) log(`✓ style: ${style.slice(0, 160)}…`);
   return { ...refs, style };
@@ -280,7 +290,7 @@ export type Progress = { stage: (s: "image" | "check" | "sizes") => Promise<unkn
 
 export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: string; runDir: string; slides: Slide[]; canvases: Canvas[]; ledger: Ledger; prevRenders?: Record<string, string[]> | null; log: (l: string) => void; prepared?: Prepared; on?: Progress }) {
   const { post, brand, brandDir, runDir, slides, canvases, ledger, log, on } = opts;
-  const { logo, screens, style } = opts.prepared ?? (await prepareBrand(post, brand, brandDir, runDir, ledger, log));
+  const { logo, screens, style, product } = opts.prepared ?? (await prepareBrand(post, brand, brandDir, runDir, ledger, log));
   let started = false, checking = false;
   const renders: Record<string, string[]> = {}, check: Record<string, string[][]> = {};
   fs.mkdirSync(path.join(runDir, "slides"), { recursive: true });
@@ -297,19 +307,19 @@ export async function imageSlides(opts: { post: PostJob; brand: any; brandDir: s
       // "Request a change": the current slide goes in as a reference, so what wasn't asked to change stays
       const prevFile = opts.prevRenders?.[canvas]?.[i] ? path.join(runDir, "prev", opts.prevRenders[canvas][i]) : null;
       const prev: Ref[] = prevFile && fs.existsSync(prevFile) ? [{ file: prevFile, role: `the current version of this slide — keep everything the client didn't ask to change (the change: ${post.request})${device ? "; its phone / laptop is placed separately afterwards — leave that area clear and draw no device" : ""}` }] : [];
-      // only what the image must reproduce goes in as an image: the logo, the current version
-      const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...prev, ...own.filter((r) => !r.device)].slice(0, 3);
+      // only what the image must reproduce goes in as an image: the logo, the client's product, the current version
+      const refs: Ref[] = [...(logo ? [{ file: logo, role: "the brand's logo" }] : []), ...product, ...prev, ...own.filter((r) => !r.device)].slice(0, 3 + product.length);
       const roles = refs.map((r) => r.role);
       const hasScreen = false;
       const file = path.join(runDir, "slides", `${canvasKey(canvas)}-${i + 1}.jpg`);
       let feedback: string | undefined, last: string[] = [], drewDevice = false;
       for (let attempt = 0; attempt < 2; attempt++) {
         if (!started) { started = true; await on?.stage("image"); }
-        const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles, screen: hasScreen, style, slot: device ? { at: slot, kind: device.device!, shows: device.role } : null }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
+        const jpg = await generate(post, promptFor(post, brand, slide, canvas, { logo: Boolean(logo), roles, screen: hasScreen, style, product: product.length > 0, slot: device ? { at: slot, kind: device.device!, shows: device.role } : null }, i + 1, slides.length, feedback), SIZE[canvas], refs.map((r) => r.file), ledger);
         fs.writeFileSync(file, jpg);
         await on?.image(path.relative(runDir, file), canvas, i + 1);
         if (!checking) { checking = true; await on?.stage("check"); }
-        const c = await checkImage(post, slide, file, logo, ledger, hasScreen, Boolean(device));
+        const c = await checkImage(post, slide, file, logo, ledger, hasScreen, Boolean(device), product.map((r) => r.file));
         await on?.check({ canvas, n: i + 1, ok: c.ok, problems: c.problems, attempt });
         last = c.problems;
         drewDevice = c.ui;

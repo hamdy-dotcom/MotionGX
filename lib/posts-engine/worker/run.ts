@@ -36,7 +36,7 @@ export async function runPosts(job: JobFile, dirs: { root: string; brandDir: str
   if (clientImages.length) brand.images = [...clientImages.map((r) => ({ file: r.file, kind: "client", note: `attached by the client${r.note ? `: ${r.note}` : ""}`, w: 1200 })), ...(brand.images ?? [])];
   const extra = [
     job.contentType === "product_update" ? "CONTENT TYPE: product update — the brief says what changed; the post is about that change (what's new, why it matters, how to try it), not the whole product." : "",
-    clientImages.length ? `The client attached ${clientImages.length} reference image(s) (in IMAGES, kind "client") — use them when they show what the post is about.` : "",
+    clientImages.length ? `The client attached ${clientImages.length} reference image(s) (in IMAGES, kind "client") — use them when they show what the post is about.${(post.visual ?? "image") === "image" ? " In image posts they go to the image model as THE PRODUCT to reproduce exactly: write each scene around \"the client's product exactly as in their photo\" — never describe the product, its wearer or its look yourself (no gender, cut, colour or fit you haven't seen)." : ""}` : "",
     (job.refs ?? []).filter((r) => r.kind === "video" && r.note).map((r) => `A reference video the client attached: ${r.note}`).join("\n"),
     job.links?.length ? `Links the client gave as context: ${job.links.map((l) => `${l.url}${l.note ? ` (${l.note})` : ""}`).join("; ")}` : "",
     job.market?.socials?.length ? `The brand's social handles (for a follow / find-us line): ${job.market.socials.map((x) => `${x.platform} ${x.handle}`).join(" · ")}` : "",

@@ -4,12 +4,12 @@
 // odd perspective) is kept.
 // To remove: delete this file and the `worthRedo` line in visual.ts.
 
-export type CheckFlags = { words: boolean; logo: boolean; extraText: boolean; ui: boolean; impossible: boolean };
+export type CheckFlags = { words: boolean; logo: boolean; extraText: boolean; ui: boolean; impossible: boolean; product?: boolean };
 
 export const redoLite = () => process.env.POSTS_REDO === "serious";
 
 /** whether a failed check is worth another image call */
 export function worthRedo(flags: CheckFlags, needsRealDevice: boolean) {
   if (!redoLite()) return true;
-  return !flags.words || !flags.logo || (needsRealDevice && flags.ui);
+  return !flags.words || !flags.logo || flags.product === false || (needsRealDevice && flags.ui);
 }
