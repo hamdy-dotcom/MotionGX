@@ -73,7 +73,7 @@ export async function buildScreens(o: { scenes: Scene[]; brand: any; brandDir: s
   const render = async (html: string, w: number, h: number, file: string) => {
     const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
     try {
-      fs.writeFileSync(file.replace(/\.jpg$/, ".html"), `<!doctype html><html><head><meta charset="utf-8">${o.fontsHead}<style>*{box-sizing:border-box;margin:0;padding:0}html,body{width:${w}px;height:${h}px;overflow:hidden;background:#fff}</style></head><body>${html}</body></html>`);
+      fs.writeFileSync(file.replace(/\.jpg$/, ".html"), `<!doctype html><html><head><meta charset="utf-8"><base href="file://${pageDir}/">${o.fontsHead}<style>*{box-sizing:border-box;margin:0;padding:0}html,body{width:${w}px;height:${h}px;overflow:hidden;background:#fff}</style></head><body>${html}</body></html>`);
       await page.goto("file://" + file.replace(/\.jpg$/, ".html"), { waitUntil: "load", timeout: 60000 });
       await page.evaluate("Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 8000))])");
       await page.screenshot({ path: file, type: "jpeg", quality: 88 });
