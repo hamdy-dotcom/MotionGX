@@ -26,7 +26,7 @@ const VIDEO_STEPS: Step[] = ["script", "build", "music", "qa", "render"];
 const DIALECT: [RegExp, string][] = [[/^EG$/, "Egyptian Arabic (masri, natural and warm, not formal)"], [/^SA$/, "Saudi Arabic (natural Saudi dialect)"], [/^AE$/, "Gulf Arabic (khaleeji)"], [/^JO$/, "Levantine Arabic (shami)"], [/^US$/, "English"], [/فصحى|Modern Standard/i, "Modern Standard Arabic (فصحى)"]];
 // the ads' constants (build.mjs)
 const FPS = 30, LEAD = 0.4, WORKERS = 4;
-const MIN: Record<string, number> = { reveal: 3.6, cta: 5.2, wall: 4.6, hook: 3.2, kinds: 4.2, notice: 4.6, calendar: 4.6, editroom: 5.6, phone: 5.2, capture: 5.4, appcapture: 4.6, update: 4.6, appvideo: 4.6, screen: 5.2, price: 4.2 };
+const MIN: Record<string, number> = { reveal: 3.6, cta: 5.2, wall: 4.6, hook: 3.2, kinds: 4.2, notice: 4.6, calendar: 4.6, editroom: 5.6, phone: 5.2, capture: 5.4, appcapture: 4.6, update: 4.6, appvideo: 4.6, screen: 5.2, price: 4.2, chat: 4.6, notify: 4.0, items: 4.0, deal: 4.6, gallery: 4.0, stat: 3.6, compare: 4.6 };
 const ffmpegPath = async () => process.env.FFMPEG_PATH || ((await import("ffmpeg-static").then((m: any) => m.default).catch(() => null)) as string | null) || "ffmpeg";
 
 export async function runStudio(job: JobFile, dirs: { root: string; brandDir: string; runDir: string }, sync: Sync) {
@@ -60,7 +60,9 @@ export async function runStudio(job: JobFile, dirs: { root: string; brandDir: st
   await sync.stage("script");
   const screens = (brand.screens ?? []).filter((s: any) => !s.empty && (s.view || s.file)).map((s: any) => ({ id: s.id, label: s.label, shows: s.shows, app: !!s.app, mobile: Boolean(s.clones?.mobile), features: s.features }));
   const description = [brief.description, job.mode === "edit" && job.edit?.request ? `Direction from the client: ${job.edit.request}` : ""].filter(Boolean).join("\n");
-  const script = await writeScript({ brand, screens, brief: { ...brief, description }, language, length, ledger, model, log });
+  // the brand's real photos the story may show (never the capture's test data)
+  const images = (brand.images ?? []).filter((i: any) => !i.demo && i.file && fs.existsSync(path.join(brandDir, i.file))).slice(0, 30).map((i: any) => ({ file: `capture/${i.file}`, kind: String(i.kind ?? ""), note: String(i.note ?? i.alt ?? "") }));
+  const script = await writeScript({ brand, screens, images, brief: { ...brief, description }, language, length, ledger, model, log });
   cap$();
 
   // ── 0b. the client's screens, rebuilt as code (screenshot-to-code) ───
@@ -112,7 +114,7 @@ export async function runStudio(job: JobFile, dirs: { root: string; brandDir: st
     logo: brand.logo?.file && fs.existsSync(path.join(brandDir, brand.logo.file)) ? `capture/${brand.logo.file}` : null, logoOnDark: brand.logo?.on_dark === true,
   };
   const theme = { brand: primary, brand2: p.accent || primary, lav: `color-mix(in srgb, ${primary} 22%, white)` };
-  const AD = { format, country: /^(SA|AE|KW|QA|BH|OM)$/.test(brief.country) ? "sa" : "eg", brandKey: job.slug, brand: B, theme, hookArt: script.hook_art === "app" ? "app" : "blank", beat: mus.beat, duration: total, scenes: scenes.map(({ _mp3, _delay, ...s }) => s) };
+  const AD = { format, en: !rtl, country: /^(SA|AE|KW|QA|BH|OM)$/.test(brief.country) ? "sa" : "eg", brandKey: job.slug, brand: B, theme, hookArt: script.hook_art === "app" ? "app" : "blank", beat: mus.beat, duration: total, scenes: scenes.map(({ _mp3, _delay, ...s }) => s) };
   const wm = B.logo ? `<img src="${B.logo}" style="height:${format === "P" ? 64 : 56}px;max-width:320px;object-fit:contain;display:block">` : `${B.latin}`;
   const html = `<!doctype html><html lang="${rtl ? "ar" : "en"}"><head><meta charset="utf-8">${fontsHead}<link rel="stylesheet" href="lib/stage.css"></head>
 <body class="${format}"><div id="stage"${rtl ? "" : ' style="direction:ltr"'}><div class="aurora"><i></i><i></i><i></i></div><div class="wm">${wm}</div><div class="flash"></div><div class="grain"></div></div>
