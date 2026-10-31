@@ -7,9 +7,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium } from "playwright";
 import { callTool, imageBlock, type Ledger } from "../../live-engine/worker/claude";
-import { embedClones } from "../../live-engine/worker/steps/build";
 import { smallJpeg } from "../../posts-engine/worker/render";
 import type { Scene } from "./script";
+import { embedClones } from "../../live-engine/worker/steps/build";
 
 /** the component's box: the ads' phone screen (434×924 inside the phone) and browser panel (920 wide, 16:10) */
 export const BOX = { phone: { w: 434, h: 924 }, desktop: { w: 920, h: 575 } };
