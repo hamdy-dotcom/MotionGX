@@ -10,7 +10,7 @@ import { projectPath } from "@/lib/motion/paths";
 import type { ScriptBeat } from "@motiongx/primitives";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Video } from "@/lib/types";
-import { callbackBase, runnerKind, flowClipsEnabled, directorEngineEnabled, directorSettings } from "../config";
+import { callbackBase, runnerKind, flowClipsEnabled, directorEngineEnabled, directorSettings, studioEngineEnabled } from "../config";
 import { brandSlug, briefFor, linesFromBeats, STAGE_OF } from "../mapping";
 import { LIVE_BUCKET, storagePath, type Brief, type JobFile, type JobMode, type LedgerRow, type Report, type Step } from "../protocol";
 import { startLocal } from "./runner-local";
@@ -192,7 +192,7 @@ export async function startLiveGeneration(videoId: string, mode: LiveMode) {
   }
   const capture = await usableCapture(company.id);
   // the engine: a new video / another direction takes VIDEO_ENGINE; an edit stays on the engine of the version it edits
-  const engine: JobFile["engine"] = prevJobId ? (((await db.from("live_jobs").select("input").eq("id", prevJobId).maybeSingle()).data?.input as JobRow["input"] | null)?.engine ?? "live") : directorEngineEnabled() ? "director" : "live";
+  const engine: JobFile["engine"] = prevJobId ? (((await db.from("live_jobs").select("input").eq("id", prevJobId).maybeSingle()).data?.input as JobRow["input"] | null)?.engine ?? "live") : directorEngineEnabled() ? "director" : studioEngineEnabled() ? "studio" : "live";
   const edit = mode.kind === "lines" ? { lines: linesFromBeats(mode.beats) } : mode.kind === "edit" ? { request: mode.instruction } : mode.kind === "rerender" ? { edits: mode.edits } : undefined;
   const { data: job, error } = await db
     .from("live_jobs")
@@ -339,7 +339,7 @@ export async function launch(jobId: string) {
     // a video job reads only the live UI clones, their assets and the library (logo, images) — not the agent / html / probes / screens packs
     // video jobs read the live UI clones, their assets, the library — and the flow clips when the experiment is on;
     // a director job also reads the screenshots and UI blocks (never the agent / html / probes packs, never auth.json)
-    const director = job.kind === "video" && job.input.engine === "director";
+    const director = job.kind === "video" && (job.input.engine === "director" || job.input.engine === "studio");
     const keep = job.kind === "post" ? /^(clones|assets|library)\.tgz(\.part\d+)?$/ : director ? /^(clips|clones|assets|library|screens|parts)\.tgz(\.part\d+)?$/ : job.kind === "video" ? (flowClipsEnabled() ? /^(clips|clones|assets|library)\.tgz(\.part\d+)?$/ : /^(clones|assets|library)\.tgz(\.part\d+)?$/) : /./;
     const packs = await listFiles(`${brandPrefix}/_pack`);
     for (const f of packs) if (keep.test(f.split("/").pop()!)) await add(f, `brand/_pack/${f.split("/").pop()}`);
@@ -351,7 +351,7 @@ export async function launch(jobId: string) {
     if (job.input.prevJobId) {
       const prevRun = `${job.workspace_id}/runs/${job.video_id}/${job.input.prevJobId}`;
       // a director edit resumes the same agent: its work dir (plan, composition, transcript), the script and the bed
-      const want = job.input.engine === "director" ? ["director.tgz", "script.json", "music.wav"] : job.mode === "edit" ? ["script.json", "assets.json", "music.wav", "art.json"] : ["script.json", "assets.json", "art.json"];
+      const want = job.input.engine === "studio" ? [] : job.input.engine === "director" ? ["director.tgz", "script.json", "music.wav"] : job.mode === "edit" ? ["script.json", "assets.json", "music.wav", "art.json"] : ["script.json", "assets.json", "art.json"];
       const have = await listFiles(prevRun);
       for (const f of want) if (have.includes(`${prevRun}/${f}`)) await add(`${prevRun}/${f}`, `run/${f}`);
     }
@@ -416,7 +416,7 @@ export async function launch(jobId: string) {
     edit: job.input.edit,
     history,
     settings: job.input.settings,
-    ...(job.input.engine === "director" ? { engine: "director" as const, director: directorSettings() } : {}),
+    ...(job.input.engine === "director" ? { engine: "director" as const, director: directorSettings() } : job.input.engine === "studio" ? { engine: "studio" as const, director: { ...directorSettings(), model: process.env.STUDIO_MODEL || "claude-opus-5-5" } } : {}),
     ...(piece?.content_type && piece.content_type !== "standard" ? { contentType: piece.content_type } : {}),
     ...(refs.length ? { refs } : {}),
     ...(links.length ? { links } : {}),

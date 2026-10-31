@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     "reference/**",
     ".work/**",
     "lib/live-engine/worker/vendor/**",
+    "lib/studio-engine/assets/**", // the MotionGX-ads scene library + vendored GSAP (browser scripts)
     ".remotion-bundle/**",
     "out/**",
     "scripts/music/out/**",

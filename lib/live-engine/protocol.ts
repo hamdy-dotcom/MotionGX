@@ -38,7 +38,7 @@ export type JobFile = {
   /** local runner only: a previous attempt's finished brand folder — the capture resumes at its upload (no agent, no model calls) */
   resumeFrom?: string;
   /** which engine runs a video job: the live engine (default) or the director (lib/director-engine, VIDEO_ENGINE=director) */
-  engine?: "live" | "director";
+  engine?: "live" | "director" | "studio";
   /** the director's model and cost cap (DIRECTOR_MODEL, DIRECTOR_MAX_USD) */
   director?: { model: string; maxUsd: number };
   /** a post job: what to make (lib/posts-engine) */

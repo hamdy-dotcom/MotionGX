@@ -1,0 +1,74 @@
+/* MotionGX ads — the stage. The studio's own look (Creative Studio Light): paper, ink, the brand's light.
+   One stage for both formats: body.P = 1080×1920, body.L = 1920×1080. Short side is always 1080, so px sizes match. */
+:root {
+  --stage: #f6f4ee; --stage2: #efece4; --panel: #fff; --panel2: #f2f0ea; --hair: rgba(20,20,30,.09);
+  --ink: #14141c; --ink2: #4b4a58; --muted: #8b8996;
+  --brand: #5558e3; --brand2: #8f92ff; --lav: #dcddfa; --rec: #ff4d3d; --gold: #b9842a; --ok: #0e9f78;
+  --lift: 0 2px 4px rgba(20,20,30,.05), 0 24px 60px -20px rgba(20,20,30,.22);
+  --pop: 0 30px 80px -24px rgba(20,20,30,.38);
+  --display: "Readex Pro", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0 }
+html, body { width: var(--W); height: var(--H); overflow: hidden; background: var(--stage); color: var(--ink); font-family: var(--display) }
+body.P { --W: 1080px; --H: 1920px } body.L { --W: 1920px; --H: 1080px }
+#stage { position: relative; width: var(--W); height: var(--H); overflow: hidden; direction: rtl }
+
+/* atmosphere */
+.aurora { position: absolute; inset: -25%; filter: blur(120px); opacity: .42; z-index: 0 }
+.aurora i { position: absolute; border-radius: 50%; background: var(--brand) }
+.P .aurora i { width: 900px; height: 900px } .L .aurora i { width: 1100px; height: 1100px }
+.aurora i:nth-child(1) { top: 0; right: 8% } .aurora i:nth-child(2) { bottom: 4%; left: 4%; background: var(--brand2) }
+.aurora i:nth-child(3) { top: 40%; left: 36%; width: 520px !important; height: 520px !important; background: #ffc98a; opacity: .75 }
+.grain { position: absolute; inset: 0; z-index: 90; opacity: .06; mix-blend-mode: multiply; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") }
+.flash { position: absolute; inset: 0; z-index: 80; background: #fff; opacity: 0; pointer-events: none }
+.wm { position: absolute; z-index: 70; direction: ltr; font: 700 34px var(--display); letter-spacing: -.01em; opacity: .9 }
+.wm span { color: var(--brand) } .wm small { display: block; font: 500 11px var(--mono); letter-spacing: .3em; color: var(--muted) }
+.P .wm { top: 96px; left: 80px } .L .wm { top: 60px; right: 110px; text-align: right }
+
+/* scenes and the two regions: head (title) and vis (visual) */
+.scene { position: absolute; inset: 0; z-index: 10; visibility: hidden }
+.head { position: absolute; display: flex; flex-direction: column; gap: 18px; z-index: 5 }
+.vis { position: absolute; display: flex; align-items: center; justify-content: center; z-index: 4 }
+.P .head { top: 230px; inset-inline: 80px; align-items: center; text-align: center }
+.P .vis { top: 600px; bottom: 170px; inset-inline: 60px }
+.L .head { top: 0; bottom: 0; right: 110px; width: 760px; justify-content: center; align-items: flex-start; text-align: right }
+.L .vis { top: 90px; bottom: 90px; left: 90px; width: 960px }
+.full .head { top: 0; bottom: 0; inset-inline: 80px; width: auto; justify-content: center; align-items: center; text-align: center; right: auto }
+.L.full .head, .L .full .head { inset-inline: 160px }
+
+.slate { font: 600 22px var(--mono); letter-spacing: .22em; color: var(--muted); text-transform: uppercase; direction: ltr }
+.title { font: 700 104px/1.12 var(--display); letter-spacing: -.02em; text-wrap: balance }
+.L .title { font-size: 98px }
+.full .title { font-size: 128px } .L .full .title { font-size: 120px }
+.sub { font: 400 58px/1.3 var(--display); color: var(--ink2) }
+.sub em { font-style: normal; color: var(--ink); background: linear-gradient(transparent 62%, var(--lav) 62%); padding: 0 6px }
+.w { display: inline-block; white-space: pre }
+
+/* studio parts */
+.panel { background: var(--panel); border: 1px solid var(--hair); border-radius: 30px; box-shadow: var(--lift) }
+.chip { display: inline-flex; align-items: center; gap: 12px; padding: 16px 30px; border-radius: 999px; background: var(--panel); border: 1px solid var(--hair); font: 500 36px var(--display); box-shadow: var(--lift); white-space: nowrap }
+.chip.on { background: var(--ink); color: #fff; border-color: var(--ink) }
+.chip.lit { background: var(--brand); color: #fff; border-color: var(--brand) }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 14px; padding: 24px 52px; border-radius: 999px; background: var(--ink); color: #fff; font: 600 40px var(--display); box-shadow: var(--lift) }
+.btn.lit { background: var(--brand); box-shadow: 0 20px 50px -18px var(--brand) }
+.btn.ghost { background: var(--panel2); color: var(--ink) }
+.label { font: 600 20px var(--mono); letter-spacing: .18em; color: var(--muted); direction: ltr; text-transform: uppercase }
+.cursor { position: absolute; width: 54px; height: 54px; z-index: 60; pointer-events: none; filter: drop-shadow(0 6px 10px rgba(0,0,0,.25)) }
+.ring { position: absolute; width: 90px; height: 90px; margin: -45px 0 0 -45px; border-radius: 50%; border: 5px solid var(--brand); opacity: 0; z-index: 59 }
+.caret { display: inline-block; width: 4px; height: 1em; background: var(--brand); vertical-align: -.12em; margin-inline-start: 4px }
+.dot { width: 14px; height: 14px; border-radius: 50%; background: var(--ok); display: inline-block }
+.mono { font-family: var(--mono); direction: ltr }
+
+/* devices */
+.phone { position: relative; width: 470px; height: 960px; border-radius: 74px; background: #0d0d12; padding: 18px; box-shadow: var(--pop) }
+.phone .scr { position: relative; width: 100%; height: 100%; border-radius: 58px; overflow: hidden; background: #fff }
+.phone .notch { position: absolute; top: 30px; left: 50%; width: 130px; height: 36px; margin-left: -65px; border-radius: 20px; background: #0d0d12; z-index: 5 }
+.laptop { position: relative } .laptop .lid { border-radius: 26px 26px 0 0; background: #0d0d12; padding: 16px } .laptop .lid .scr { border-radius: 12px; overflow: hidden; background: #fff; aspect-ratio: 16/10 }
+.laptop .base { height: 26px; margin: 0 -50px; border-radius: 0 0 26px 26px; background: linear-gradient(#d9d8de, #b5b4bc) }
+
+/* brand designs (the demo brand's posts / stories / covers) */
+.design { position: relative; overflow: hidden; border-radius: 24px; box-shadow: var(--pop); color: var(--b2); background: var(--b3) }
+.design .bt { font-family: var(--bf); line-height: 1.05 }
+.tag { position: absolute; z-index: 3; padding: 8px 18px; border-radius: 999px; background: rgba(20,20,28,.82); color: #fff; font: 600 20px var(--mono); direction: ltr; letter-spacing: .06em }
+.logo { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--b1); color: var(--b3); font-family: var(--bf) }

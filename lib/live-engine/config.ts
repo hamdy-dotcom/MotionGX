@@ -7,6 +7,9 @@ export const liveEngineEnabled = () => process.env.VIDEO_ENGINE !== "legacy";
 //   VIDEO_ENGINE=director            new videos use the director engine (lib/director-engine, the /brag method);
 //                                    DIRECTOR_MODEL (default claude-opus-5-5), DIRECTOR_MAX_USD (default 6 per video)
 export const directorEngineEnabled = () => process.env.VIDEO_ENGINE === "director";
+//   VIDEO_ENGINE=studio              sandbox: new videos are made the MotionGX-ads way + screenshot-to-code
+//                                    (lib/studio-engine; local runner only; needs ELEVENLABS_API_KEY)
+export const studioEngineEnabled = () => process.env.VIDEO_ENGINE === "studio";
 export const directorSettings = () => ({ model: process.env.DIRECTOR_MODEL || "claude-opus-5-5", maxUsd: Number(process.env.DIRECTOR_MAX_USD) > 0 ? Number(process.env.DIRECTOR_MAX_USD) : 6 });
 //   LIVE_FLOW_CLIPS=1               experiment: captures record the agent's input → result flows as real clips, videos play them
 export const flowClipsEnabled = () => process.env.LIVE_FLOW_CLIPS === "1";
