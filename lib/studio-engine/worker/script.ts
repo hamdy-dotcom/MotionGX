@@ -42,8 +42,11 @@ THE STORY: one real person from the brand's audience (a name, a moment of their 
 knows), the brand entering their story, the product doing its job on screen (its real screens), the result in their
 life, the call to action. Concrete and specific — a real item, a real place, a real time of day — never slogans.
 
-The voice is read in ONE take by a native voice actor: the lines follow one another naturally, in the requested
-dialect, conversational, no stage directions, no tags, no emojis. Ellipses (...) mark a breath.
+The voice is read in ONE continuous take by a native voice actor: the lines follow one another naturally, in the
+requested dialect, no stage directions, no tags, no emojis. Ellipses (...) mark a breath.
+WRITE IT SPOKEN — the way you'd tell a friend this story out loud, never the way you'd write it: one idea per line, at
+most one comma, no lists of steps or features in one line (one step per line, or show the rest on screen), no formal
+connectors, short punchy lines mixed with slightly longer ones. If a line sounds like a caption or a brochure, rewrite it.
 
 SCENE TYPES (use only these; vary them — no type more than twice, except screen):
 - notify: a phone lock screen, notifications slide in. data: { time: "10:02", date: "a day", items: [ { app: "brand"
@@ -94,8 +97,8 @@ const tool = { name: "write_ad", description: "The ad's script.", input_schema: 
 } } };
 
 const DIALECT_RULES: Record<string, string> = {
-  eg: `Egyptian Arabic as Cairenes speak it in a casual Instagram video. Never a standard-Arabic form: «اتعرّف على» not «قابل», «عايز» not «أريد», «دلوقتي» not «الآن», «مش» not «ليس / لا», «إزاي» not «كيف», «فلوس» not «مال», «بتاعك» where natural, future with «هـ», present with «بـ». Numbers as Egyptians say them: «تلات / أربع / خمس دفعات», «ميت جنيه», «ربع ساعة». Vowel marks: AT MOST ONE word per line, only where the standard reading would change the word (حُط، خِلصت); a shadda where a doubled letter matters (هتنزّله، تغيّر). Never vowel the whole line — a fully vowelled text is read like a formal text, robotic. Foreign brand / product names written in Arabic letters the way Egyptians pronounce them (كلاركس، مانجو، جاب، أبلكيشن).`,
-  sa: `Saudi Arabic as people in Riyadh / Jeddah speak it in a casual video: «وش» «تبي» «واجد» «الحين» «على طول» «زين», never standard-Arabic forms. Numbers as Saudis say them. Vowel marks on at most one word per line; never vowel the whole line. Foreign names in Arabic letters the way Saudis pronounce them.`,
+  eg: `Egyptian Arabic as Cairenes speak it in a casual Instagram video. Never a standard-Arabic form: «اتعرّف على» not «قابل», «عايز» not «أريد», «دلوقتي» not «الآن», «مش» not «ليس / لا», «إزاي» not «كيف», «فلوس» not «مال», «بتاعك» where natural, future with «هـ», present with «بـ». Numbers as Egyptians say them: «تلات / أربع / خمس دفعات», «ميت جنيه», «ربع ساعة». No vowel marks in the line (a vowelled line is read like a formal text, robotic) — a shadda where a doubled letter matters (هتنزّله، تغيّر). A word the voice could say two ways goes in "marked" with the one vowel that fixes it (المرتّب is the salary: «المرتَّب», not «المرتِّب»; حُط، خِلصت). Foreign brand / product names written in Arabic letters the way Egyptians pronounce them (كلاركس، مانجو، جاب، أبلكيشن).`,
+  sa: `Saudi Arabic as people in Riyadh / Jeddah speak it in a casual video: «وش» «تبي» «واجد» «الحين» «على طول» «زين», never standard-Arabic forms. Numbers as Saudis say them. No vowel marks in the line; a word the voice could say two ways goes in "marked" with the one vowel that fixes it. Foreign names in Arabic letters the way Saudis pronounce them.`,
 };
 
 // Fathy reads ~12 characters a second in one take (447 characters → 36 s); the lines must fit the video's length
@@ -103,11 +106,19 @@ export const CHARS_PER_S = 12;
 /** the voice's room in a video of `length` seconds with `n` scenes (the ads' lead-in, a short tail, the CTA's hold) */
 export const speechBudget = (length: number, n: number) => Math.max(8, length - n * (0.4 + 0.6) - 1.2);
 const HARAKAT = /[\u064B-\u0650\u0652]/g;
-/** a line with vowel marks on more than one word is read like a formal text: keep only its shaddas */
-function tame(vo: string) {
-  const marked = vo.split(/\s+/).filter((w) => /[\u064B-\u0650\u0652]/.test(w)).length;
-  return marked > 1 ? vo.replace(HARAKAT, "") : vo;
+/** a vowelled line is read like a formal text: every vowel mark goes (shaddas stay), then only the words the dialect
+ *  pass named as ambiguous get their one fixing vowel back (المرتَّب — the salary, not «المرتِّب») */
+function tame(vo: string, marked: string[] = []) {
+  let out = vo.replace(HARAKAT, "");
+  for (const m of marked.slice(0, 4)) {
+    const plain = m.replace(HARAKAT, "");
+    if (plain && plain !== m && (m.match(HARAKAT) ?? []).length <= 2) out = out.split(plain).join(m);
+  }
+  return out;
 }
+
+// the ambiguous words the dialect pass marked, per scene (kept through the length pass)
+const MARKS = new WeakMap<Scene, string[]>();
 
 /** the dialect pass: every line rewritten as it is spoken (and spelled so the voice says it right) */
 async function dialectPass(scenes: Scene[], o: { country: string; language: string; ledger: Ledger; model: string; log: (l: string) => void }) {
@@ -123,11 +134,11 @@ async function dialectPass(scenes: Scene[], o: { country: string; language: stri
     return [...new Set(out)];
   };
   const input = scenes.map((s, i) => ({ i, vo: s.vo, keep: refs(s) }));
-  const t = { name: "spoken_lines", description: "The lines as they are spoken.", input_schema: { type: "object", required: ["lines"], properties: { lines: { type: "array", items: { type: "object", required: ["i", "vo", "words"], properties: { i: { type: "number" }, vo: { type: "string" }, words: { type: "object", description: "each keep word → how it is written in the new vo (itself when unchanged)" } } } } } } };
+  const t = { name: "spoken_lines", description: "The lines as they are spoken.", input_schema: { type: "object", required: ["lines"], properties: { lines: { type: "array", items: { type: "object", required: ["i", "vo", "words"], properties: { i: { type: "number" }, vo: { type: "string" }, words: { type: "object", description: "each keep word → how it is written in the new vo (itself when unchanged)" }, marked: { type: "array", items: { type: "string" }, description: "the few words of this line the voice could say two ways, each written with the ONE vowel mark that fixes it (e.g. المرتَّب); usually none" } } } } } } };
   const r = await callTool({ ledger: o.ledger, step: "director", model: o.model, system: `You are a native ${key === "eg" ? "Egyptian" : "Saudi"} voice director. A voice model reads these lines in one take and drifts to standard Arabic on any word that looks standard. Rewrite each line exactly the way a native speaker says it — same meaning, same length, same order of ideas, same names — so every word sounds ${key === "eg" ? "Egyptian" : "Saudi"}.\n${DIALECT_RULES[key]}\nKeep ellipses (...) for breaths, no tags, no emojis. Every keep word must still appear in its line (it may be respelled — say how in words).`, content: `${o.language}\nTHE LINES:\n${JSON.stringify(input)}`, tool: t, maxTokens: 6000 });
   const unwrap = (v: any) => { if (typeof v !== "string") return v; try { return JSON.parse(v); } catch { return v; } };
   let changed = 0;
-  for (const l of (unwrap(r.lines) ?? []) as { i: number; vo: string; words: Record<string, string> }[]) {
+  for (const l of (unwrap(r.lines) ?? []) as { i: number; vo: string; words: Record<string, string>; marked?: string[] }[]) {
     const s = scenes[l.i];
     if (!s || !l.vo?.trim()) continue;
     const words = unwrap(l.words) ?? {};
@@ -136,7 +147,9 @@ async function dialectPass(scenes: Scene[], o: { country: string; language: stri
     for (const k of ["word", "calloutWord", "stampWord", "splitWord", "badgeWord", "afterWord", "reactionWord"]) if (d[k]) d[k] = map(d[k]);
     if (Array.isArray(d.words)) d.words = d.words.map(map);
     for (const a of [...(d.actions ?? []), ...(d.messages ?? []), ...(d.items ?? [])]) if (a?.word) a.word = map(a.word);
-    const vo = tame(l.vo);
+    const marks = (unwrap(l.marked) ?? []).filter((m: any) => typeof m === "string");
+    MARKS.set(s, marks);
+    const vo = tame(l.vo, marks);
     if (s.vo !== vo) changed++;
     s.vo = vo;
   }
@@ -151,7 +164,7 @@ async function fitLength(scenes: Scene[], o: { length: number; language: string;
   const t = { name: "shorter_lines", description: "The shortened lines.", input_schema: { type: "object", required: ["lines"], properties: { lines: { type: "array", items: { type: "object", required: ["i", "vo"], properties: { i: { type: "number" }, vo: { type: "string" } } } } } } };
   const r = await callTool({ ledger: o.ledger, step: "director", model: o.model, system: `You tighten a video ad's voiceover so it fits its length. Keep the story, the dialect (${o.language}), the spelling style, the names and every keep word exactly as written; cut filler, merge, simplify. The whole voiceover must be at most ${max} characters (now ${chars}). Keep ellipses for breaths. No vowel marks beyond what is there.`, content: JSON.stringify(input), tool: t, maxTokens: 4000 });
   const lines = (typeof r.lines === "string" ? JSON.parse(r.lines) : r.lines) as { i: number; vo: string }[];
-  for (const l of lines ?? []) if (scenes[l.i] && l.vo?.trim()) scenes[l.i].vo = tame(l.vo);
+  for (const l of lines ?? []) if (scenes[l.i] && l.vo?.trim()) scenes[l.i].vo = tame(l.vo, MARKS.get(scenes[l.i]));
   o.log(`✓ length: the voiceover tightened from ${chars} to ${scenes.reduce((a, s) => a + s.vo.length, 0)} characters (room for ~${max} in ${o.length}s)`);
 }
 

@@ -24,9 +24,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const ASSETS = path.join(here, "..", "assets");
 const VIDEO_STEPS: Step[] = ["script", "build", "music", "qa", "render"];
 const DIALECT: [RegExp, string][] = [[/^EG$/, "Egyptian Arabic (masri, natural and warm, not formal)"], [/^SA$/, "Saudi Arabic (natural Saudi dialect)"], [/^AE$/, "Gulf Arabic (khaleeji)"], [/^JO$/, "Levantine Arabic (shami)"], [/^US$/, "English"], [/فصحى|Modern Standard/i, "Modern Standard Arabic (فصحى)"]];
-// the ads' constants (build.mjs)
-const FPS = 30, LEAD = 0.4, WORKERS = 4;
-const MIN: Record<string, number> = { reveal: 3.6, cta: 5.2, wall: 4.6, hook: 3.2, kinds: 4.2, notice: 4.6, calendar: 4.6, editroom: 5.6, phone: 5.2, capture: 5.4, appcapture: 4.6, update: 4.6, appvideo: 4.6, screen: 5.2, price: 4.2, chat: 4.6, notify: 4.0, items: 4.0, deal: 4.6, gallery: 4.0, stat: 3.6, compare: 4.6 };
+// the ads' render constants (build.mjs); scene lengths now follow the voice (no per-type minimums)
+const FPS = 30, WORKERS = 4;
 const ffmpegPath = async () => process.env.FFMPEG_PATH || ((await import("ffmpeg-static").then((m: any) => m.default).catch(() => null)) as string | null) || "ffmpeg";
 
 export async function runStudio(job: JobFile, dirs: { root: string; brandDir: string; runDir: string }, sync: Sync) {
@@ -70,51 +69,32 @@ export async function runStudio(job: JobFile, dirs: { root: string; brandDir: st
   await buildScreens({ scenes: script.scenes, brand, brandDir, pageDir, fontsHead, ledger, model, rtl, log });
   cap$();
 
-  // ── 0c. voiceover: one ElevenLabs take, one clip per line ────────────
-  let clips = await voiceover({ lines: script.scenes.map((s) => s.vo), voice: voiceFor(brief.country), dir: path.join(runDir, "vo"), ffmpeg, ledger, log });
+  // ── 0c. voiceover: one ElevenLabs take, kept whole ───────────────────
+  const voiceLines = script.scenes.map((s) => s.vo), voice = voiceFor(brief.country), voDir = path.join(runDir, "vo");
+  let take = await voiceover({ lines: voiceLines, voice, dir: voDir, ledger, log });
 
-  // ── 1. timing (build.mjs) — fitted to exactly the brief's length (the studio plays length_s) ──
+  // ── 1. timing — the scenes follow the voice: one continuous read, every cut on a pause between lines, the video
+  // exactly the brief's length (the studio plays length_s): the read's pace adjusts once if it can't fit ──
   await sync.stage("music");
-  const TARGET = length;
-  const readLines = () => clips.map((c) => {
-    const ch = c.characters, st = c.starts, en = c.ends;
-    const first = ch.findIndex((x) => x.trim()), last = ch.length - 1 - [...ch].reverse().findIndex((x) => x.trim());
-    const words: { w: string; t: number; e: number }[] = []; let cur: { w: string; t: number; e: number } | null = null;
-    ch.forEach((x, k) => { if (/\s/.test(x)) { if (cur) words.push(cur); cur = null; } else if (!cur) cur = { w: x, t: st[k], e: en[k] }; else { cur.w += x; cur.e = en[k]; } });
-    if (cur) words.push(cur);
-    return { mp3: c.mp3, s0: st[first], s1: en[last], words };
-  });
-  let lines = readLines();
-  let speech = lines.map((l) => l.s1 - l.s0);
-  // the tightest the scenes can be: the lead-in, the line, a short tail (the CTA holds a little longer)
-  const tight = () => script.scenes.reduce((a, s, i) => a + LEAD + speech[i] + 0.35 + (s.type === "cta" ? 0.8 : 0), 0);
-  if (tight() > TARGET + 0.05) {
-    // the voice is longer than the video: one faster take (at most 1.15×)
-    const sum = speech.reduce((a, b) => a + b, 0), speed = Math.min(1.15, +(sum / Math.max(1, sum - (tight() - TARGET))).toFixed(2));
-    log(`! timing: the voice needs ${tight().toFixed(1)}s of a ${TARGET}s video — a faster take (${speed}×)`);
-    clips = await voiceover({ lines: script.scenes.map((s) => s.vo), voice: voiceFor(brief.country), dir: path.join(runDir, "vo"), ffmpeg, ledger, log, speed });
-    lines = readLines(); speech = lines.map((l) => l.s1 - l.s0);
+  const TARGET = length, INTRO = 0.55, HOLD = 1.6; // the first words after the opening frame lands; the end card holds after the last
+  const room = TARGET - INTRO - HOLD;
+  if (take.total > room + 0.05 || room - take.total > 5) {
+    const speed = Math.max(0.9, Math.min(1.15, +(take.total / (take.total > room ? room : room - 2.5)).toFixed(2)));
+    log(`! timing: the read is ${take.total.toFixed(1)}s for ${room.toFixed(1)}s of room — one more take at ${speed}×`);
+    take = await voiceover({ lines: voiceLines, voice, dir: voDir, ledger, log, speed });
   }
-  const tail = Math.min(3.2, Math.max(0.75, (TARGET - speech.reduce((a, b) => a + b, 0) - LEAD * lines.length) / lines.length));
-  let durs = script.scenes.map((s, i) => Math.max(MIN[s.type] ?? 3, LEAD + speech[i] + tail + (s.type === "cta" ? 1.4 : 0)));
-  // exactly the brief's length: too long → the scenes shrink toward their tightest (each keeps its line), too short → longer tails
-  const floor = script.scenes.map((s, i) => LEAD + speech[i] + 0.35 + (s.type === "cta" ? 0.8 : 0));
-  const total0 = durs.reduce((a, b) => a + b, 0);
-  if (total0 > TARGET) { const room = total0 - floor.reduce((a, b) => a + b, 0), cut = Math.min(1, (total0 - TARGET) / Math.max(0.001, room)); durs = durs.map((d, i) => d - (d - floor[i]) * cut); }
-  const short = TARGET - durs.reduce((a, b) => a + b, 0);
-  if (short > 0) durs = durs.map((d) => d + short / durs.length);
-  if (durs.reduce((a, b) => a + b, 0) > TARGET + 0.05) log(`! timing: the voice still runs ${(durs.reduce((a, b) => a + b, 0) - TARGET).toFixed(1)}s past ${TARGET}s`);
-  let t = 0; const rough = durs.map((d, i) => { const r = { name: `s${i}`, start: +t.toFixed(3), bars: d / 2, purpose: script.scenes[i].purpose }; t += d; return r; });
-  const total = Math.max(TARGET, +t.toFixed(3));
+  const total = +Math.max(TARGET, INTRO + take.total + 0.6).toFixed(3);
+  if (total > TARGET) log(`! timing: the voice runs ${(total - TARGET).toFixed(1)}s past ${TARGET}s even at the fastest pace`);
+  // each scene starts a breath before its line (the first at 0), right after the previous line's last word
+  const cuts = take.lines.map((l, i) => (i === 0 ? 0 : +(INTRO + Math.max(take.lines[i - 1].t1 + 0.08, l.t0 - 0.3)).toFixed(3)));
+  const rough = cuts.map((c, i) => ({ name: `s${i}`, start: c, bars: ((i + 1 < cuts.length ? cuts[i + 1] : total) - c) / 2, purpose: script.scenes[i].purpose }));
   const musicFile = path.join(runDir, "music.wav");
   const mus: any = makeDirectorMusic({ script: { length: total, music: { mood: script.mood }, scenes: rough }, file: musicFile, seed: hashSeed(job.jobId) });
   const scenes = script.scenes.map((s, i) => {
-    const start = mus.scenes[i].start, end = mus.scenes[i].end, voStart = start + LEAD + (i === 0 ? 0.15 : 0);
-    const shift = voStart - lines[i].s0;
-    return { ...s, start, end, vo: { start: voStart, end: voStart + speech[i] }, words: lines[i].words.map((w) => ({ w: w.w, t: +(w.t + shift).toFixed(3), e: +(w.e + shift).toFixed(3) })), _mp3: lines[i].mp3, _delay: shift };
+    const l = take.lines[i];
+    return { ...s, start: mus.scenes[i].start, end: mus.scenes[i].end, vo: { start: +(INTRO + l.t0).toFixed(3), end: +(INTRO + l.t1).toFixed(3) }, words: l.words.map((w) => ({ w: w.w, t: +(INTRO + w.t).toFixed(3), e: +(INTRO + w.e).toFixed(3) })) };
   });
-  log(`✓ timing: ${total.toFixed(1)}s, ${mus.bpm} bpm, tail ${tail.toFixed(2)}s`);
-  for (const s of scenes) if (s.vo.end > s.end - 0.1) log(`  ! scene ${s.type} speech runs ${(s.vo.end - s.end + 0.1).toFixed(2)}s past its end`);
+  log(`✓ timing: ${total.toFixed(1)}s, ${mus.bpm} bpm, one continuous read from ${INTRO}s`);
 
   // the studio's script.json (same shape as the director's)
   const studioScript = { idea: script.idea, language, music: { mood: script.mood, drops: mus.drops ?? [] }, length: total, bpm: mus.bpm, engine: "studio",
@@ -131,7 +111,7 @@ export async function runStudio(job: JobFile, dirs: { root: string; brandDir: st
     logo: brand.logo?.file && fs.existsSync(path.join(brandDir, brand.logo.file)) ? `capture/${brand.logo.file}` : null, logoOnDark: brand.logo?.on_dark === true,
   };
   const theme = { brand: primary, brand2: p.accent || primary, lav: `color-mix(in srgb, ${primary} 22%, white)` };
-  const AD = { format, en: !rtl, country: /^(SA|AE|KW|QA|BH|OM)$/.test(brief.country) ? "sa" : "eg", brandKey: job.slug, brand: B, theme, hookArt: script.hook_art === "app" ? "app" : "blank", beat: mus.beat, duration: total, scenes: scenes.map(({ _mp3, _delay, ...s }) => s) };
+  const AD = { format, en: !rtl, country: /^(SA|AE|KW|QA|BH|OM)$/.test(brief.country) ? "sa" : "eg", brandKey: job.slug, brand: B, theme, hookArt: script.hook_art === "app" ? "app" : "blank", beat: mus.beat, duration: total, scenes };
   const wm = B.logo ? `<img src="${B.logo}" style="height:${format === "P" ? 64 : 56}px;max-width:320px;object-fit:contain;display:block">` : `${B.latin}`;
   const html = `<!doctype html><html lang="${rtl ? "ar" : "en"}"><head><meta charset="utf-8">${fontsHead}<link rel="stylesheet" href="lib/stage.css"></head>
 <body class="${format}"><div id="stage"${rtl ? "" : ' style="direction:ltr"'}><div class="aurora"><i></i><i></i><i></i></div><div class="wm">${wm}</div><div class="flash"></div><div class="grain"></div></div>
@@ -141,16 +121,13 @@ export async function runStudio(job: JobFile, dirs: { root: string; brandDir: st
   fs.writeFileSync(pageFile, html);
   fs.copyFileSync(pageFile, path.join(runDir, "video.src.html"));
 
-  // ── 3. audio: voice + music (ducked under the voice) + SFX (build.mjs) ─
+  // ── 3. audio: the voice (one continuous take) + music (ducked under the voice) + SFX (build.mjs's mix) ─
   async function mix(sfxList: { t: number; src: string; vol: number }[], out: string) {
-    const inputs = ["-i", musicFile], parts: string[] = [];
-    scenes.forEach((s) => inputs.push("-i", s._mp3));
-    const nV = scenes.length;
-    scenes.forEach((s, i) => parts.push(`[${i + 1}:a]aresample=44100,aformat=channel_layouts=mono,adelay=${Math.round(Math.max(0, s._delay) * 1000)}:all=1,volume=1.0[v${i}]`));
-    parts.push(`${scenes.map((_, i) => `[v${i}]`).join("")}amix=inputs=${nV}:normalize=0,acompressor=threshold=0.12:ratio=3:attack=5:release=120,volume=1.6,asplit=2[vo][vosc]`);
+    const inputs = ["-i", musicFile, "-i", take.file], parts: string[] = [];
+    parts.push(`[1:a]aresample=44100,aformat=channel_layouts=mono,adelay=${Math.round(INTRO * 1000)}:all=1,acompressor=threshold=0.12:ratio=3:attack=5:release=120,volume=1.6,asplit=2[vo][vosc]`);
     parts.push(`[0:a]volume=0.55[mus]`, `[mus][vosc]sidechaincompress=threshold=0.04:ratio=6:attack=25:release=400:makeup=1[duck]`);
     const fx = sfxList.filter((x) => fs.existsSync(path.join(sfxDir, x.src)));
-    fx.forEach((x, k) => { inputs.push("-i", path.join(sfxDir, x.src)); parts.push(`[${nV + 1 + k}:a]aresample=44100,adelay=${Math.round(x.t * 1000)}:all=1,volume=${x.vol * 0.8}[f${k}]`); });
+    fx.forEach((x, k) => { inputs.push("-i", path.join(sfxDir, x.src)); parts.push(`[${2 + k}:a]aresample=44100,adelay=${Math.round(x.t * 1000)}:all=1,volume=${x.vol * 0.8}[f${k}]`); });
     parts.push(`[vo][duck]${fx.map((_, k) => `[f${k}]`).join("")}amix=inputs=${2 + fx.length}:normalize=0:duration=longest,apad,atrim=0:${total},loudnorm=I=-14:TP=-1.5:LRA=11[aout]`);
     execFileSync(ffmpeg, ["-loglevel", "error", "-y", ...inputs, "-filter_complex", parts.join(";"), "-map", "[aout]", "-t", String(total), "-ar", "48000", "-c:a", "aac", "-b:a", "192k", out]);
   }
