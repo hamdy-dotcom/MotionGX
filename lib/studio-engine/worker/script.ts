@@ -101,8 +101,9 @@ const DIALECT_RULES: Record<string, string> = {
   sa: `Saudi Arabic as people in Riyadh / Jeddah speak it in a casual video: «وش» «تبي» «واجد» «الحين» «على طول» «زين», never standard-Arabic forms. Numbers as Saudis say them. No vowel marks in the line; a word the voice could say two ways goes in "marked" with the one vowel that fixes it. Foreign names in Arabic letters the way Saudis pronounce them.`,
 };
 
-// Fathy reads ~12 characters a second in one take (447 characters → 36 s); the lines must fit the video's length
-export const CHARS_PER_S = 12;
+// eleven_v4 reads Egyptian at ~14 characters a second in one take (557 characters → 39 s, measured 2026-11-01); its
+// speed setting barely moves that, so the lines themselves must fit the video's length
+export const CHARS_PER_S = 14;
 /** the voice's room in a video of `length` seconds with `n` scenes (the ads' lead-in, a short tail, the CTA's hold) */
 export const speechBudget = (length: number, n: number) => Math.max(8, length - n * (0.4 + 0.6) - 1.2);
 const HARAKAT = /[\u064B-\u0650\u0652]/g;
@@ -156,9 +157,10 @@ async function dialectPass(scenes: Scene[], o: { country: string; language: stri
   o.log(`✓ dialect: ${changed} of ${scenes.length} lines respelled as spoken (${key === "eg" ? "Egyptian" : "Saudi"})`);
 }
 
-/** the lines over the voice's room in the video: one pass shortens them (same story, same words the animations use) */
-async function fitLength(scenes: Scene[], o: { length: number; language: string; ledger: Ledger; model: string; log: (l: string) => void }) {
-  const max = Math.round(speechBudget(o.length, scenes.length) * CHARS_PER_S), chars = scenes.reduce((a, s) => a + s.vo.length, 0);
+/** the lines over the voice's room in the video: one pass shortens them (same story, same words the animations use);
+ *  `max` overrides the budget (after a take ran long: the characters that fit at the take's measured pace) */
+export async function fitLength(scenes: Scene[], o: { length: number; language: string; ledger: Ledger; model: string; log: (l: string) => void; max?: number }) {
+  const max = o.max ?? Math.round(speechBudget(o.length, scenes.length) * CHARS_PER_S), chars = scenes.reduce((a, s) => a + s.vo.length, 0);
   if (chars <= max * 1.05) return;
   const input = scenes.map((s, i) => ({ i, vo: s.vo, keep: JSON.stringify(s.data ?? {}).match(/"(?:word|calloutWord|stampWord|splitWord|badgeWord|afterWord|reactionWord)":"([^"]+)"/g)?.map((x) => x.split('":"')[1].slice(0, -1)) ?? [] }));
   const t = { name: "shorter_lines", description: "The shortened lines.", input_schema: { type: "object", required: ["lines"], properties: { lines: { type: "array", items: { type: "object", required: ["i", "vo"], properties: { i: { type: "number" }, vo: { type: "string" } } } } } } };
