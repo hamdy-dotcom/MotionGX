@@ -15,7 +15,11 @@ import type { MoveCard } from "./schema";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(here, ".checks");
-const GSAP = path.join(here, "..", "live-engine", "worker", "vendor", "gsap.min.js");
+// GSAP 3.13 and the plugins a move may use (all free since 3.13); every page that plays moves loads the same set
+export const GSAP_FILES = ["gsap", "CustomEase", "CustomBounce", "CustomWiggle", "EasePack", "DrawSVGPlugin", "MorphSVGPlugin", "MotionPathPlugin", "Physics2DPlugin", "ScrambleTextPlugin", "SplitText", "TextPlugin", "Flip"].map((f) => path.join(here, "..", "..", "node_modules", "gsap", "dist", `${f}.min.js`));
+const GSAP_REGISTER = "gsap.registerPlugin(CustomEase, CustomBounce, CustomWiggle, DrawSVGPlugin, MorphSVGPlugin, MotionPathPlugin, Physics2DPlugin, ScrambleTextPlugin, SplitText, TextPlugin, Flip);";
+// ML_LOOK=<id>: render with looks/<id>.css (to see a look on real moves); stills go to .checks/<move>/<look>/
+const LOOK = process.env.ML_LOOK || "";
 const SHAPES: Record<string, [number, number]> = { "9:16": [1080, 1920], "16:9": [1920, 1080], "1:1": [1080, 1080], "4:5": [1080, 1350] };
 
 const SAMPLE = {
@@ -39,11 +43,11 @@ function page(card: MoveCard, lang: "ar" | "en", shape: string, dur: number) {
   <div style="display:flex;gap:14px"${slot("list")}>${s.list.map((x) => `<span class="ml-panel" style="padding:12px 20px;font-size:28px">${x}</span>`).join("")}</div>
 </div></div>`.replace(/ data-slot="(\w+)" data-slot="\w+"/g, ' data-slot="$1"');
   const moveFile = path.join(MOVES_DIR, card.category, card.id.split(".")[1] + ".js");
-  return `<!doctype html><html lang="${lang}" dir="${s.dir}"><head><meta charset="utf-8">
+  return `<!doctype html><html lang="${lang}" dir="${s.dir}"${LOOK ? ` data-look="${LOOK}"` : ""}><head><meta charset="utf-8">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;600;700&family=JetBrains+Mono:wght@500;600&display=block">
-<style>${fs.readFileSync(path.join(here, "looks", "base.css"), "utf8")}</style></head>
+<style>${fs.readFileSync(path.join(here, "looks", "base.css"), "utf8")}${LOOK ? fs.readFileSync(path.join(here, "looks", `${LOOK}.css`), "utf8") : ""}</style></head>
 <body style="margin:0"><div id="stage" data-shape="${shape}"><section class="ml-scene" id="s0">${body}</section></div>
-<script>${fs.readFileSync(GSAP, "utf8")}</script>
+${GSAP_FILES.map((f) => `<script>${fs.readFileSync(f, "utf8")}</script>`).join("")}<script>${GSAP_REGISTER}</script>
 <script>${fs.readFileSync(path.join(here, "runtime", "kit.js"), "utf8")}</script>
 <script>${fs.readFileSync(moveFile, "utf8")}</script>
 <script>document.fonts.ready.then(() => ML.film({ duration: ${dur}, shape: "${shape}", words: ${JSON.stringify(words)},
@@ -51,7 +55,7 @@ function page(card: MoveCard, lang: "ar" | "en", shape: string, dur: number) {
 }
 
 async function checkMove(browser: Browser, card: MoveCard) {
-  const dir = path.join(OUT, card.id);
+  const dir = path.join(OUT, card.id, LOOK);
   fs.mkdirSync(dir, { recursive: true });
   const dur = Math.min(8, Math.max(3, card.duration[1] + 1.2));
   const problems: string[] = [];
@@ -86,7 +90,8 @@ async function checkMove(browser: Browser, card: MoveCard) {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  const { cards } = readMoves();
+  const { cards, errors } = readMoves();
+  if (errors.length) console.error(`✗ card problems (these moves are not in the library until fixed):\n  ${errors.join("\n  ")}`);
   const want = process.argv.slice(2).filter((a) => !a.startsWith("--"));
   const list = process.argv.includes("--all") ? cards : cards.filter((c) => want.includes(c.id));
   if (!list.length) { console.error("no moves to check (ids, or --all)"); process.exit(1); }
