@@ -54,3 +54,6 @@ next-env.d.ts
 /scripts/refs/cache/
 /.stems/
 /.work/
+
+# motion library: check stills (regenerated)
+lib/motion-library/.checks/

@@ -1,0 +1,89 @@
+{
+ "built": "2026-11-01T14:42:50.089Z",
+ "moves": [
+  {
+   "id": "text-in.punchline",
+   "category": "text-in",
+   "name": "Punchline",
+   "does": "Big words land one by one on the voice, each blurring in and rising into its kept slot.",
+   "says": [
+    "reveal",
+    "arrival",
+    "story",
+    "energy"
+   ],
+   "energy": 3,
+   "targets": [
+    "headline",
+    "line"
+   ],
+   "duration": [
+    0.8,
+    4
+   ],
+   "params": {
+    "sync": {
+     "type": "choice",
+     "options": [
+      "spoken",
+      "stagger"
+     ],
+     "default": "spoken"
+    },
+    "stagger": {
+     "type": "number",
+     "range": [
+      0.05,
+      0.3
+     ],
+     "default": 0.12,
+     "unit": "s"
+    },
+    "blur": {
+     "type": "number",
+     "range": [
+      0,
+      24
+     ],
+     "default": 16,
+     "unit": "px"
+    },
+    "rise": {
+     "type": "number",
+     "range": [
+      0,
+      80
+     ],
+     "default": 36,
+     "unit": "px"
+    },
+    "land": {
+     "type": "number",
+     "range": [
+      0.18,
+      0.6
+     ],
+     "default": 0.3,
+     "unit": "s"
+    }
+   },
+   "pairs": [
+    "text-emphasis.accent-word",
+    "camera.push-in"
+   ],
+   "avoid": [],
+   "rtl": true,
+   "shapes": [
+    "9:16",
+    "16:9",
+    "1:1",
+    "4:5"
+   ],
+   "sfx": "tap",
+   "source": {
+    "from": "product-film-skill:templates/kit/punchlines.tsx",
+    "license": "MIT"
+   }
+  }
+ ]
+}

@@ -1,0 +1,53 @@
+/* MotionGX motion library — the look variables every look sets and every move reads. A move names no colour, no font
+   and no size of its own: it uses these, so one look changes the whole film — colour, type, edges, where things sit and
+   how they move. Extended from MengTo/Skills html-explainer-video's --x- set (MIT). A look file: looks/<id>.css,
+   [data-look="<id>"] { …overrides… } plus any composition rules it needs ([data-look="<id>"] .ml-head { … }). */
+:root, [data-look] {
+  /* ground and ink */
+  --x-ground: #f6f4ee; --x-ground-image: none;
+  --x-panel: #ffffff; --x-panel-2: #f2f0ea;
+  --x-ink: #14141c; --x-dim: #6b6a78; --x-line: rgba(20, 20, 30, 0.1);
+  --x-accent: #5558e3; --x-accent-2: #8f92ff; --x-accent-ink: #ffffff;
+  --x-good: #0e9f78; --x-bad: #ff4d3d;
+  --x-ring: var(--x-accent); --x-ring-w: 2px;
+  /* where things sit: the headline band at top | side | bottom, how tall it runs, how it's set, the side margin */
+  --x-head-at: top; --x-head-h: 0; --x-head-align: center; --x-m: 0;
+  /* type: headline, hero (the biggest), body, label, mono, and the Arabic faces they fall back to */
+  --x-arabic: "Readex Pro", "Noto Sans Arabic", sans-serif;
+  --x-head-font: "Readex Pro", var(--x-arabic); --x-head-weight: 700; --x-head-size: 104px; --x-head-line: 1.12; --x-head-track: -0.02em; --x-head-case: none;
+  --x-hero-size: 168px; --x-hero-track: -0.03em;
+  --x-sub-size: 56px; --x-sub-weight: 400;
+  --x-body-font: "Readex Pro", var(--x-arabic); --x-body-weight: 400; --x-body-size: 30px;
+  --x-label-font: "JetBrains Mono", ui-monospace, monospace; --x-label-weight: 600; --x-label-case: uppercase; --x-label-track: 0.18em;
+  --x-mono-font: "JetBrains Mono", ui-monospace, monospace;
+  /* edges */
+  --x-radius: 30px; --x-radius-s: 999px; --x-edge: 1px; --x-edge-color: var(--x-line);
+  --x-shadow: 0 2px 4px rgba(20, 20, 30, 0.05), 0 24px 60px -20px rgba(20, 20, 30, 0.22);
+  /* windows (chrome around a rebuilt screen) */
+  --x-bar: var(--x-panel); --x-bar-ink: var(--x-dim); --x-lights: 1; --x-light-1: #ff5f57; --x-light-2: #febc2e; --x-light-3: #28c840; --x-bar-order: 0;
+  --x-device: #0d0d12; --x-device-radius: 74px;
+  /* pictures: how photos sit in the look (never a blur) */
+  --x-pic-filter: none; --x-pic-blend: normal; --x-pic-ground: transparent; --x-pic-radius: var(--x-radius);
+  /* pointer */
+  --x-pointer: #14141c; --x-pointer-edge: #ffffff;
+  /* motion: how things arrive (rise, fade, snap, wipe, blur, spring, slide, scale), its seconds, how far; transitions */
+  --x-motion: rise; --x-motion-dur: 0.55; --x-motion-dist: 28;
+  --x-cut: fade; --x-cut-dur: 0.3; --x-energy: 3;
+  /* atmosphere: grain, glow, texture over the ground */
+  --x-grain: 0.06; --x-glow-1: var(--x-accent); --x-glow-2: var(--x-accent-2); --x-glow-o: 0.42;
+}
+/* RTL: the stage reads right to left; a move that slides takes its direction from here */
+[dir="rtl"] { --x-dir: -1; } [dir="ltr"] { --x-dir: 1; }
+
+/* the stage and its regions (set by ML.film from the shape and --x-head-at) */
+#stage { position: relative; width: var(--W); height: var(--H); overflow: hidden; background: var(--x-ground); background-image: var(--x-ground-image); color: var(--x-ink); font-family: var(--x-body-font); }
+.ml-scene { position: absolute; inset: 0; display: none; }
+.ml-head { position: absolute; left: var(--head-x); top: var(--head-y); width: var(--head-w); height: var(--head-h); display: flex; flex-direction: column; justify-content: center; gap: 18px; text-align: var(--x-head-align); }
+.ml-pic { position: absolute; left: var(--pic-x); top: var(--pic-y); width: var(--pic-w); height: var(--pic-h); display: flex; align-items: center; justify-content: center; }
+.ml-safe { position: absolute; left: var(--safe-x); top: var(--safe-y); width: var(--safe-w); height: var(--safe-h); }
+.ml-title { font: var(--x-head-weight) var(--x-head-size) / var(--x-head-line) var(--x-head-font); letter-spacing: var(--x-head-track); text-transform: var(--x-head-case); text-wrap: balance; }
+.ml-hero { font: var(--x-head-weight) var(--x-hero-size) / 1.02 var(--x-head-font); letter-spacing: var(--x-hero-track); }
+.ml-sub { font: var(--x-sub-weight) var(--x-sub-size) / 1.3 var(--x-body-font); color: var(--x-dim); }
+.ml-label { font: var(--x-label-weight) 22px var(--x-label-font); letter-spacing: var(--x-label-track); text-transform: var(--x-label-case); color: var(--x-dim); }
+.ml-panel { background: var(--x-panel); border: var(--x-edge) solid var(--x-edge-color); border-radius: var(--x-radius); box-shadow: var(--x-shadow); }
+.ml-w, .ml-c { display: inline-block; }

@@ -1,0 +1,27 @@
+{
+  "about": "Named sound cues a move calls with ctx.sfx(t, cue). Each cue lists takes from two kits: kit/ (earshot launch kit by Leon Lin, MIT — kit/LICENSE.txt, with measured onsets in kit/kit.json) and the director's CC0 effects (lib/director-engine/assets/sfx). The mixer picks a take by the move's index so repeats vary, aligns it on its onset, and keeps about one sound a second (at most two within 150 ms).",
+  "cues": {
+    "click": ["kit/click_1.mp3", "kit/click_2.mp3", "sfx:ui/click2.ogg"],
+    "click.confirm": ["kit/click-confirm_1.mp3"],
+    "tap": ["kit/tick-crisp_1.mp3", "sfx:ui/rollover2.ogg"],
+    "key": ["kit/key_1.mp3", "kit/key_2.mp3", "kit/key_3.mp3", "sfx:keyboard/keypress-001.wav", "sfx:keyboard/keypress-002.wav", "sfx:keyboard/keypress-003.wav"],
+    "key.return": ["kit/key-return_1.mp3"],
+    "pop.soft": ["kit/pop_2.mp3", "sfx:interface/drop_001.ogg"],
+    "pop": ["kit/pop_1.mp3", "sfx:interface/drop_002.ogg", "sfx:interface/drop_003.ogg"],
+    "land": ["kit/land_1.mp3", "kit/land_2.mp3"],
+    "land.light": ["kit/land-light_1.mp3"],
+    "card": ["sfx:casino/card-place-1.ogg", "sfx:casino/card-place-2.ogg", "sfx:casino/card-place-3.ogg", "sfx:casino/card-place-4.ogg"],
+    "card.fan": ["sfx:casino/card-fan-1.ogg", "sfx:casino/card-fan-2.ogg"],
+    "whoosh.soft": ["kit/whoosh-short_1.mp3", "kit/whoosh-short_2.mp3"],
+    "whoosh.heavy": ["kit/whoosh-long_1.mp3"],
+    "riser": ["kit/riser_1.mp3"],
+    "swell": ["kit/swell_1.mp3"],
+    "hit": ["kit/hit_1.mp3", "sfx:impact/impactSoft_medium_001.ogg", "sfx:impact/impactSoft_medium_002.ogg"],
+    "sub": ["sfx:impact/impactSoft_heavy_002.ogg", "sfx:impact/impactSoft_heavy_001.ogg"],
+    "drop": ["kit/drop_1.mp3"],
+    "snap": ["kit/snap_1.mp3"],
+    "bell": ["kit/bell_C5.mp3", "kit/bell_E5.mp3", "kit/bell_A4.mp3", "sfx:interface/bong_001.ogg"],
+    "success": ["kit/bell_E5.mp3", "sfx:interface/bong_001.ogg"],
+    "blip": ["kit/tick-crisp_1.mp3"]
+  }
+}
