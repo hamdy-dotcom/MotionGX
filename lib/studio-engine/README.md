@@ -12,7 +12,7 @@ the voice, the director's beat-synced music, the ads' scene library on one GSAP 
 `assets/` holds the ads' `stage.css`, `scenes.js` and `gsap.min.js`, copied. `scenes.js` changes only where the
 client's brand replaces MotionGX (logo, reveal, price, CTA, watermark) and adds the `screen` scene.
 
-Settings: `VIDEO_ENGINE=studio`, `STUDIO_MODEL` (default `claude-opus-5-5`), `STUDIO_VOICE` (an ElevenLabs voice id;
+Settings: `VIDEO_ENGINE=studio`, `STUDIO_MODEL` (default `claude-opus-5-5`), `STUDIO_VOICE` (`masry`, or any ElevenLabs voice id;
 default: Fathy for Egypt, Ayman for the Gulf, George for English), `DIRECTOR_MAX_USD` (cost cap), `ELEVENLABS_API_KEY`.
 Local runner only. Launch config: `dev-studio`.
 

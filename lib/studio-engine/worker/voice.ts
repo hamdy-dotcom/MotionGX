@@ -1,19 +1,22 @@
 // The voiceover, as the MotionGX ads made it (MotionGX-ads/lib/vo.mjs): the whole script in ONE ElevenLabs take
-// (eleven_v3, natural, no tags — the dialect holds only with the full context), then cut into one clip per scene at the
-// pauses between lines, each with its own word timings.
+// (natural, no tags — the dialect holds only with the full context), then cut into one clip per scene at the pauses
+// between lines, each with its own word timings. Model: eleven_v4 — chosen by ear in a blind Egyptian test (2026-11-01:
+// v4 with normal spelling beat v3 and phonetic respelling; Fathy and Masry both approved).
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import type { Ledger } from "../../live-engine/worker/claude";
 
-const MODEL = "eleven_v3";
+const MODEL = "eleven_v4";
 // the ads' approved voices; STUDIO_VOICE overrides
 export const VOICES: Record<string, string> = {
   eg: "VMy40598IGgDeaOE8phq", // Fathy Hammad — Egyptian (approved)
+  masry: "LXrTqFIgiubkrMkwvOUr", // Masry — Egyptian (approved in the v4 test; the library's most-used Egyptian voice)
   sa: "ht2HShpHzhG4gY6wI5YF", // Ayman Alghamdi — Saudi, Jeddawi (approved)
   en: "JBFqnCBsd6RMkjVDRZzb", // George — English (ElevenLabs stock voice; not used in the ads)
 };
-export const voiceFor = (country: string) => process.env.STUDIO_VOICE || (/^(SA|AE|KW|QA|BH|OM)$/.test(country) ? VOICES.sa : /^(US|GB|CA|AU)$/.test(country) ? VOICES.en : VOICES.eg);
+// STUDIO_VOICE: a name above (e.g. masry) or any ElevenLabs voice id
+export const voiceFor = (country: string) => (process.env.STUDIO_VOICE ? VOICES[process.env.STUDIO_VOICE] ?? process.env.STUDIO_VOICE : null) || (/^(SA|AE|KW|QA|BH|OM)$/.test(country) ? VOICES.sa : /^(US|GB|CA|AU)$/.test(country) ? VOICES.en : VOICES.eg);
 // ElevenLabs bills characters; ≈ $0.22 per 1,000 on the Creator plan (an estimate for the cost record)
 const USD_PER_CHAR = 0.22 / 1000;
 
