@@ -84,6 +84,8 @@ RULES
 - {N} scenes, each vo line 5–14 words; the whole vo is ~{WORDS}.
 - Facts only from the brand's facts and the brief — never invent the brand's numbers, prices, discounts or claims.
 - Every "word" field is a word that appears in that same scene's vo, written exactly as in the vo.
+- A scene with several moves gives them words SPREAD through its line (the first near the start, the next in the middle,
+  the last a little after) — never all at the end, where the scene cuts right after the last word.
 - Titles are short (≤ 5 words), sub ≤ 6 words, in the same dialect. A title never repeats its vo word for word.
 - Files (image fields) only from IMAGES, exactly as listed.
 - share_copy: 1–3 sentences to post with the video, in the same language.`;
