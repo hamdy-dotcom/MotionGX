@@ -106,8 +106,9 @@ const DIALECT_RULES: Record<string, string> = {
 // eleven_v4 reads Egyptian at ~14 characters a second in one take (557 characters → 39 s, measured 2026-11-01); its
 // speed setting barely moves that, so the lines themselves must fit the video's length
 export const CHARS_PER_S = 14;
-/** the voice's room in a video of `length` seconds with `n` scenes (the ads' lead-in, a short tail, the CTA's hold) */
-export const speechBudget = (length: number, n: number) => Math.max(8, length - n * (0.4 + 0.6) - 1.2);
+/** the voice's room in a video of `length` seconds with `n` scenes: one continuous read, the opening beat and the end card's
+ *  hold around it, a short breath between lines */
+export const speechBudget = (length: number, n: number) => Math.max(8, length - 2.4 - (n - 1) * 0.3);
 const HARAKAT = /[\u064B-\u0650\u0652]/g;
 /** a vowelled line is read like a formal text: every vowel mark goes (shaddas stay), then only the words the dialect
  *  pass named as ambiguous get their one fixing vowel back (المرتَّب — the salary, not «المرتِّب») */

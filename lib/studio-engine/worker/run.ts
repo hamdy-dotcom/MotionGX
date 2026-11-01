@@ -76,7 +76,7 @@ export async function runStudio(job: JobFile, dirs: { root: string; brandDir: st
   // ── 1. timing — the scenes follow the voice: one continuous read, every cut on a pause between lines, the video
   // exactly the brief's length (the studio plays length_s): the read's pace adjusts once if it can't fit ──
   await sync.stage("music");
-  const TARGET = length, INTRO = 0.55, HOLD = 1.6, MAX_HOLD = 3.5, MAX_BREATH = 0.8; // the opening frame lands before the first words; the end card holds after the last
+  const TARGET = length, INTRO = 0.55, HOLD = 1.6, MAX_HOLD = 3.5, MAX_BREATH = 0.5; // the opening frame lands before the first words; the end card holds after the last
   const room = TARGET - INTRO - HOLD;
   if (take.total > room + 0.05) {
     // too long for the video: the lines shortened to what fits at this take's measured pace, then one more take

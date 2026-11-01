@@ -56,5 +56,64 @@ export async function voiceover(o: { lines: string[]; voice: string; dir: string
   });
   const total = en[en.length - 1] + 0.3;
   o.log(`✓ voice: one ElevenLabs take (${MODEL}${o.speed && o.speed !== 1 ? `, speed ${o.speed.toFixed(2)}` : ""}), ${total.toFixed(1)}s, ${lines.length} lines`);
+  // the take's own timings drift (≈0.5 s on v4): where each line really starts and ends comes from what is heard in it
+  await heardLines(file, vo, lines, o).catch((err) => o.log(`! voice: the take could not be checked by ear (${String(err).slice(0, 120)}) — using its own timings`));
   return { file, total, lines };
+}
+
+const norm = (w: string) => w.replace(/[\u064B-\u0652\u0640]/g, "").replace(/[.,،؟?!…:;«»"'()\-]/g, "").replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/^(وال|بال|فال|كال|لل|ال|و)/, "").toLowerCase();
+/** how alike two words are, 0–1 (letter pairs in common); a Latin / digit word against an Arabic one is a weak match
+ *  (Scribe writes «أونلاين» as "online" and «خمسة وعشرين» as "25") */
+function sim(a: string, b: string) {
+  a = norm(a); b = norm(b);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (/[a-z0-9]/.test(a) !== /[a-z0-9]/.test(b)) return 0.35;
+  const pairs = (x: string) => { const m = new Map<string, number>(); for (let i = 0; i < x.length - 1; i++) m.set(x.slice(i, i + 2), (m.get(x.slice(i, i + 2)) ?? 0) + 1); return m; };
+  const pa = pairs(a), pb = pairs(b); let common = 0;
+  for (const [k, n] of pa) common += Math.min(n, pb.get(k) ?? 0);
+  return a.length < 2 || b.length < 2 ? (a[0] === b[0] ? 0.5 : 0) : (2 * common) / (a.length - 1 + b.length - 1);
+}
+
+/** Scribe (ElevenLabs speech-to-text) hears the take; its words are matched to the script's (sequence alignment) and each
+ *  line's start / end is moved to where it is heard — the cut between lines then falls in the real pause */
+export async function heardLines(file: string, vo: string[], lines: Take["lines"], o: { ledger: Ledger; log: (l: string) => void; lang?: string }) {
+  const key = process.env.ELEVENLABS_API_KEY!, t0 = Date.now();
+  const form = new FormData();
+  form.append("model_id", "scribe_v1");
+  form.append("language_code", vo.join(" ").match(/[\u0600-\u06FF]/) ? "ara" : "eng");
+  form.append("timestamps_granularity", "word");
+  form.append("file", new Blob([fs.readFileSync(file)], { type: "audio/mpeg" }), "vo.mp3");
+  const res = await fetch("https://api.elevenlabs.io/v1/speech-to-text", { method: "POST", headers: { "xi-api-key": key }, body: form, signal: AbortSignal.timeout(120_000) });
+  if (!res.ok) throw new Error(`Scribe ${res.status}`);
+  const heard = ((await res.json()).words as { text: string; start: number; end: number; type: string }[]).filter((w) => w.type === "word" && w.text.trim());
+  const secs = heard.length ? heard[heard.length - 1].end : 0;
+  o.ledger.addPriced("director", "scribe_v1", { in: Math.round(secs), out: 0 }, (secs / 3600) * 0.4, Date.now() - t0);
+  // the script's words in order, each with its line
+  const said: { w: string; line: number }[] = [];
+  vo.forEach((l, li) => l.split(/\s+/).filter((w) => norm(w)).forEach((w) => said.push({ w, line: li })));
+  // Needleman–Wunsch: match = similarity, skipping a word on either side costs a little
+  const n = said.length, m = heard.length, GAP = -0.35;
+  const S = Array.from({ length: n + 1 }, () => new Float64Array(m + 1)), B = Array.from({ length: n + 1 }, () => new Uint8Array(m + 1));
+  for (let i = 1; i <= n; i++) { S[i][0] = i * GAP; B[i][0] = 1; }
+  for (let j = 1; j <= m; j++) { S[0][j] = j * GAP; B[0][j] = 2; }
+  for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) {
+    const d = S[i - 1][j - 1] + (sim(said[i - 1].w, heard[j - 1].text) * 2 - 0.7), u = S[i - 1][j] + GAP, l = S[i][j - 1] + GAP;
+    if (d >= u && d >= l) { S[i][j] = d; B[i][j] = 0; } else if (u >= l) { S[i][j] = u; B[i][j] = 1; } else { S[i][j] = l; B[i][j] = 2; }
+  }
+  const map = new Int32Array(n).fill(-1);
+  for (let i = n, j = m; i > 0 || j > 0;) { const b = B[i][j]; if (i > 0 && j > 0 && b === 0) { map[i - 1] = j - 1; i--; j--; } else if (i > 0 && (j === 0 || b === 1)) i--; else j--; }
+  const missing = [...map].filter((x) => x < 0).length;
+  // each line: its first and last heard word
+  let moved = 0;
+  lines.forEach((l, li) => {
+    const idx = said.map((s, k) => (s.line === li ? map[k] : -1)).filter((x) => x >= 0);
+    if (!idx.length) return;
+    const h0 = heard[Math.min(...idx)], h1 = heard[Math.max(...idx)];
+    const shift = h0.start - l.t0;
+    if (Math.abs(shift) > 0.08 || Math.abs(h1.end - l.t1) > 0.08) moved++;
+    for (const w of l.words) { w.t = +(w.t + shift).toFixed(3); w.e = +(w.e + shift).toFixed(3); }
+    l.t0 = h0.start; l.t1 = h1.end;
+  });
+  o.log(`✓ voice heard: ${heard.length} words, ${moved} of ${lines.length} line edges corrected${missing > n * 0.12 ? ` · ! ${missing} of ${n} script words not heard` : ""}`);
 }
