@@ -71,12 +71,12 @@ export async function runStudio(job: JobFile, dirs: { root: string; brandDir: st
   cap$();
 
   // ── 0c. voiceover: one ElevenLabs take, one clip per line ────────────
-  const clips = await voiceover({ lines: script.scenes.map((s) => s.vo), voice: voiceFor(brief.country), dir: path.join(runDir, "vo"), ffmpeg, ledger, log });
+  let clips = await voiceover({ lines: script.scenes.map((s) => s.vo), voice: voiceFor(brief.country), dir: path.join(runDir, "vo"), ffmpeg, ledger, log });
 
-  // ── 1. timing (build.mjs) ─────────────────────────────────────────────
+  // ── 1. timing (build.mjs) — fitted to exactly the brief's length (the studio plays length_s) ──
   await sync.stage("music");
-  const TARGET = Math.max(10, length - 2);
-  const lines = clips.map((c) => {
+  const TARGET = length;
+  const readLines = () => clips.map((c) => {
     const ch = c.characters, st = c.starts, en = c.ends;
     const first = ch.findIndex((x) => x.trim()), last = ch.length - 1 - [...ch].reverse().findIndex((x) => x.trim());
     const words: { w: string; t: number; e: number }[] = []; let cur: { w: string; t: number; e: number } | null = null;
@@ -84,11 +84,28 @@ export async function runStudio(job: JobFile, dirs: { root: string; brandDir: st
     if (cur) words.push(cur);
     return { mp3: c.mp3, s0: st[first], s1: en[last], words };
   });
-  const speech = lines.map((l) => l.s1 - l.s0);
+  let lines = readLines();
+  let speech = lines.map((l) => l.s1 - l.s0);
+  // the tightest the scenes can be: the lead-in, the line, a short tail (the CTA holds a little longer)
+  const tight = () => script.scenes.reduce((a, s, i) => a + LEAD + speech[i] + 0.35 + (s.type === "cta" ? 0.8 : 0), 0);
+  if (tight() > TARGET + 0.05) {
+    // the voice is longer than the video: one faster take (at most 1.15×)
+    const sum = speech.reduce((a, b) => a + b, 0), speed = Math.min(1.15, +(sum / Math.max(1, sum - (tight() - TARGET))).toFixed(2));
+    log(`! timing: the voice needs ${tight().toFixed(1)}s of a ${TARGET}s video — a faster take (${speed}×)`);
+    clips = await voiceover({ lines: script.scenes.map((s) => s.vo), voice: voiceFor(brief.country), dir: path.join(runDir, "vo"), ffmpeg, ledger, log, speed });
+    lines = readLines(); speech = lines.map((l) => l.s1 - l.s0);
+  }
   const tail = Math.min(3.2, Math.max(0.75, (TARGET - speech.reduce((a, b) => a + b, 0) - LEAD * lines.length) / lines.length));
-  const durs = script.scenes.map((s, i) => Math.max(MIN[s.type] ?? 3, LEAD + speech[i] + tail + (s.type === "cta" ? 1.4 : 0)));
+  let durs = script.scenes.map((s, i) => Math.max(MIN[s.type] ?? 3, LEAD + speech[i] + tail + (s.type === "cta" ? 1.4 : 0)));
+  // exactly the brief's length: too long → the scenes shrink toward their tightest (each keeps its line), too short → longer tails
+  const floor = script.scenes.map((s, i) => LEAD + speech[i] + 0.35 + (s.type === "cta" ? 0.8 : 0));
+  const total0 = durs.reduce((a, b) => a + b, 0);
+  if (total0 > TARGET) { const room = total0 - floor.reduce((a, b) => a + b, 0), cut = Math.min(1, (total0 - TARGET) / Math.max(0.001, room)); durs = durs.map((d, i) => d - (d - floor[i]) * cut); }
+  const short = TARGET - durs.reduce((a, b) => a + b, 0);
+  if (short > 0) durs = durs.map((d) => d + short / durs.length);
+  if (durs.reduce((a, b) => a + b, 0) > TARGET + 0.05) log(`! timing: the voice still runs ${(durs.reduce((a, b) => a + b, 0) - TARGET).toFixed(1)}s past ${TARGET}s`);
   let t = 0; const rough = durs.map((d, i) => { const r = { name: `s${i}`, start: +t.toFixed(3), bars: d / 2, purpose: script.scenes[i].purpose }; t += d; return r; });
-  const total = +t.toFixed(3);
+  const total = Math.max(TARGET, +t.toFixed(3));
   const musicFile = path.join(runDir, "music.wav");
   const mus: any = makeDirectorMusic({ script: { length: total, music: { mood: script.mood }, scenes: rough }, file: musicFile, seed: hashSeed(job.jobId) });
   const scenes = script.scenes.map((s, i) => {

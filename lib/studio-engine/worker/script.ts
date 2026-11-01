@@ -78,7 +78,7 @@ PURPOSE per scene (drives the music): hook | problem | reveal | feature | proof 
 MOOD (the music): driving | uplifting | tense-then-release | chill.
 
 RULES
-- {N} scenes, each vo line 6–16 words; the whole vo is ~{WORDS} words.
+- {N} scenes, each vo line 5–14 words; the whole vo is ~{WORDS}.
 - Facts only from the brand's facts and the brief — never invent the brand's numbers, prices, discounts or claims.
 - Every "word" field is a word that appears in that same scene's vo, written exactly as in the vo.
 - Titles are short (≤ 5 words), sub ≤ 6 words, in the same dialect. A title never repeats its vo word for word.
@@ -94,9 +94,20 @@ const tool = { name: "write_ad", description: "The ad's script.", input_schema: 
 } } };
 
 const DIALECT_RULES: Record<string, string> = {
-  eg: `Egyptian Arabic as Cairenes speak it in a casual Instagram video. Never a standard-Arabic form: «اتعرّف على» not «قابل», «عايز» not «أريد», «دلوقتي» not «الآن», «مش» not «ليس / لا», «إزاي» not «كيف», «فلوس» not «مال», «بتاعك» where natural, future with «هـ», present with «بـ». Numbers as Egyptians say them: «تلات / أربع / خمس دفعات», «ميت جنيه», «ربع ساعة». Put a vowel mark on any word a reader could say the standard way (حُط، خِلصت، هتنزّله، تغيّر، اتعرّف). Foreign brand / product names written in Arabic letters the way Egyptians pronounce them (كلاركس، مانجو، جاب، أبلكيشن).`,
-  sa: `Saudi Arabic as people in Riyadh / Jeddah speak it in a casual video: «وش» «تبي» «واجد» «الحين» «على طول» «زين», never standard-Arabic forms. Numbers as Saudis say them. Vowel marks on words a reader could say the standard way. Foreign names in Arabic letters the way Saudis pronounce them.`,
+  eg: `Egyptian Arabic as Cairenes speak it in a casual Instagram video. Never a standard-Arabic form: «اتعرّف على» not «قابل», «عايز» not «أريد», «دلوقتي» not «الآن», «مش» not «ليس / لا», «إزاي» not «كيف», «فلوس» not «مال», «بتاعك» where natural, future with «هـ», present with «بـ». Numbers as Egyptians say them: «تلات / أربع / خمس دفعات», «ميت جنيه», «ربع ساعة». Vowel marks: AT MOST ONE word per line, only where the standard reading would change the word (حُط، خِلصت); a shadda where a doubled letter matters (هتنزّله، تغيّر). Never vowel the whole line — a fully vowelled text is read like a formal text, robotic. Foreign brand / product names written in Arabic letters the way Egyptians pronounce them (كلاركس، مانجو، جاب، أبلكيشن).`,
+  sa: `Saudi Arabic as people in Riyadh / Jeddah speak it in a casual video: «وش» «تبي» «واجد» «الحين» «على طول» «زين», never standard-Arabic forms. Numbers as Saudis say them. Vowel marks on at most one word per line; never vowel the whole line. Foreign names in Arabic letters the way Saudis pronounce them.`,
 };
+
+// Fathy reads ~12 characters a second in one take (447 characters → 36 s); the lines must fit the video's length
+export const CHARS_PER_S = 12;
+/** the voice's room in a video of `length` seconds with `n` scenes (the ads' lead-in, a short tail, the CTA's hold) */
+export const speechBudget = (length: number, n: number) => Math.max(8, length - n * (0.4 + 0.6) - 1.2);
+const HARAKAT = /[\u064B-\u0650\u0652]/g;
+/** a line with vowel marks on more than one word is read like a formal text: keep only its shaddas */
+function tame(vo: string) {
+  const marked = vo.split(/\s+/).filter((w) => /[\u064B-\u0650\u0652]/.test(w)).length;
+  return marked > 1 ? vo.replace(HARAKAT, "") : vo;
+}
 
 /** the dialect pass: every line rewritten as it is spoken (and spelled so the voice says it right) */
 async function dialectPass(scenes: Scene[], o: { country: string; language: string; ledger: Ledger; model: string; log: (l: string) => void }) {
@@ -125,15 +136,29 @@ async function dialectPass(scenes: Scene[], o: { country: string; language: stri
     for (const k of ["word", "calloutWord", "stampWord", "splitWord", "badgeWord", "afterWord", "reactionWord"]) if (d[k]) d[k] = map(d[k]);
     if (Array.isArray(d.words)) d.words = d.words.map(map);
     for (const a of [...(d.actions ?? []), ...(d.messages ?? []), ...(d.items ?? [])]) if (a?.word) a.word = map(a.word);
-    if (s.vo !== l.vo) changed++;
-    s.vo = l.vo;
+    const vo = tame(l.vo);
+    if (s.vo !== vo) changed++;
+    s.vo = vo;
   }
   o.log(`✓ dialect: ${changed} of ${scenes.length} lines respelled as spoken (${key === "eg" ? "Egyptian" : "Saudi"})`);
 }
 
+/** the lines over the voice's room in the video: one pass shortens them (same story, same words the animations use) */
+async function fitLength(scenes: Scene[], o: { length: number; language: string; ledger: Ledger; model: string; log: (l: string) => void }) {
+  const max = Math.round(speechBudget(o.length, scenes.length) * CHARS_PER_S), chars = scenes.reduce((a, s) => a + s.vo.length, 0);
+  if (chars <= max * 1.05) return;
+  const input = scenes.map((s, i) => ({ i, vo: s.vo, keep: JSON.stringify(s.data ?? {}).match(/"(?:word|calloutWord|stampWord|splitWord|badgeWord|afterWord|reactionWord)":"([^"]+)"/g)?.map((x) => x.split('":"')[1].slice(0, -1)) ?? [] }));
+  const t = { name: "shorter_lines", description: "The shortened lines.", input_schema: { type: "object", required: ["lines"], properties: { lines: { type: "array", items: { type: "object", required: ["i", "vo"], properties: { i: { type: "number" }, vo: { type: "string" } } } } } } };
+  const r = await callTool({ ledger: o.ledger, step: "director", model: o.model, system: `You tighten a video ad's voiceover so it fits its length. Keep the story, the dialect (${o.language}), the spelling style, the names and every keep word exactly as written; cut filler, merge, simplify. The whole voiceover must be at most ${max} characters (now ${chars}). Keep ellipses for breaths. No vowel marks beyond what is there.`, content: JSON.stringify(input), tool: t, maxTokens: 4000 });
+  const lines = (typeof r.lines === "string" ? JSON.parse(r.lines) : r.lines) as { i: number; vo: string }[];
+  for (const l of lines ?? []) if (scenes[l.i] && l.vo?.trim()) scenes[l.i].vo = tame(l.vo);
+  o.log(`✓ length: the voiceover tightened from ${chars} to ${scenes.reduce((a, s) => a + s.vo.length, 0)} characters (room for ~${max} in ${o.length}s)`);
+}
+
 export async function writeScript(o: { brand: any; screens: any[]; images: { file: string; kind: string; note: string }[]; brief: any; language: string; length: number; ledger: Ledger; model: string; log: (l: string) => void }): Promise<Script> {
-  const n = Math.max(5, Math.min(12, Math.round(o.length / 4.2)));
-  const system = SYSTEM.replace("{LEN}", String(o.length)).replace("{N}", `${n - 1}–${n + 1}`).replace("{WORDS}", String(Math.round(o.length * 2.1)));
+  const n = Math.max(4, Math.min(12, Math.round(o.length / 5)));
+  const chars = Math.round(speechBudget(o.length, n) * CHARS_PER_S);
+  const system = SYSTEM.replace("{LEN}", String(o.length)).replace("{N}", `${n - 1}–${n}`).replace("{WORDS}", `${Math.round(chars / 5.5)} words (at most ${chars} characters in all — the video is exactly ${o.length} s)`);
   const b = o.brand;
   const facts = { name: b.name, name_ar: b.name_ar, site: b.site, tagline: b.tagline, summary: b.summary, audience: b.audience, voice: b.voice, selling_points: b.selling_points, features: (b.features ?? []).map((f: any) => ({ name: f.name, detail: f.detail, benefit: f.benefit })) };
   const content = [
@@ -159,5 +184,6 @@ export async function writeScript(o: { brand: any; screens: any[]; images: { fil
   }
   o.log(`✓ script: "${r.idea}" · ${r.mood} · ${scenes.length} scenes (${scenes.map((s) => s.type).join(" → ")})`);
   await dialectPass(scenes, { country: o.brief.country, language: o.language, ledger: o.ledger, model: o.model, log: o.log });
+  await fitLength(scenes, { length: o.length, language: o.language, ledger: o.ledger, model: o.model, log: o.log });
   return { idea: String(r.idea ?? ""), mood: r.mood, hook_art: r.hook_art, scenes, share_copy: String(r.share_copy ?? "") };
 }

@@ -48,7 +48,8 @@ const SYSTEM = `You rebuild a real product screen as an HTML component for a mot
 method. The result replaces the screenshot in the video, so it must look like the same product, only sharper and
 readable at video size.
 - FAITHFUL: the same layout idea, colours, shapes, icons and words as the screenshot. Copy the words exactly from the
-  screenshot / the captured TEXT (never invent copy, numbers or names). Icons as inline SVG. Images: use one of the
+  screenshot / the captured TEXT (never invent copy, numbers or names) — except demo values (amounts, dates, a test
+  name or number) the SCENE's story gives differently: show the story's values there, so the screen matches the voice. Icons as inline SVG. Images: use one of the
   brand's files (given, by relative path) when it matches; otherwise a soft shape in the brand's colours — never a
   broken <img>, never a stock-photo URL.
 - VIDEO-READABLE: no text smaller than {MIN}px; body text {BODY}px; headlines bigger. Simplify: keep what the scene
