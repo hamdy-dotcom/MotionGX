@@ -1,7 +1,7 @@
 import { LEGAL } from "@/lib/legal/content";
 import { SITE } from "@/lib/site";
 
-const FILL: Record<string, { ar: string; en: string }> = { entity: { ar: "[اسم الشركة]", en: "[company name]" }, register: { ar: "[رقم السجل]", en: "[register no.]" }, address: { ar: "[العنوان]", en: "[address]" }, email: { ar: "[البريد]", en: "[email]" }, payments: { ar: "[مقدم خدمة الدفع]", en: "[payment provider]" } };
+const FILL: Record<string, { ar: string; en: string }> = { email: { ar: "نموذج التواصل داخل حسابك", en: "the contact option in your account" }, payments: { ar: "مقدم خدمة الدفع", en: "our payment provider" } };
 
 export function LegalPage({ page, locale }: { page: "terms" | "privacy" | "refunds"; locale: string }) {
   const L = locale === "ar" ? "ar" : "en", doc = LEGAL[L][page];

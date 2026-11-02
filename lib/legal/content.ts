@@ -1,4 +1,4 @@
-// The policies, in both languages. {name}, {entity}, {register}, {address}, {email} and {payments} come from lib/site.ts.
+// The policies, in both languages. {name}, {entity}, {email} and {payments} come from lib/site.ts.
 export type LegalPage = { title: string; intro: string; sections: { h: string; p: string[] }[] };
 type Doc = Record<"terms" | "privacy" | "refunds", LegalPage>;
 
@@ -8,7 +8,7 @@ export const LEGAL: Record<"en" | "ar", Doc> = {
       title: "Terms and Conditions",
       intro: "These terms are the agreement between you and {entity} ({name}, \"we\"). By creating an account or using {name}, you accept them. If you use {name} for a company, you confirm you may bind that company.",
       sections: [
-        { h: "1. Who we are", p: ["{name} is operated by {entity}, commercial register {register}, {address}. You can reach us at {email}."] },
+        { h: "1. Who we are", p: ["{name} is operated by {entity}. You can reach us at {email}."] },
         { h: "2. The service", p: ["{name} uses artificial intelligence to create brand identities, videos, posts and related marketing material from what you give it, and from your public website when you ask us to read it.", "We improve the service constantly and may change, add or remove features. If a change materially reduces what you paid for, we will tell you first."] },
         { h: "3. Your account", p: ["You must be at least 18 and able to enter a binding contract. Keep your login details safe and tell us at once if you think someone else has used them. You are responsible for what happens under your account and for the people you invite to your workspace."] },
         { h: "4. Reading your website and app", p: ["When you give us a website address, you authorise our automated agent to visit it, take screenshots, and copy its text, images, fonts and design to build your brand profile. Where a sign-up is possible, it may create a test account using a test identity and may ask you for a confirmation code.", "Only submit a site or app you own or have written permission to use this way. You are responsible for that permission, and for any terms of the site or of third parties that apply."] },
@@ -31,7 +31,7 @@ export const LEGAL: Record<"en" | "ar", Doc> = {
       title: "Privacy Policy",
       intro: "This policy explains what personal data {entity} (\"we\") handles when you use {name}, why, and your rights, including under Egypt's Personal Data Protection Law (No. 151 of 2020) and other data laws where they apply to you.",
       sections: [
-        { h: "1. Who is responsible", p: ["{entity}, {address}, is the controller of your account data. For personal data inside material you upload, you decide why it is used and we process it on your behalf. Contact us at {email}."] },
+        { h: "1. Who is responsible", p: ["{entity} is the controller of your account data. For personal data inside material you upload, you decide why it is used and we process it on your behalf. Contact us at {email}."] },
         { h: "2. What we collect", p: ["Account: your name, email address, login details, workspace and role.", "Your material: the briefs, conversations, files, photos, logos and brand details you give us, and what we generate from them.", "Your website: what is publicly visible on a site you ask us to read, and what our agent sees in a test account on it. This can include personal data shown there.", "Payments: your top-ups, charges and balance. The payment provider handles your card details.", "Technical: IP address, device and browser details, and logs of what ran, kept for security and to fix problems."] },
         { h: "3. Why we use it", p: ["To provide the service you asked for (our contract with you); to take payment and keep records (legal obligations and contract); to keep the service secure and prevent abuse (legitimate interests); to tell you about your account and important changes; and for marketing only where you agreed, which you can withdraw at any time."] },
         { h: "4. Who we share it with", p: ["Only the providers that help us run {name}, under contract, and only as needed: Supabase (database, login and file storage); Anthropic (AI text); OpenAI (AI images); ElevenLabs (AI voices and speech recognition); Firecrawl (reading websites); {payments} (payments); and our hosting provider.", "We may also disclose data if the law requires it, or to protect rights and safety. We do not sell your personal data."] },
@@ -61,7 +61,7 @@ export const LEGAL: Record<"en" | "ar", Doc> = {
       title: "الشروط والأحكام",
       intro: "هذه الشروط هي الاتفاق بينك وبين {entity} ({name}، \"نحن\"). بإنشائك حسابًا أو استخدامك {name} فإنك توافق عليها. وإذا كنت تستخدم {name} باسم شركة، فأنت تؤكد أن لك صلاحية إلزام هذه الشركة بها.",
       sections: [
-        { h: "1. من نحن", p: ["تُدير {name} شركة {entity}، سجل تجاري {register}، {address}. للتواصل: {email}."] },
+        { h: "1. من نحن", p: ["تُدير {name} شركة {entity}. للتواصل: {email}."] },
         { h: "2. الخدمة", p: ["تستخدم {name} الذكاء الاصطناعي لإنشاء الهويات التجارية والفيديوهات والمنشورات والمواد التسويقية، اعتمادًا على ما تقدمه لنا وعلى موقعك العام إذا طلبت منا قراءته.", "نطور الخدمة باستمرار وقد نغير ميزاتها أو نضيف إليها أو نحذف منها. وإذا قلّل تغيير جوهريًا مما دفعت مقابله، فسنبلغك أولًا."] },
         { h: "3. حسابك", p: ["يجب ألا يقل عمرك عن 18 عامًا وأن تكون أهلًا للتعاقد. حافظ على بيانات دخولك وأبلغنا فورًا إذا اشتبهت في استخدام غيرك لها. أنت مسؤول عما يحدث من خلال حسابك وعن الأشخاص الذين تدعوهم إلى مساحة عملك."] },
         { h: "4. قراءة موقعك وتطبيقك", p: ["عندما تعطينا عنوان موقع، فإنك تفوض وكيلنا الآلي بزيارته والتقاط صور لشاشاته ونسخ نصوصه وصوره وخطوطه وتصميمه لبناء ملف علامتك. وإذا كان التسجيل متاحًا، فقد ينشئ حسابًا تجريبيًا بهوية تجريبية وقد يطلب منك رمز تأكيد.", "لا تُدخل إلا موقعًا أو تطبيقًا تملكه أو لديك إذن مكتوب باستخدامه بهذه الطريقة. أنت مسؤول عن هذا الإذن وعن أي شروط تخص الموقع أو الغير."] },
@@ -84,7 +84,7 @@ export const LEGAL: Record<"en" | "ar", Doc> = {
       title: "سياسة الخصوصية",
       intro: "توضح هذه السياسة البيانات الشخصية التي تتعامل معها {entity} (\"نحن\") عند استخدامك {name}، وأسباب ذلك، وحقوقك، بما فيها حقوقك وفق قانون حماية البيانات الشخصية المصري رقم 151 لسنة 2020 وقوانين البيانات الأخرى متى انطبقت عليك.",
       sections: [
-        { h: "1. الجهة المسؤولة", p: ["{entity}، {address}، هي المتحكم في بيانات حسابك. أما البيانات الشخصية داخل المواد التي ترفعها، فأنت من يحدد غرض استخدامها ونعالجها نيابة عنك. للتواصل: {email}."] },
+        { h: "1. الجهة المسؤولة", p: ["{entity} هي المتحكم في بيانات حسابك. أما البيانات الشخصية داخل المواد التي ترفعها، فأنت من يحدد غرض استخدامها ونعالجها نيابة عنك. للتواصل: {email}."] },
         { h: "2. ما نجمعه", p: ["الحساب: اسمك وبريدك الإلكتروني وبيانات الدخول ومساحة العمل والدور.", "موادك: الطلبات والمحادثات والملفات والصور والشعارات وتفاصيل العلامة التي تقدمها لنا، وما ننتجه منها.", "موقعك: ما هو ظاهر للعامة في موقع تطلب منا قراءته، وما يراه وكيلنا في حساب تجريبي عليه، وقد يشمل ذلك بيانات شخصية معروضة هناك.", "المدفوعات: عمليات الشحن والخصم ورصيدك. ويتعامل مقدم خدمة الدفع مع بيانات بطاقتك.", "البيانات التقنية: عنوان IP وتفاصيل الجهاز والمتصفح وسجلات التشغيل، للأمان وإصلاح الأعطال."] },
         { h: "3. لماذا نستخدمها", p: ["لتقديم الخدمة التي طلبتها (عقدنا معك)؛ ولتحصيل المدفوعات والاحتفاظ بالسجلات (التزامات قانونية وتعاقدية)؛ ولتأمين الخدمة ومنع إساءة استخدامها (مصلحة مشروعة)؛ ولإبلاغك بشأن حسابك والتغييرات المهمة؛ وللتسويق فقط بموافقتك، ويمكنك سحبها في أي وقت."] },
         { h: "4. مع من نشاركها", p: ["فقط مع مقدمي الخدمات الذين يساعدوننا في تشغيل {name}، بموجب عقود وبالقدر اللازم: Supabase (قاعدة البيانات وتسجيل الدخول وتخزين الملفات)؛ Anthropic (نصوص الذكاء الاصطناعي)؛ OpenAI (صور الذكاء الاصطناعي)؛ ElevenLabs (الأصوات والتعرف على الكلام)؛ Firecrawl (قراءة المواقع)؛ {payments} (المدفوعات)؛ ومقدم الاستضافة.", "وقد نفصح عن بيانات إذا أوجب القانون ذلك أو لحماية الحقوق والسلامة. لا نبيع بياناتك الشخصية."] },
