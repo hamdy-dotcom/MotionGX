@@ -49,6 +49,8 @@ export const IdentitySchema = z.object({
   name_ar: z.string().max(40),
   tagline: z.string().max(90),
   tagline_ar: z.string().max(90),
+  headline: z.string().max(70).default(""),
+  cta: z.string().max(24).default(""),
   summary: z.string().max(600),
   audience: z.string().max(400),
   positioning: z.string().max(500),

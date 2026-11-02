@@ -235,7 +235,16 @@
       "saveTitle": "احفظه كشركة في MotionGX",
       "startOver": "ابدأ من جديد",
       "errorGeneric": "حصلت مشكلة. جرب تاني.",
-      "errorBalance": "محفظتك مفيهاش رصيد كفاية. اشحنها وجرب تاني."
+      "errorBalance": "محفظتك مفيهاش رصيد كفاية. اشحنها وجرب تاني.",
+      "mock_website": "الصفحة الرئيسية للموقع",
+      "mock_card": "كارت البيزنس",
+      "mock_tshirt": "التيشيرت، وش وضهر",
+      "mock_uniform": "يونيفورم الموظفين",
+      "mock_booth": "بوث في مول",
+      "mock_packaging": "الشنطة والتغليف",
+      "mock_storefront": "واجهة المحل",
+      "mock_social": "صفحة السوشيال ميديا",
+      "worldTitle": "البراند بتاعك في الواقع"
     }
   },
   "videos": {

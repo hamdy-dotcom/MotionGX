@@ -4,6 +4,7 @@ import "server-only";
 import sharp from "sharp";
 import { zip } from "@/lib/brand/zip";
 import { shapeText } from "@/lib/motion/vector-text";
+import { fontsUrl, lookFromIdentity, mockup, MOCKUP_KINDS } from "./mockups";
 import { onColor, paintIcon, type BrandLanguage, type Identity } from "./types";
 
 type Colors = { P: string; A: string; I: string };
@@ -227,7 +228,7 @@ function brandJson(id: Identity, language: BrandLanguage) {
   return JSON.stringify({ name: id.name, name_ar: id.name_ar || undefined, site: "", tagline: id.tagline, summary: id.summary, audience: id.audience, language: language === "en" ? "English (ltr)" : language === "ar" ? "Arabic (rtl)" : "Arabic and English", voice: id.voice.summary, palette: { background: P.background, surface: P.surface, ink: P.ink, muted: P.muted, primary: P.primary, accent: P.accent, theme: "light" }, fonts: { display: language === "ar" ? id.fonts.arabic_display : id.fonts.display, body: language === "ar" ? id.fonts.arabic_body : id.fonts.body, google_fonts: [...new Set(Object.values(id.fonts))].filter(Boolean), files: [] }, logo: { file: "library/logo/logo.png", on_dark: false }, selling_points: id.pillars.map((p) => p.message), features: id.features.map((name) => ({ name, detail: "", benefit: "", evidence: [] })), look: `${id.logo_idea} ${id.imagery}`, screens: [], parts: [], images: [], app_access: "none" }, null, 2);
 }
 
-function guideHtml(id: Identity, logoSvg: string, darkLogoSvg: string, iconSvgText: string, rtl: boolean) {
+function guideHtml(id: Identity, logoSvg: string, darkLogoSvg: string, iconSvgText: string, rtl: boolean, world: string) {
   const P = id.palette, S = stacks(id), on = onColor(P.primary, P.ink);
   const swatch = (name: string, hex: string, note = "") => `<div class="sw"><i style="background:${hex}"></i><b>${esc(name)}</b><span>${hex}</span>${note ? `<small>${esc(note)}</small>` : ""}</div>`;
   const list = (xs: string[]) => `<ul>${xs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
@@ -236,6 +237,7 @@ function guideHtml(id: Identity, logoSvg: string, darkLogoSvg: string, iconSvgTe
 .cover{background:${P.primary};color:${on};min-height:90vh;display:flex;flex-direction:column;justify-content:center;gap:32px}.cover svg{max-width:480px;height:auto}.cover p{font-size:22px}
 .logos{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.logos>div{padding:40px;border-radius:${id.radius}px;display:flex;align-items:center;justify-content:center;min-height:200px}.logos svg{max-width:100%;max-height:120px;height:auto;width:auto}
 .sws{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px}.sw i{display:block;height:110px;border-radius:${id.radius}px;box-shadow:inset 0 0 0 1px #0002}.sw b{display:block;margin-top:8px}.sw span{font-size:13px;color:${P.muted}}.sw small{display:block;font-size:12px;color:${P.muted}}
+.world{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}.world figure{margin:0;border-radius:${id.radius}px;overflow:hidden;break-inside:avoid}
 blockquote{margin:8px 0;padding:12px 16px;background:${P.surface};border-radius:${id.radius}px}
 </style></head><body>
 <section class="cover">${darkLogoSvg}<p>${esc(id.tagline)}</p></section>
@@ -244,23 +246,30 @@ blockquote{margin:8px 0;padding:12px 16px;background:${P.surface};border-radius:
 <section><h2>Colour</h2><div class="sws">${swatch("Primary", P.primary, id.color_usage.primary)}${swatch("Accent", P.accent, id.color_usage.accent)}${swatch("Background", P.background, id.color_usage.background)}${swatch("Surface", P.surface)}${swatch("Ink", P.ink)}${swatch("Muted", P.muted)}</div></section>
 <section><h2>Type</h2><h1>${esc(id.name)}</h1><p>${esc(id.fonts.display)}${id.fonts.arabic_display ? ` · ${esc(id.fonts.arabic_display)}` : ""}</p><p>${esc(id.summary)}</p><p>${esc(id.fonts.body)}${id.fonts.arabic_body ? ` · ${esc(id.fonts.arabic_body)}` : ""}</p></section>
 <section><h2>Voice</h2><p>${esc(id.voice.summary)}</p>${id.voice.samples.map((s) => `<blockquote><small>${esc(s.context)}</small><br>${esc(s.line)}</blockquote>`).join("")}<h3>Do</h3>${list(id.voice.do)}<h3>Don't</h3>${list(id.voice.dont)}</section>
+<section><h2>The brand in the world</h2><div class="world">${world}</div></section>
 <section><h2>Imagery and motion</h2><p>${esc(id.imagery)}</p><p>${esc(id.motion)}</p><h3>Do</h3>${list(id.dos)}<h3>Don't</h3>${list(id.donts)}</section>
 </body></html>`;
 }
 
-/** the guide as a PDF when a browser is available here; the HTML guide always ships */
-async function guidePdf(html: string) {
+/** the guide as a PDF and every mockup as a PNG, when a browser is available here; the HTML versions always ship */
+async function renderWithBrowser(guide: string, mocks: { kind: string; html: string }[]) {
+  const pngs: { kind: string; bytes: Uint8Array }[] = [];
   try {
     const { chromium } = await import("playwright");
     const browser = await chromium.launch();
     try {
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: "networkidle", timeout: 30_000 });
-      return new Uint8Array(await page.pdf({ format: "A4", printBackground: true }));
+      const page = await browser.newPage({ viewport: { width: 1400, height: 1000 }, deviceScaleFactor: 2 });
+      for (const m of mocks) {
+        await page.setContent(m.html, { waitUntil: "networkidle", timeout: 30_000 });
+        await page.evaluate("document.fonts.ready");
+        pngs.push({ kind: m.kind, bytes: new Uint8Array(await page.locator("svg").first().screenshot({ type: "png" })) });
+      }
+      await page.setContent(guide, { waitUntil: "networkidle", timeout: 30_000 });
+      return { pdf: new Uint8Array(await page.pdf({ format: "A4", printBackground: true })), pngs };
     } finally { await browser.close(); }
   } catch (err) {
-    console.warn("[brand-studio] no PDF guide", String(err).slice(0, 200));
-    return null;
+    console.warn("[brand-studio] browser renders skipped", String(err).slice(0, 200));
+    return { pdf: null, pngs };
   }
 }
 
@@ -272,12 +281,16 @@ export async function buildPack(id: Identity, language: BrandLanguage) {
   files.push({ path: "logo/png/logo-color.png", bytes: logoPng }, { path: "logo/png/logo-on-dark.png", bytes: await png(onDark, 1600) }, { path: "logo/png/logo-black.png", bytes: await png(svgs["logo-black.svg"], 1600) }, { path: "logo/png/logo-white.png", bytes: await png(svgs["logo-white.svg"], 1600) });
   if (svgs["logo-ar-color.svg"]) files.push({ path: "logo/png/logo-ar-color.png", bytes: await png(svgs["logo-ar-color.svg"], 1600) });
   files.push({ path: "logo/png/icon-1024.png", bytes: await square(iconColor, 1024, null, 0.06) }, { path: "logo/png/favicon-512.png", bytes: await square(iconColor, 512, P.background, 0.14) }, { path: "logo/png/favicon-180.png", bytes: await square(iconColor, 180, P.background, 0.14) }, { path: "logo/png/favicon-32.png", bytes: await square(iconColor, 32, null, 0.02) }, { path: "logo/png/social-avatar-1080.png", bytes: await square(svgs["icon-on-dark.svg"], 1080, onColor(P.primary, P.ink) === "#FFFFFF" ? P.ink : P.surface, 0.2) });
-  const guide = guideHtml(id, main, onDark, iconColor, language === "ar");
-  const pdf = await guidePdf(guide);
+  const look = lookFromIdentity(id, language), fonts = `<link rel="stylesheet" href="${esc(fontsUrl(look))}">`;
+  const mocks = MOCKUP_KINDS.map((kind) => ({ kind, svg: mockup(look, kind) })).map((m) => ({ ...m, html: `<!doctype html><html lang="${look.rtl ? "ar" : "en"}"><head><meta charset="utf-8"><title>${esc(id.name)}: ${m.kind}</title>${fonts}<style>body{margin:0;background:#fff}</style></head><body>${m.svg}</body></html>` }));
+  const guide = guideHtml(id, main, onDark, iconColor, language === "ar", mocks.map((m) => `<figure>${m.svg}</figure>`).join(""));
+  const { pdf, pngs } = await renderWithBrowser(guide, mocks);
+  for (const m of mocks) files.push({ path: `designs/${m.kind}.html`, bytes: enc(m.html) });
+  for (const m of pngs) files.push({ path: `designs/${m.kind}.png`, bytes: m.bytes });
   const text: Record<string, string> = {
     "DESIGN.md": designMd(id), "BRAND.md": brandMd(id), "CLAUDE.md": agentRules(id), "AGENTS.md": agentRules(id),
     "tokens.json": tokensJson(id), "theme.css": themeCss(id), "tailwind.config.js": tailwindJs(id), "brand.json": brandJson(id, language), "guidelines.html": guide,
-    "README.md": `# ${id.name} brand pack\n\nDrop this folder into your project so Claude, Codex, Cursor or any other tool keeps the brand consistent. \`CLAUDE.md\` and \`AGENTS.md\` tell them what to read.\n\n- \`DESIGN.md\`: the visual system, in Google's open DESIGN.md format (still in alpha)\n- \`BRAND.md\`: who the brand is and how it talks\n- \`tokens.json\`, \`theme.css\`, \`tailwind.config.js\`: the tokens for code\n- \`logo/\`: the logo as vector SVG and PNG\n- \`guidelines.html\`${pdf ? ", `guidelines.pdf`" : ""}: the guide for people\n- \`brand.json\`: for MotionGX\n\nBefore registering this name or logo, have them checked for trademarks in your market. They were AI-assisted, and nobody has run that search.\n`,
+    "README.md": `# ${id.name} brand pack\n\nDrop this folder into your project so Claude, Codex, Cursor or any other tool keeps the brand consistent. \`CLAUDE.md\` and \`AGENTS.md\` tell them what to read.\n\n- \`DESIGN.md\`: the visual system, in Google's open DESIGN.md format (still in alpha)\n- \`BRAND.md\`: who the brand is and how it talks\n- \`tokens.json\`, \`theme.css\`, \`tailwind.config.js\`: the tokens for code\n- \`logo/\`: the logo as vector SVG and PNG\n- \`designs/\`: the brand on a website, business cards, T-shirts, a uniform, a retail booth, packaging, a storefront and social media (HTML you can open and edit, plus PNG)\n- \`guidelines.html\`${pdf ? ", `guidelines.pdf`" : ""}: the guide for people\n- \`brand.json\`: for MotionGX\n\nBefore registering this name or logo, have them checked for trademarks in your market. They were AI-assisted, and nobody has run that search.\n`,
   };
   for (const [path, v] of Object.entries(text)) files.push({ path, bytes: enc(v) });
   if (pdf) files.push({ path: "guidelines.pdf", bytes: pdf });

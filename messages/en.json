@@ -235,7 +235,16 @@
       "saveTitle": "Save it as a company in MotionGX",
       "startOver": "Start over",
       "errorGeneric": "Something went wrong. Please try again.",
-      "errorBalance": "Your wallet doesn't have enough for this. Top it up and try again."
+      "errorBalance": "Your wallet doesn't have enough for this. Top it up and try again.",
+      "mock_website": "Website home page",
+      "mock_card": "Business card",
+      "mock_tshirt": "T-shirt, front and back",
+      "mock_uniform": "Staff uniform",
+      "mock_booth": "Retail booth",
+      "mock_packaging": "Bag and packaging",
+      "mock_storefront": "Storefront",
+      "mock_social": "Social media profile",
+      "worldTitle": "Your brand in the real world"
     }
   },
   "videos": {

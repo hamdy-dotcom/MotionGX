@@ -5,7 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { boldTag } from "@/components/heading";
 import { EMPTY_FACTS, type BrandDraft } from "@/lib/brand/types";
-import { BRAND_LANGUAGES, iconSvg, onColor, type BrandLanguage, type Direction, type FileBrief, type Identity, type NextQuestion, type Turn } from "@/lib/brand-studio/types";
+import { BRAND_LANGUAGES, iconSvg, type BrandLanguage, type Direction, type FileBrief, type Identity, type NextQuestion, type Turn } from "@/lib/brand-studio/types";
+import { lookFromDirection, lookFromIdentity, mockup, MOCKUP_KINDS, PREVIEW_KINDS, type MockupKind } from "@/lib/brand-studio/mockups";
 import { BrandEditor } from "../brand-editor";
 
 type Done = { identity: Identity; packUrl: string; logoUrl: string; files: number };
@@ -23,37 +24,38 @@ async function call<T>(body: object): Promise<T> {
   return (await res.json()) as T;
 }
 
-const familyUrl = (families: string[]) => `https://fonts.googleapis.com/css2?${[...new Set(families.filter(Boolean))].map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@400;700`).join("&")}&display=swap`;
-const isAr = (s: string) => /[؀-ۿ]/.test(s);
+const familyUrl = (families: string[]) => `https://fonts.googleapis.com/css2?${[...new Set(families.filter(Boolean))].map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@400;700;800`).join("&")}&display=swap`;
 
-/** a preview is drawn here from the direction's own values: no image is generated, so it costs nothing extra */
+/** model-written text is escaped and the icon cleaned before it reaches a mockup, so this markup is safe to place */
+const Mock = ({ html, label }: { html: string; label?: string }) => (
+  <figure className="m-0 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
+    <div dangerouslySetInnerHTML={{ __html: html }} />
+    {label ? <figcaption className="bg-white px-3 py-2 text-xs text-ink-muted">{label}</figcaption> : null}
+  </figure>
+);
+
+/** a preview: the brand in the world, drawn here from the direction's own values — nothing is generated, so it costs nothing */
 function Preview({ d, language, onChoose, label }: { d: Direction; language: BrandLanguage; onChoose: () => void; label: string }) {
-  const P = d.palette, on = onColor(P.primary, P.ink), name = language === "ar" && d.name_ar ? d.name_ar : d.name;
-  // eslint-disable-next-line @next/next/no-img-element
-  const icon = (c: { P: string; A: string; I: string }, size: number) => <img alt="" width={size} height={size} src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg(d.icon, c, size))}`} />;
-  const font = (s: string, role: "display" | "body") => `"${isAr(s) ? (role === "display" ? d.fonts.arabic_display : d.fonts.arabic_body) : role === "display" ? d.fonts.display : d.fonts.body}", sans-serif`;
+  const t = useTranslations("companies.studio"), look = lookFromDirection(d, language), P = d.palette;
+  const [site, ...rest] = PREVIEW_KINDS;
   return (
-    <button type="button" onClick={onChoose} className="group block w-full overflow-hidden rounded-panel bg-white text-start shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-center gap-3 p-5" style={{ background: P.background, color: P.ink }} dir={isAr(name) ? "rtl" : "ltr"}>
-        {icon({ P: P.primary, A: P.accent, I: P.ink }, 56)}
-        <span className="truncate text-2xl font-bold" style={{ fontFamily: font(name, "display") }}>{name}</span>
-      </div>
-      <div className="grid grid-cols-5">
-        <div className="col-span-3 flex min-h-44 flex-col justify-between gap-4 p-5" style={{ background: P.primary, color: on }} dir={isAr(d.headline) ? "rtl" : "ltr"}>
-          <span className="text-xl leading-tight font-bold" style={{ fontFamily: font(d.headline, "display") }}>{d.headline}</span>
-          <span className="w-fit px-3 py-1.5 text-xs font-bold" style={{ background: on, color: P.primary, borderRadius: d.radius, fontFamily: font(d.cta, "body") }}>{d.cta}</span>
+    <div className="rounded-panel bg-white p-3 shadow-sm ring-1 ring-black/5">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-2 pb-3">
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img alt="" width={44} height={44} src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg(d.icon, { P: P.primary, A: P.accent, I: P.ink }, 44))}`} />
+          <span className="text-2xl font-bold text-navy" dir="auto">{look.name}</span>
+          <span className="flex gap-1">{[P.primary, P.accent, P.ink, P.background].map((c) => <i key={c} className="block size-4 rounded-full ring-1 ring-black/10" style={{ background: c }} />)}</span>
         </div>
-        <div className="col-span-2 flex flex-col items-center justify-center gap-2 p-3" style={{ background: P.surface }}>
-          <div className="flex size-14 items-center justify-center" style={{ background: P.ink, borderRadius: d.radius }}>{icon({ P: P.primary, A: P.accent, I: "#FFFFFF" }, 36)}</div>
-          <div className="flex gap-1">{[P.primary, P.accent, P.ink, P.muted].map((c) => <i key={c} className="block size-4 rounded-full ring-1 ring-black/10" style={{ background: c }} />)}</div>
-        </div>
+        <button type="button" onClick={onChoose} className="btn btn-primary">{label}</button>
       </div>
-      <div className="p-4">
-        <p className="text-sm text-navy" dir="auto" style={{ fontFamily: font(d.concept, "body") }}>{d.concept}</p>
-        <p className="mt-1 text-xs text-ink-muted" dir="ltr">{[d.fonts.display, d.fonts.arabic_display].filter(Boolean).join(" · ")}</p>
-        <span className="btn btn-soft mt-3 w-full group-hover:bg-primary group-hover:text-white">{label}</span>
+      <p className="px-2 pb-3 text-sm text-ink-muted" dir="auto">{d.concept}</p>
+      <div className="grid items-start gap-2 md:grid-cols-5">
+        <div className="md:col-span-3"><Mock html={mockup(look, site)} label={t(`mock_${site}`)} /></div>
+        <div className="grid gap-2 md:col-span-2">{rest.slice(0, 1).map((k) => <Mock key={k} html={mockup(look, k)} label={t(`mock_${k}`)} />)}</div>
       </div>
-    </button>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">{rest.slice(1).map((k) => <Mock key={k} html={mockup(look, k)} label={t(`mock_${k}`)} />)}</div>
+    </div>
   );
 }
 
@@ -70,7 +72,7 @@ export function BrandStudio({ price }: { price: string }) {
   const patch = (p: Partial<Saved>) => setS((prev) => { const next = { ...prev, ...p }; store(next); return next; });
   const fail = (e: unknown) => setError(e instanceof Error && e.message === "insufficient_balance" ? t("errorBalance") : t("errorGeneric"));
 
-  const fonts = s.directions.flatMap((d) => Object.values(d.fonts));
+  const fonts = [...s.directions.flatMap((d) => Object.values(d.fonts)), ...(s.done ? Object.values(s.done.identity.fonts) : [])];
   const base = { language: s.language, fileBrief: s.fileBrief };
 
   async function run<T>(what: NonNullable<typeof busy>, fn: () => Promise<T>) {
@@ -195,7 +197,7 @@ export function BrandStudio({ price }: { price: string }) {
             <h2 className="text-xl font-semibold text-navy">{t("chooseTitle")}</h2>
             <p className="text-sm text-ink-muted">{t("chooseHint")}</p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6">
             {s.directions.map((d, i) => <Preview key={`${d.name}-${i}`} d={d} language={s.language} label={t("choose")} onChoose={() => patch({ step: "refine", chosen: d })} />)}
           </div>
           {s.rounds < 2 ? (
@@ -207,7 +209,7 @@ export function BrandStudio({ price }: { price: string }) {
       ) : null}
 
       {s.step === "refine" && s.chosen ? (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5">
           <Preview d={s.chosen} language={s.language} label={t("back")} onChoose={() => { if (!busy) patch({ step: "choose" }); }} />
           <div className="panel space-y-4">
             <label htmlFor="notes" className="label block">{t("notesLabel")}</label>
@@ -231,6 +233,12 @@ export function BrandStudio({ price }: { price: string }) {
               <span className="text-sm text-ink-muted">{t("downloadNote")}</span>
             </div>
             <p className="text-sm text-warning-ink">{t("trademark")}</p>
+          </div>
+          <div>
+            <h2 className="mb-3 text-xl font-semibold text-navy">{t("worldTitle")}</h2>
+            <div className="grid items-start gap-4 md:grid-cols-2">
+              {MOCKUP_KINDS.map((k: MockupKind) => <Mock key={k} html={mockup(lookFromIdentity(s.done!.identity, s.language), k)} label={t(`mock_${k}`)} />)}
+            </div>
           </div>
           <div>
             <h2 className="mb-3 text-xl font-semibold text-navy">{t("saveTitle")}</h2>
