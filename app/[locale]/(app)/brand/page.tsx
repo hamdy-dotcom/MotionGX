@@ -13,6 +13,10 @@ import { CreatedBrandFiles } from "@/components/studio/created-brand";
 import { createdBrand } from "@/lib/brand-studio/stored";
 import { MarketCard } from "@/components/studio/market-card";
 import { companyMarket } from "@/lib/data/market";
+import { liveSeasons } from "@/lib/market/live";
+import { upcomingSeasons } from "@/lib/market/seasons";
+import { onColor } from "@/lib/brand-studio/types";
+import { todayKey } from "@/lib/dates";
 
 const host = (url?: string | null) => { try { return url ? new URL(url).host.replace(/^www\./, "") : ""; } catch { return url ?? ""; } };
 const ROLES = ["primary", "accent", "background", "surface", "ink", "muted"];
@@ -29,9 +33,15 @@ export default async function BrandPage({ params }: { params: Promise<{ locale: 
   const [details, captureId, profile] = await Promise.all([brandDetails(ctx, b.id), companyCaptureId(b.id), ctx.supabase.from("brand_profiles").select("raw").eq("company_id", b.id).maybeSingle()]);
   const raw = profile.data?.raw as { source?: string; pack?: string } | null;
   const market = await companyMarket(ctx, b.id);
+  const calendar = await liveSeasons(market.countries).catch(() => undefined);
+  const L = locale === "ar" ? "ar" : "en";
+  // what this market means right now: the next moments the brand's seasons and notifications follow
+  const coming = (market.countries.length ? upcomingSeasons({ today: todayKey(), countries: market.countries, industry: market.industry, within: 90, list: calendar }) : []).filter((s) => s.kind !== "payday").slice(0, 3).map((s) => ({ name: s.name[L], days: s.daysAway }));
   const created = raw?.source === "created" && raw.pack ? await createdBrand(ctx.workspace.id, raw.pack).catch(() => null) : null;
   const files = captureId ? await brandFiles(ctx.workspace.id, captureId).catch(() => null) : null;
   const colors = (b.brand_profiles?.colors ?? []).filter((c) => /^#[0-9a-f]{6}$/i.test(c.hex));
+  const primary = colors.find((c) => c.role === "primary")?.hex ?? colors[0]?.hex ?? "#5558e3";
+  const onBrand = onColor(primary, "#14141C");
   const font = b.brand_profiles?.fonts?.arabic || b.brand_profiles?.fonts?.latin || "Readex Pro";
   const site = host(b.website_url);
   const facts = details.facts;
@@ -51,13 +61,13 @@ export default async function BrandPage({ params }: { params: Promise<{ locale: 
         <div className="s-chips"><Link href={`/companies/${b.id}`} className="s-btn ghost">{t("reread")}</Link><Link href={`/companies/${b.id}`} className="s-btn ghost">{t("edit")}</Link></div>
       </div>
       <div className="s-look">
-        <div className="s-panel full"><MarketCard key={`${b.id}:${market.industry}:${market.countries.join()}`} companyId={b.id} industry={market.industry} countries={market.countries} /></div>
         <div className="s-panel span4"><p className="s-label">{t("palette")}</p><div className="s-chart">{colors.map((c, i) => <div key={`${c.hex}-${i}`} style={{ background: c.hex }}><span dir="ltr">{role(c.role)} {c.hex}</span></div>)}</div></div>
         <div className="s-panel span2" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
           <StudioMark company={b} size={96} />
           <b style={{ font: "800 26px var(--s-brandfont)" }}>{b.name}</b>
           <span className="s-mono" style={{ fontSize: 11, color: "var(--s-muted)" }} dir="ltr">{site}</span>
         </div>
+        <MarketCard key={`${b.id}:${market.industry}:${market.countries.join()}`} companyId={b.id} industry={market.industry} countries={market.countries} next={coming} onBrand={onBrand} />
         <div className="s-panel span3"><p className="s-label">{t("font", { font })}</p><div className="s-specimen" dir="auto">{specimen}</div><p style={{ fontFamily: "var(--s-brandfont)", color: "var(--s-ink-2)", margin: 0 }} dir="auto">{specimen === tagline ? (sets[0] || details.facts.what_it_does || "") : (tagline || sets[0] || "")}</p></div>
         <div className="s-panel span3"><p className="s-label">{t("voice")}</p><p style={{ margin: "0 0 14px", fontSize: 15, lineHeight: 1.8 }} dir="auto">{details.tone || t("none")}</p><p className="s-label">{t("audience")}</p><p style={{ margin: 0, color: "var(--s-ink-2)" }} dir="auto">{facts.audience || t("none")}</p></div>
         <div className="s-panel span3"><p className="s-label">{t("sets")}</p>{sets.length ? <ul className="s-list">{sets.map((s, i) => <li key={i} dir="auto">{s}</li>)}</ul> : <p>{t("none")}</p>}</div>

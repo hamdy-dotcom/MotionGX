@@ -409,3 +409,24 @@ body:has(.s-app) { background: var(--s-stage); color: var(--s-ink) }
 .s-season.ok { background: color-mix(in srgb, var(--s-ok) 13%, #fff); color: #075a43 } .s-season.approx { background: var(--s-panel-2); color: var(--s-ink-2) }
 .s-season.k-national { box-shadow: inset 3px 0 0 var(--s-ok) } .s-season.k-religious { box-shadow: inset 3px 0 0 var(--s-gold) } .s-season.k-shopping { box-shadow: inset 3px 0 0 var(--s-rec) } .s-season.k-festival { box-shadow: inset 3px 0 0 var(--s-brand) }
 [dir="rtl"] .s-season.k-national { box-shadow: inset -3px 0 0 var(--s-ok) } [dir="rtl"] .s-season.k-religious { box-shadow: inset -3px 0 0 var(--s-gold) } [dir="rtl"] .s-season.k-shopping { box-shadow: inset -3px 0 0 var(--s-rec) } [dir="rtl"] .s-season.k-festival { box-shadow: inset -3px 0 0 var(--s-brand) }
+
+/* the brand's market on its page: its own colours when read, plain pills in place when edited */
+.s-mk { position: relative; grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1.2fr 1.3fr; overflow: hidden; border-radius: 22px; box-shadow: var(--s-lift); background: linear-gradient(115deg, var(--s-brand), color-mix(in srgb, var(--s-brand) 72%, var(--s-brand-2))) }
+.s-mk-cell { padding: 24px 26px 26px; min-width: 0 } .s-mk-cell + .s-mk-cell { border-inline-start: 1px solid color-mix(in srgb, currentColor 18%, transparent) }
+.s-mk-k { margin: 0 0 14px; font: 500 10.5px var(--s-mono); letter-spacing: .22em; text-transform: uppercase; opacity: .72 }
+.s-mk-v { margin: 0; font: 800 clamp(24px, 2.6vw, 34px)/1.15 var(--s-brandfont); letter-spacing: -.01em; text-wrap: balance }
+.s-mk-tags { display: flex; flex-wrap: wrap; gap: 8px } .s-mk-tags span { padding: 7px 14px; border-radius: 999px; font-size: 14px; font-weight: 600; background: color-mix(in srgb, currentColor 16%, transparent) }
+.s-mk-next { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; font-size: 14px } .s-mk-next li { display: flex; justify-content: space-between; align-items: baseline; gap: 14px } .s-mk-next b { flex: none; font: 500 11px var(--s-mono); opacity: .76 }
+.s-mk-none { margin: 0; font-size: 14px; opacity: .72 }
+.s-mk-edit { position: absolute; inset-block-start: 16px; inset-inline-end: 16px; border: 0; border-radius: 999px; padding: 6px 14px; font: 600 12px var(--s-display); color: inherit; background: color-mix(in srgb, currentColor 16%, transparent); cursor: pointer; transition: background .2s } .s-mk-edit:hover { background: color-mix(in srgb, currentColor 28%, transparent) }
+.s-mk-form { grid-column: 1 / -1; background: var(--s-panel); border: 1px solid color-mix(in srgb, var(--s-brand) 42%, var(--s-hair)); border-radius: 22px; padding: 22px; box-shadow: var(--s-lift) }
+.s-mk-warn { margin: 0 0 18px; padding: 10px 14px; border-radius: 12px; font-size: 14px; font-weight: 600; color: var(--s-ink); background: color-mix(in srgb, var(--s-gold) 18%, #fff) }
+.s-mk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px } .s-mk-grid section { min-width: 0 }
+.s-mk-search { width: 100%; margin-bottom: 12px; padding: 10px 16px; border: 1px solid var(--s-hair); border-radius: 12px; background: #fff; font: 14px var(--s-display); color: var(--s-ink); outline: none; transition: border-color .2s } .s-mk-search:focus { border-color: var(--s-brand) }
+.s-mk-group { margin-bottom: 14px } .s-mk-group small { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 600; color: var(--s-muted) }
+.s-mk-pills { display: flex; flex-wrap: wrap; gap: 7px; align-content: flex-start } .s-mk-pills.tall { max-height: 268px; overflow-y: auto; padding-inline-end: 4px }
+.s-mk-pills button { border: 1px solid var(--s-hair); border-radius: 999px; padding: 6px 13px; font: 500 13px var(--s-display); color: var(--s-ink-2); background: #fff; cursor: pointer; transition: background .15s, border-color .15s, color .15s }
+.s-mk-pills button:hover { border-color: var(--s-brand); color: var(--s-ink) }
+.s-mk-pills button[aria-pressed="true"] { border-color: var(--s-brand); background: var(--s-brand); color: var(--s-on-brand, #fff); font-weight: 600 }
+.s-mk-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--s-hair) } .s-mk-foot p { flex: 1 1 260px; margin: 0; font-size: 13px; color: var(--s-muted) } .s-mk-foot span { font-size: 13px; color: var(--s-rec) }
+@media (max-width: 900px) { .s-mk { grid-template-columns: 1fr } .s-mk-cell + .s-mk-cell { border-inline-start: 0; border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent) } .s-mk-grid { grid-template-columns: 1fr } }

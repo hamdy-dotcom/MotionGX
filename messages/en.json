@@ -1127,7 +1127,7 @@
   },
   "market": {
     "industry": "Industry",
-    "industryPlaceholder": "Search and pick the brand's industry…",
+    "industryPlaceholder": "Search industries…",
     "countries": "Countries the brand operates in",
     "countriesPlaceholder": "Search and pick one or more countries…",
     "countriesHint": "We remind you of each chosen country's seasons and occasions, and bring the trends in your market.",
@@ -1146,7 +1146,13 @@
     "required": "Every brand needs its industry and at least one country. Its seasons and notifications follow them.",
     "save": "Save",
     "saved": "Saved",
-    "saveFailed": "Not saved. Please try again."
+    "saveFailed": "Not saved. Please try again.",
+    "comingUp": "Coming up in your market",
+    "inDays": "in {days} days",
+    "now": "now",
+    "nothingSoon": "Nothing in the next 90 days",
+    "edit": "Edit",
+    "cancel": "Cancel"
   },
   "notices": {
     "seasonEye": "Coming up",
