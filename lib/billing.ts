@@ -85,7 +85,7 @@ async function realEstimate(i: EstimateInput): Promise<number> {
   if (i.kind === "capture") return history("capture", async () => ((await db.from("live_jobs").select("cost_usd").eq("kind", "capture").eq("status", "done").order("created_at", { ascending: false }).limit(30)).data ?? []).map((j) => Number(j.cost_usd)), FALLBACK.capture);
   if (i.kind === "idea") return FALLBACK.idea;
   if (i.kind === "plan") return FALLBACK.plan;
-  if (i.kind === "brand") return 0.6;
+  if (i.kind === "brand") return 1;
   if (i.kind === "video") {
     if (i.mode === "rerender") return 0;
     const engine = i.engine ?? (directorEngineEnabled() ? "director" : "live");
@@ -116,7 +116,7 @@ async function realEstimate(i: EstimateInput): Promise<number> {
 function capOf(i: EstimateInput) {
   if (i.kind === "video") return directorSettings().maxUsd;
   if (i.kind === "post") return postsSettings().maxUsd;
-  return { capture: 6, idea: 0.05, plan: 0.3, brand: 3 }[i.kind];
+  return { capture: 6, idea: 0.05, plan: 0.3, brand: 8 }[i.kind];
 }
 
 export async function estimate(workspaceId: string, i: EstimateInput): Promise<Estimate> {
@@ -172,13 +172,15 @@ export async function closeJobHold(jobId: string, charge: boolean) {
 }
 
 /** an app-side AI action (a plan's ideas, an idea from a notice): hold its estimate, measure its calls, charge them */
-export async function metered<T>(workspaceId: string, kind: "idea" | "plan" | "brand", note: string, fn: () => Promise<T>): Promise<T> {
+export async function metered<T>(workspaceId: string, kind: "idea" | "plan" | "brand", note: string, fn: (addCost: (usd: number) => void) => Promise<T>): Promise<T> {
   const est = await estimate(workspaceId, { kind });
   const hold = await reserve(workspaceId, kind, est, {}, note);
   const ctx: RunContext = { usage: [] };
+  // costs outside the AI text calls (generated images)
+  let extra = 0;
   try {
-    const out = await withRun(ctx, fn);
-    await admin().rpc("wallet_settle", { p_hold_id: hold, p_cost: costOf(ctx.usage).usd });
+    const out = await withRun(ctx, () => fn((usd) => { extra += usd; }));
+    await admin().rpc("wallet_settle", { p_hold_id: hold, p_cost: costOf(ctx.usage).usd + extra });
     return out;
   } catch (e) {
     await admin().rpc("wallet_release", { p_hold_id: hold });

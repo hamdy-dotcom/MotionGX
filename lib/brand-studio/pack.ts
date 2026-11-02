@@ -1,10 +1,13 @@
 import "server-only";
 // The brand pack: the logo as real vector files (the wordmark's letters outlined, Arabic shaped), PNGs, the documents
 // an AI coding tool reads (DESIGN.md, BRAND.md, CLAUDE.md / AGENTS.md), tokens, and the guide for people.
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import sharp from "sharp";
 import { zip } from "@/lib/brand/zip";
 import { shapeText } from "@/lib/motion/vector-text";
-import { fontsUrl, lookFromIdentity, mockup, MOCKUP_KINDS } from "./mockups";
+import { fillPage } from "./world";
 import { onColor, paintIcon, type BrandLanguage, type Identity } from "./types";
 
 type Colors = { P: string; A: string; I: string };
@@ -20,7 +23,8 @@ async function wordmark(text: string, family: string, size: number) {
   return { w: run.w, h: run.h, paths: (fill: string) => `<g fill="${fill}">${run.glyphs.map((g) => `<path d="${g.d}"/>`).join("")}</g>` };
 }
 
-async function logoFiles(id: Identity, language: BrandLanguage) {
+type Mark = Pick<Identity, "name" | "name_ar" | "palette" | "fonts" | "icon">;
+async function logoFiles(id: Mark, language: BrandLanguage) {
   const P = id.palette, files: Record<string, string> = {};
   const light: Colors = { P: P.primary, A: P.accent, I: P.ink }, dark: Colors = { P: P.primary, A: P.accent, I: "#FFFFFF" };
   const black: Colors = { P: "#000000", A: "#000000", I: "#000000" }, white: Colors = { P: "#FFFFFF", A: "#FFFFFF", I: "#FFFFFF" };
@@ -237,7 +241,7 @@ function guideHtml(id: Identity, logoSvg: string, darkLogoSvg: string, iconSvgTe
 .cover{background:${P.primary};color:${on};min-height:90vh;display:flex;flex-direction:column;justify-content:center;gap:32px}.cover svg{max-width:480px;height:auto}.cover p{font-size:22px}
 .logos{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.logos>div{padding:40px;border-radius:${id.radius}px;display:flex;align-items:center;justify-content:center;min-height:200px}.logos svg{max-width:100%;max-height:120px;height:auto;width:auto}
 .sws{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px}.sw i{display:block;height:110px;border-radius:${id.radius}px;box-shadow:inset 0 0 0 1px #0002}.sw b{display:block;margin-top:8px}.sw span{font-size:13px;color:${P.muted}}.sw small{display:block;font-size:12px;color:${P.muted}}
-.world{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}.world figure{margin:0;border-radius:${id.radius}px;overflow:hidden;break-inside:avoid}
+.world{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}.world img{display:block;width:100%}.world figure{margin:0;border-radius:${id.radius}px;overflow:hidden;break-inside:avoid}
 blockquote{margin:8px 0;padding:12px 16px;background:${P.surface};border-radius:${id.radius}px}
 </style></head><body>
 <section class="cover">${darkLogoSvg}<p>${esc(id.tagline)}</p></section>
@@ -251,29 +255,34 @@ blockquote{margin:8px 0;padding:12px 16px;background:${P.surface};border-radius:
 </body></html>`;
 }
 
-/** the guide as a PDF and every mockup as a PNG, when a browser is available here; the HTML versions always ship */
-async function renderWithBrowser(guide: string, mocks: { kind: string; html: string }[]) {
-  const pngs: { kind: string; bytes: Uint8Array }[] = [];
+/** the logo as a PNG for the image model and the pages; good for a preview's direction as well */
+export async function logoPng(id: Mark, language: BrandLanguage, width = 1024) {
+  const { svgs } = await logoFiles(id, language);
+  return png(svgs["logo-color.svg"], width);
+}
+
+/** the guide as a PDF and the website as a full-page picture, when a browser is available here; the HTML always ships */
+async function renderWithBrowser(guide: string, sitePath: string | null) {
   try {
     const { chromium } = await import("playwright");
     const browser = await chromium.launch();
     try {
-      const page = await browser.newPage({ viewport: { width: 1400, height: 1000 }, deviceScaleFactor: 2 });
-      for (const m of mocks) {
-        await page.setContent(m.html, { waitUntil: "networkidle", timeout: 30_000 });
-        await page.evaluate("document.fonts.ready");
-        pngs.push({ kind: m.kind, bytes: new Uint8Array(await page.locator("svg").first().screenshot({ type: "png" })) });
-      }
-      await page.setContent(guide, { waitUntil: "networkidle", timeout: 30_000 });
-      return { pdf: new Uint8Array(await page.pdf({ format: "A4", printBackground: true })), pngs };
+      const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      let site: Uint8Array | null = null;
+      if (sitePath) { await page.goto("file://" + sitePath, { waitUntil: "networkidle", timeout: 40_000 }); site = new Uint8Array(await page.screenshot({ fullPage: true, type: "jpeg", quality: 85 })); }
+      await page.setContent(guide, { waitUntil: "networkidle", timeout: 40_000 });
+      return { pdf: new Uint8Array(await page.pdf({ format: "A4", printBackground: true })), site };
     } finally { await browser.close(); }
   } catch (err) {
     console.warn("[brand-studio] browser renders skipped", String(err).slice(0, 200));
-    return { pdf: null, pngs };
+    return { pdf: null, site: null };
   }
 }
 
-export async function buildPack(id: Identity, language: BrandLanguage) {
+export type World = { kind: string; bytes: Uint8Array }[];
+export type Site = { html: string; photos: { key: string; bytes: Uint8Array }[] };
+
+export async function buildPack(id: Identity, language: BrandLanguage, world: World, site: Site) {
   const P = id.palette, { svgs } = await logoFiles(id, language);
   const main = svgs["logo-color.svg"], onDark = svgs["logo-on-dark.svg"], iconColor = svgs["icon-color.svg"];
   const files: { path: string; bytes: Uint8Array }[] = Object.entries(svgs).map(([k, v]) => ({ path: `logo/svg/${k}`, bytes: enc(v) }));
@@ -281,16 +290,26 @@ export async function buildPack(id: Identity, language: BrandLanguage) {
   files.push({ path: "logo/png/logo-color.png", bytes: logoPng }, { path: "logo/png/logo-on-dark.png", bytes: await png(onDark, 1600) }, { path: "logo/png/logo-black.png", bytes: await png(svgs["logo-black.svg"], 1600) }, { path: "logo/png/logo-white.png", bytes: await png(svgs["logo-white.svg"], 1600) });
   if (svgs["logo-ar-color.svg"]) files.push({ path: "logo/png/logo-ar-color.png", bytes: await png(svgs["logo-ar-color.svg"], 1600) });
   files.push({ path: "logo/png/icon-1024.png", bytes: await square(iconColor, 1024, null, 0.06) }, { path: "logo/png/favicon-512.png", bytes: await square(iconColor, 512, P.background, 0.14) }, { path: "logo/png/favicon-180.png", bytes: await square(iconColor, 180, P.background, 0.14) }, { path: "logo/png/favicon-32.png", bytes: await square(iconColor, 32, null, 0.02) }, { path: "logo/png/social-avatar-1080.png", bytes: await square(svgs["icon-on-dark.svg"], 1080, onColor(P.primary, P.ink) === "#FFFFFF" ? P.ink : P.surface, 0.2) });
-  const look = lookFromIdentity(id, language), fonts = `<link rel="stylesheet" href="${esc(fontsUrl(look))}">`;
-  const mocks = MOCKUP_KINDS.map((kind) => ({ kind, svg: mockup(look, kind) })).map((m) => ({ ...m, html: `<!doctype html><html lang="${look.rtl ? "ar" : "en"}"><head><meta charset="utf-8"><title>${esc(id.name)}: ${m.kind}</title>${fonts}<style>body{margin:0;background:#fff}</style></head><body>${m.svg}</body></html>` }));
-  const guide = guideHtml(id, main, onDark, iconColor, language === "ar", mocks.map((m) => `<figure>${m.svg}</figure>`).join(""));
-  const { pdf, pngs } = await renderWithBrowser(guide, mocks);
-  for (const m of mocks) files.push({ path: `designs/${m.kind}.html`, bytes: enc(m.html) });
-  for (const m of pngs) files.push({ path: `designs/${m.kind}.png`, bytes: m.bytes });
+  const dataUri = (b: Uint8Array) => `data:image/jpeg;base64,${Buffer.from(b).toString("base64")}`;
+  const small = await Promise.all(world.map(async (w) => ({ kind: w.kind, bytes: new Uint8Array(await sharp(Buffer.from(w.bytes)).resize({ width: 1000 }).jpeg({ quality: 80 }).toBuffer()) })));
+  const guide = guideHtml(id, main, onDark, iconColor, language === "ar", small.map((w) => `<figure><img src="${dataUri(w.bytes)}" alt="${esc(w.kind)}"></figure>`).join(""));
+  // the website as a folder that opens by itself
+  const photos: Record<string, string> = Object.fromEntries(site.photos.map((p) => [p.key, `images/${p.key}.jpg`]));
+  const siteHtml = fillPage(site.html, "images/logo.png", photos);
+  files.push({ path: "website/index.html", bytes: enc(siteHtml) }, { path: "website/images/logo.png", bytes: logoPng }, ...site.photos.map((p) => ({ path: `website/images/${p.key}.jpg`, bytes: p.bytes })));
+  for (const w of world) files.push({ path: `designs/${w.kind}.jpg`, bytes: w.bytes });
+  // rendered from a folder on disk so the page finds its images
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "brand-site-"));
+  fs.mkdirSync(path.join(tmp, "images"));
+  fs.writeFileSync(path.join(tmp, "index.html"), siteHtml); fs.writeFileSync(path.join(tmp, "images", "logo.png"), logoPng);
+  for (const p of site.photos) fs.writeFileSync(path.join(tmp, "images", `${p.key}.jpg`), p.bytes);
+  const { pdf, site: sitePic } = await renderWithBrowser(guide, path.join(tmp, "index.html"));
+  fs.rmSync(tmp, { recursive: true, force: true });
+  if (sitePic) files.push({ path: "designs/website.jpg", bytes: sitePic });
   const text: Record<string, string> = {
     "DESIGN.md": designMd(id), "BRAND.md": brandMd(id), "CLAUDE.md": agentRules(id), "AGENTS.md": agentRules(id),
     "tokens.json": tokensJson(id), "theme.css": themeCss(id), "tailwind.config.js": tailwindJs(id), "brand.json": brandJson(id, language), "guidelines.html": guide,
-    "README.md": `# ${id.name} brand pack\n\nDrop this folder into your project so Claude, Codex, Cursor or any other tool keeps the brand consistent. \`CLAUDE.md\` and \`AGENTS.md\` tell them what to read.\n\n- \`DESIGN.md\`: the visual system, in Google's open DESIGN.md format (still in alpha)\n- \`BRAND.md\`: who the brand is and how it talks\n- \`tokens.json\`, \`theme.css\`, \`tailwind.config.js\`: the tokens for code\n- \`logo/\`: the logo as vector SVG and PNG\n- \`designs/\`: the brand on a website, business cards, T-shirts, a uniform, a retail booth, packaging, a storefront and social media (HTML you can open and edit, plus PNG)\n- \`guidelines.html\`${pdf ? ", `guidelines.pdf`" : ""}: the guide for people\n- \`brand.json\`: for MotionGX\n\nBefore registering this name or logo, have them checked for trademarks in your market. They were AI-assisted, and nobody has run that search.\n`,
+    "README.md": `# ${id.name} brand pack\n\nDrop this folder into your project so Claude, Codex, Cursor or any other tool keeps the brand consistent. \`CLAUDE.md\` and \`AGENTS.md\` tell them what to read.\n\n- \`DESIGN.md\`: the visual system, in Google's open DESIGN.md format (still in alpha)\n- \`BRAND.md\`: who the brand is and how it talks\n- \`tokens.json\`, \`theme.css\`, \`tailwind.config.js\`: the tokens for code\n- \`logo/\`: the logo as vector SVG and PNG\n- \`website/\`: the home page, designed for this brand; open \`index.html\` or edit it\n- \`designs/\`: the brand in the real world: clothes, uniform, booth, cards, packaging, storefront, billboard\n- \`guidelines.html\`${pdf ? ", `guidelines.pdf`" : ""}: the guide for people\n- \`brand.json\`: for MotionGX\n\nBefore registering this name or logo, have them checked for trademarks in your market. They were AI-assisted, and nobody has run that search.\n`,
   };
   for (const [path, v] of Object.entries(text)) files.push({ path, bytes: enc(v) });
   if (pdf) files.push({ path: "guidelines.pdf", bytes: pdf });
