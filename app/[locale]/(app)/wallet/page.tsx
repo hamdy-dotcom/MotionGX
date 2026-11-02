@@ -2,7 +2,7 @@ import { Link } from "@/i18n/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
 import { getFxRate, toLocal } from "@/lib/pricing";
-import { available, estimate, minimumUsd } from "@/lib/billing";
+import { available, estimate } from "@/lib/billing";
 import { formatDate, formatMoney, formatNumber } from "@/lib/format";
 import type { LedgerKind, LedgerRow } from "@/lib/types";
 import { TOP_UP_AMOUNTS_USD } from "@/lib/wallet";
@@ -101,8 +101,8 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
             {([["typPost", post], ["typCarousel", carousel], ["typStory", story], ["typCover", cover], ["typVideo30", video30], ["typVideo60", video60]] as const).map(([k, e]) => (
               <div key={k} className="s-count"><span>{t(k)}</span><b style={{ fontSize: 20 }} dir="ltr">~{n(e.usd)}</b></div>
             ))}
-            <div className="s-count"><span>{t("typCapture")}</span><b style={{ fontSize: 20 }} dir="ltr">{capture.free ? t("freeFirst") : `~${n(capture.usd)}`}</b></div>
-            <p style={{ color: "var(--s-muted)", fontSize: 12.5, margin: "10px 0 0" }}>{t("howBilled", { min: formatMoney(toLocal(await minimumUsd(), fx), workspace.currency_code, locale) })} <Link href="/pricing" style={{ color: "var(--s-brand)" }}>{tl("policies")}</Link></p>
+            <div className="s-count"><span>{t("typCapture")}</span><b style={{ fontSize: 20 }} dir="ltr">{`~${n(capture.usd)}`}</b></div>
+            <p style={{ color: "var(--s-muted)", fontSize: 12.5, margin: "10px 0 0" }}>{t("howBilled")} <Link href="/pricing" style={{ color: "var(--s-brand)" }}>{tl("policies")}</Link></p>
           </div>
         </div>
       </div>

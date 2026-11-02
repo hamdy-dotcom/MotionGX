@@ -18,7 +18,7 @@ import { startSandbox } from "./runner-sandbox";
 import { insertLiveVersion } from "./versions";
 import { postsSettings } from "@/lib/posts/config";
 import { insertPostVersion, mergePostGeneration, setPostGeneration } from "@/lib/posts/server/versions";
-import { attachHold, billed, closeJobHold, estimate, firstCaptureFree, releasePiece, reserve } from "@/lib/billing";
+import { attachHold, billed, closeJobHold, estimate, releasePiece, reserve } from "@/lib/billing";
 
 export type LiveMode = { kind: "new" } | { kind: "direction" } | { kind: "lines"; beats: ScriptBeat[] } | { kind: "edit"; instruction: string } | { kind: "rerender"; edits: NonNullable<NonNullable<JobFile["edit"]>["edits"]> };
 
@@ -154,9 +154,8 @@ export async function captureProgress(workspaceId: string, captureId: string) {
     error: (cap.error as string | null) ?? (job?.error as string | null) ?? null,
     profile: cap.status === "done" ? (cap.profile as Record<string, unknown> | null) : null,
     prefix: storagePath("brand/x", { workspaceId, captureId }).replace(/\/x$/, ""),
-    // what this capture costs the user so far (0 while it is the workspace's free first one)
-    costUsd: await billed(workspaceId, "capture", Number(job?.cost_usd ?? 0), captureId),
-    free: await firstCaptureFree(workspaceId, captureId),
+    // what this capture costs the user so far
+    costUsd: await billed(workspaceId, "capture", Number(job?.cost_usd ?? 0)),
   };
 }
 

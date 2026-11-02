@@ -29,7 +29,7 @@ export function useExtraction(live = false) {
   const [log, setLog] = useState<string[]>([]);
   const [ask, setAsk] = useState<{ captureId: string; to: string } | null>(null);
   // the capture's billed cost so far (free while it is the workspace's first)
-  const [cost, setCost] = useState<{ usd: number; free: boolean } | null>(null);
+  const [cost, setCost] = useState<{ usd: number } | null>(null);
 
   async function runLive(target: string, refresh: boolean, companyId?: string) {
     setLog([]);
@@ -47,7 +47,7 @@ export function useExtraction(live = false) {
       const p = r?.ok ? ((await r.json()) as LiveProgress) : null;
       if (p) {
         setLog(p.log);
-        setCost({ usd: Number(p.costUsd ?? 0), free: Boolean(p.free) });
+        setCost({ usd: Number(p.costUsd ?? 0) });
         setAsk(p.waitingCode ? { captureId: start.captureId, to: p.askedTo ?? "" } : null);
         if (p.status === "done" && p.brand) return { brand: p.brand, raw: p.raw, cached: Boolean(start.reused) };
         if (p.status === "failed") {

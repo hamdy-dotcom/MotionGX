@@ -59,12 +59,12 @@ export function StepLog({ lines }: { lines: string[] }) {
   );
 }
 
-/** a brand capture's cost while it runs: free (the workspace's first brand) or the billed amount so far */
-export function CaptureCost({ cost, billing }: { cost: { usd: number; free: boolean } | null; billing: CaptureBilling }) {
+/** a brand capture's cost while it runs: the billed amount so far */
+export function CaptureCost({ cost, billing }: { cost: { usd: number } | null; billing: CaptureBilling }) {
   const t = useTranslations("companies");
   const locale = useLocale();
   if (!cost) return null;
-  return <p className="mt-2 text-sm text-ink-muted">{cost.free ? t("captureFreeNow") : t("captureCostNow", { price: formatMoney(toLocal(cost.usd, billing.fxRate), billing.currency, locale) })}</p>;
+  return <p className="mt-2 text-sm text-ink-muted">{t("captureCostNow", { price: formatMoney(toLocal(cost.usd, billing.fxRate), billing.currency, locale) })}</p>;
 }
 
 /** what the capture is expected to cost (server-made note) and how to show live amounts */

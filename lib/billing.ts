@@ -1,6 +1,6 @@
 import "server-only";
 // Usage billing (migration 0017). The workspace pays the real AI cost of what it starts × prices.cost_multiplier;
-// a brand capture × prices.capture_multiplier, its first capture free. Before a job: estimate → hold (the job never
+// a brand capture × prices.capture_multiplier. Before a job: estimate → hold (the job never
 // runs on an empty wallet); when it ends: wallet_settle charges the billed cost (never past the balance); a failure on our
 // side releases the hold. Every amount here that reaches the UI is the billed one, never the raw cost.
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,21 +16,17 @@ export type EstimateInput =
   | { kind: "idea" }
   | { kind: "plan" }
   | { kind: "brand" };
-/** usd: the billed estimate shown to the user; holdUsd: what is held until the job ends; minimumUsd: the least a new
- *  piece is charged (billed units, USD) */
-export type Estimate = { usd: number; holdUsd: number; free: boolean; minimumUsd: number };
+/** usd: the billed estimate shown to the user; holdUsd: what is held until the job ends */
+export type Estimate = { usd: number; holdUsd: number };
 
-/** a new piece (video, post, story, cover, carousel, text) costs at least this — edits, changes, ideas and captures don't */
-export const MIN_NEW_PIECE_EGP = 20;
-const isNewPiece = (i: EstimateInput) => (i.kind === "video" && i.mode === "new") || (i.kind === "post" && !i.change);
 let egp: { at: number; rate: number } | null = null;
-/** the minimum in USD at the latest EGP rate */
-export async function minimumUsd() {
+/** EGP per USD at the latest rate */
+async function egpRate() {
   if (!egp || Date.now() - egp.at > 10 * 60_000) {
     const { data } = await admin().from("fx_rates").select("usd_rate").eq("currency_code", "EGP").lte("rate_date", new Date().toISOString().slice(0, 10)).order("rate_date", { ascending: false }).limit(1).maybeSingle();
     egp = { at: Date.now(), rate: Number(data?.usd_rate) || 50 };
   }
-  return r4(MIN_NEW_PIECE_EGP / egp.rate);
+  return egp.rate;
 }
 
 export class InsufficientBalance extends Error {
@@ -51,18 +47,10 @@ export async function multipliers() {
   return mult;
 }
 
-/** the workspace's first capture is free: true while it has no finished capture (other than `except`) */
-export async function firstCaptureFree(workspaceId: string, except?: string | null) {
-  let q = admin().from("live_brand_captures").select("id", { count: "exact", head: true }).eq("workspace_id", workspaceId).eq("status", "done");
-  if (except) q = q.neq("id", except);
-  return ((await q).count ?? 0) === 0;
-}
-
 /** a real cost as the user pays it (the same rule as billed_usd() in SQL) */
-export async function billed(workspaceId: string, kind: BillKind, costUsd: number, captureId?: string | null) {
+export async function billed(_workspaceId: string, kind: BillKind, costUsd: number) {
   const m = await multipliers();
-  if (kind === "capture") return (await firstCaptureFree(workspaceId, captureId)) ? 0 : r4(costUsd * m.capture);
-  return r4(costUsd * m.cost);
+  return r4(costUsd * (kind === "capture" ? m.capture : m.cost));
 }
 
 // ── estimates: the median real cost of the last finished jobs like this one, else a default ──────────
@@ -119,15 +107,13 @@ function capOf(i: EstimateInput) {
   return { capture: 6, idea: 0.05, plan: 0.3, brand: 8 }[i.kind];
 }
 
-export async function estimate(workspaceId: string, i: EstimateInput): Promise<Estimate> {
+export async function estimate(_workspaceId: string, i: EstimateInput): Promise<Estimate> {
   const m = await multipliers();
-  const free = i.kind === "capture" && (await firstCaptureFree(workspaceId));
-  const factor = free ? 0 : i.kind === "capture" ? m.capture : m.cost;
+  const factor = i.kind === "capture" ? m.capture : m.cost;
   const real = await realEstimate(i);
-  const min = isNewPiece(i) ? await minimumUsd() : 0;
-  if (real <= 0 && !min) return { usd: 0, holdUsd: 0, free, minimumUsd: 0 };
+  if (real <= 0) return { usd: 0, holdUsd: 0 };
   const hold = Math.min(capOf(i), Math.max(real * 3, FLOOR[i.kind]));
-  return { usd: r4(Math.max(real * factor, min)), holdUsd: r4(Math.max(hold * factor, min)), free, minimumUsd: min };
+  return { usd: r4(real * factor), holdUsd: r4(hold * factor) };
 }
 
 // ── holds ────────────────────────────────────────────────────────────────────────────────────────────
@@ -139,7 +125,7 @@ export async function available(workspaceId: string) {
 type Refs = { videoId?: string | null; postId?: string | null; captureId?: string | null };
 /** hold an estimate before the job is made; throws InsufficientBalance when it does not fit */
 export async function reserve(workspaceId: string, kind: BillKind, est: Estimate, refs: Refs = {}, note?: string | null) {
-  const { data, error } = await admin().rpc("wallet_hold", { p_workspace_id: workspaceId, p_kind: kind, p_amount: est.holdUsd, p_video_id: refs.videoId ?? null, p_post_id: refs.postId ?? null, p_capture_id: refs.captureId ?? null, p_note: note?.slice(0, 200) ?? null, p_minimum: est.minimumUsd });
+  const { data, error } = await admin().rpc("wallet_hold", { p_workspace_id: workspaceId, p_kind: kind, p_amount: est.holdUsd, p_video_id: refs.videoId ?? null, p_post_id: refs.postId ?? null, p_capture_id: refs.captureId ?? null, p_note: note?.slice(0, 200) ?? null, p_minimum: 0 });
   if (error) {
     if (/insufficient_balance/.test(error.message)) throw new InsufficientBalance(est.holdUsd, await available(workspaceId));
     throw new Error(`wallet_hold: ${error.message}`);
@@ -217,18 +203,15 @@ export async function releaseHold(holdId: string) {
   await admin().rpc("wallet_release", { p_hold_id: holdId });
 }
 
-/** the note a capture shows before it starts: free (the first brand) or its estimate, in the workspace's currency */
-export async function captureBilling(workspaceId: string, currency: string, fxRate: number, t: (key: "captureFree" | "captureEstimate", v?: { price: string }) => string, money: (local: number) => string) {
+/** the note a capture shows before it starts: its estimate, in the workspace's currency */
+export async function captureBilling(workspaceId: string, currency: string, fxRate: number, t: (key: "captureEstimate", v: { price: string }) => string, money: (local: number) => string) {
   const est = await estimate(workspaceId, { kind: "capture" });
-  return { note: est.free ? t("captureFree") : t("captureEstimate", { price: money(Math.round(est.usd * fxRate * 100) / 100) }), fxRate, currency };
+  return { note: t("captureEstimate", { price: money(Math.round(est.usd * fxRate * 100) / 100) }), fxRate, currency };
 }
 
 /** a typical price for the public pricing page: what a piece like this costs a customer today, in EGP */
 export async function publicPrice(i: EstimateInput): Promise<number> {
   const m = await multipliers();
-  const factor = i.kind === "capture" ? m.capture : m.cost;
-  const min = isNewPiece(i) ? await minimumUsd() : 0;
-  await minimumUsd();
-  const usd = Math.max((await realEstimate(i)) * factor, min);
-  return Math.max(5, Math.round((usd * (egp?.rate ?? 50)) / 5) * 5);
+  const usd = (await realEstimate(i)) * (i.kind === "capture" ? m.capture : m.cost);
+  return Math.max(5, Math.round((usd * (await egpRate())) / 5) * 5);
 }

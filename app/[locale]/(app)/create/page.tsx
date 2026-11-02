@@ -4,7 +4,7 @@ import { getAppContext } from "@/lib/context";
 import { listCompanies } from "@/lib/data/companies";
 import { activeCompany } from "@/lib/data/active-company";
 import { getFxRate, toLocal } from "@/lib/pricing";
-import { estimate, minimumUsd } from "@/lib/billing";
+import { estimate } from "@/lib/billing";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { dayMono } from "@/lib/dates";
 import { Rise, escapeMarkup } from "@/components/studio/rise";
@@ -36,7 +36,6 @@ export default async function CreatePage({ params, searchParams }: { params: Pro
     estimate(ws, { kind: "post", type: "single", placement: "cover" }),
     estimate(ws, { kind: "post", type: "text" }),
   ]);
-  const min = formatMoney(toLocal(await minimumUsd(), fx), ctx.workspace.currency_code, ctx.locale);
   const brand = await activeCompany(companies, q.company);
   if (!brand) {
     return (
@@ -58,7 +57,7 @@ export default async function CreatePage({ params, searchParams }: { params: Pro
       <CreateForm
         brand={{ id: brand.id, name: brand.name, dialect: brand.default_dialect, mark: <StudioMark company={brand} size={42} /> }}
         initial={{ kind, brief: (q.brief ?? "").slice(0, 2000), day, ideaId: q.idea ?? null, platforms: (q.platforms ?? "").split(",").filter(Boolean), contentType: isContentType(q.type) ? q.type : "standard" }}
-        prices={{ video: { 15: n(est[0].usd), 30: n(est[1].usd), 60: n(est[2].usd) }, image: n(est[3].usd), carousel: n(est[4].usd), story: n(est[5].usd), cover: n(est[6].usd), text: n(est[7].usd), min, currency: formatMoney(0, ctx.workspace.currency_code, ctx.locale).replace(/[\d.,\s-]/g, "") || ctx.workspace.currency_code }}
+        prices={{ video: { 15: n(est[0].usd), 30: n(est[1].usd), 60: n(est[2].usd) }, image: n(est[3].usd), carousel: n(est[4].usd), story: n(est[5].usd), cover: n(est[6].usd), text: n(est[7].usd), currency: formatMoney(0, ctx.workspace.currency_code, ctx.locale).replace(/[\d.,\s-]/g, "") || ctx.workspace.currency_code }}
       />
     </section>
   );
