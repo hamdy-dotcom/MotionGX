@@ -757,7 +757,14 @@
       "text": "نص فقط",
       "story": "ستوري",
       "cover": "غلاف الصفحة"
-    }
+    },
+    "openFull": "افتح بالكامل",
+    "statusLabel": "الحالة",
+    "dayLabel": "اليوم",
+    "typeLabel": "النوع",
+    "platformsLabel": "المنصات",
+    "previous": "السابق",
+    "next": "التالي"
   },
   "lookbook": {
     "title": "لوك بوك <b>{name}</b>",

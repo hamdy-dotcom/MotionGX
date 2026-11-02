@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { WorkLink } from "@/components/studio/work-preview";
 import { getAppContext } from "@/lib/context";
 import { listCompanies } from "@/lib/data/companies";
 import { activeCompany } from "@/lib/data/active-company";
@@ -67,9 +68,9 @@ export default async function TodayPage({ params }: { params: Promise<{ locale: 
       <div className="s-reel" aria-label={t("recent")}>
         <div className="s-track">
           {(frames.length ? [...frames, ...frames] : []).map((w, i) => (
-            <Link key={`${w.id}-${i}`} href={w.href} className={`s-frame${(w.kind === "video" && w.type === "9:16") || w.type === "story" ? " v" : w.type === "cover" ? " cover" : ""}`} data-tc={`Nº ${String((i % frames.length) + 1).padStart(3, "0")}`} style={w.thumb ? { backgroundImage: `url(${w.thumb})` } : undefined} aria-label={w.title}>
+            <WorkLink key={`${w.id}-${i}`} work={w} className={`s-frame${(w.kind === "video" && w.type === "9:16") || w.type === "story" ? " v" : w.type === "cover" ? " cover" : ""}`} data-tc={`Nº ${String((i % frames.length) + 1).padStart(3, "0")}`} style={w.thumb ? { backgroundImage: `url(${w.thumb})` } : undefined} label={w.title}>
               {w.thumb ? null : <span className="tile" dir="auto">{w.title}</span>}
-            </Link>
+            </WorkLink>
           ))}
         </div>
         {frames.length ? null : <p className="s-lead" style={{ margin: 0, paddingInline: "max(16px, 3.2vw)" }}>{t("wallEmpty")}</p>}

@@ -430,3 +430,29 @@ body:has(.s-app) { background: var(--s-stage); color: var(--s-ink) }
 .s-mk-pills button[aria-pressed="true"] { border-color: var(--s-brand); background: var(--s-brand); color: var(--s-on-brand, #fff); font-weight: 600 }
 .s-mk-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--s-hair) } .s-mk-foot p { flex: 1 1 260px; margin: 0; font-size: 13px; color: var(--s-muted) } .s-mk-foot span { font-size: 13px; color: var(--s-rec) }
 @media (max-width: 900px) { .s-mk { grid-template-columns: 1fr } .s-mk-cell + .s-mk-cell { border-inline-start: 0; border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent) } .s-mk-grid { grid-template-columns: 1fr } }
+
+/* a piece in the middle of the screen */
+.s-wp { margin: auto; padding: 0; border: 0; background: transparent; max-width: min(1040px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); color: var(--s-ink); font-family: var(--s-display); overflow: visible; animation: s-wp-in .22s cubic-bezier(.2, .8, .2, 1) }
+.s-wp::backdrop { background: rgba(16, 16, 22, .62); backdrop-filter: blur(10px); animation: s-wp-fade .2s ease }
+@keyframes s-wp-in { from { opacity: 0; transform: translateY(14px) scale(.98) } } @keyframes s-wp-fade { from { opacity: 0 } }
+.s-wp-card { display: flex; background: #fff; border-radius: 26px; overflow: hidden; box-shadow: 0 40px 120px -20px rgba(0, 0, 0, .55); max-height: calc(100dvh - 32px) }
+.s-wp-media { position: relative; flex: none; display: flex; align-items: center; justify-content: center; background: #111116; min-width: 0 }
+.s-wp-media img, .s-wp-media video { display: block; height: min(78dvh, 720px); width: auto; max-width: min(640px, 62vw); object-fit: contain }
+.s-wp-media.wide img, .s-wp-media.wide video { height: auto; max-height: 78dvh; width: min(700px, 66vw) }
+.s-wp-media > p { padding: 60px 40px; margin: 0; color: #fff; font: 700 20px/1.5 var(--s-brandfont); text-align: center; max-width: 480px }
+.s-wp-nav { position: absolute; top: 50%; translate: 0 -50%; width: 42px; height: 42px; border: 0; border-radius: 50%; font-size: 26px; line-height: 1; color: var(--s-ink); background: rgba(255, 255, 255, .92); cursor: pointer; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); transition: scale .15s } .s-wp-nav:hover { scale: 1.08 }
+.s-wp-nav.prev { inset-inline-start: 12px } .s-wp-nav.next { inset-inline-end: 12px } [dir="rtl"] .s-wp-nav { rotate: 180deg }
+.s-wp-count { position: absolute; bottom: 12px; inset-inline: 0; margin: auto; width: fit-content; padding: 3px 10px; border-radius: 999px; font: 500 11px var(--s-mono); color: #fff; background: rgba(0, 0, 0, .55) }
+.s-wp-side { width: 320px; flex: none; display: flex; flex-direction: column; padding: 22px 24px 24px; min-width: 0; overflow-y: auto }
+.s-wp-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px }
+.s-wp-x { width: 34px; height: 34px; border: 0; border-radius: 50%; font-size: 20px; line-height: 1; color: var(--s-ink-2); background: var(--s-panel-2); cursor: pointer; transition: background .15s } .s-wp-x:hover { background: var(--s-hair) }
+.s-wp-side h2 { margin: 0 0 20px; font: 800 21px/1.35 var(--s-display); text-wrap: pretty }
+.s-wp-side dl { margin: 0 0 24px; display: grid; gap: 0 } .s-wp-side dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--s-hair); font-size: 13.5px }
+.s-wp-side dt { color: var(--s-muted) } .s-wp-side dd { margin: 0; font-weight: 600 } .s-wp-side dd.icons { display: flex; gap: 8px; align-items: center }
+.s-wp-actions { margin-top: auto; display: grid; gap: 8px } .s-wp-actions .s-btn { justify-content: center; text-decoration: none }
+@media (max-width: 760px) { .s-wp-card { flex-direction: column; overflow-y: auto } .s-wp-media img, .s-wp-media video { height: auto; max-height: 56dvh; width: 100%; max-width: 100% } .s-wp-side { width: auto } }
+
+/* a piece's page while it loads */
+.s-load { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; padding-top: 8px } .s-load i { display: block; border-radius: 22px; background: linear-gradient(100deg, var(--s-panel-2) 30%, #fff 50%, var(--s-panel-2) 70%); background-size: 240% 100%; animation: s-load 1.3s linear infinite } .s-load .main { height: 72dvh } .s-load .side { display: grid; gap: 14px; align-content: start } .s-load .side i { height: 92px }
+@keyframes s-load { to { background-position: -240% 0 } } @media (max-width: 760px) { .s-load { grid-template-columns: 1fr } }
+.s-shot { text-decoration: none }

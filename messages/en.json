@@ -757,7 +757,14 @@
       "text": "Text only",
       "story": "Story",
       "cover": "Page cover"
-    }
+    },
+    "openFull": "Open in full",
+    "statusLabel": "Status",
+    "dayLabel": "Day",
+    "typeLabel": "Type",
+    "platformsLabel": "Platforms",
+    "previous": "Previous",
+    "next": "Next"
   },
   "lookbook": {
     "title": "<b>{name}</b> lookbook",

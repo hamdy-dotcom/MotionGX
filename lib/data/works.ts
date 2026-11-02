@@ -18,6 +18,9 @@ export type Work = {
   scheduled: boolean;
   createdAt: string;
   thumb: string | null;
+  /** for the preview: a video's file, a post's slides */
+  video?: string | null;
+  slides?: string[];
   href: string;
 };
 
@@ -42,13 +45,15 @@ export async function listWorks(ctx: AppContext, companyId: string, { limit = 60
   // a director-engine run keeps poster.jpg next to video.mp4; a post's first slide is its thumbnail
   const videoThumb = (v: VideoRow) => { const p = newest(v.video_versions)?.mp4_path; return p ? p.replace(/[^/]+$/, "poster.jpg") : null; };
   const postThumb = (p: PostRow) => { const r = newest(p.post_versions)?.content?.renders ?? {}; return r["4:5"]?.[0] ?? r["9:16"]?.[0] ?? r["1:1"]?.[0] ?? r["16:9"]?.[0] ?? Object.values(r).find((x) => x?.length)?.[0] ?? null; };
-  const paths = [...videos.map(videoThumb), ...posts.map(postThumb)].filter((x): x is string => Boolean(x));
-  const { data: signed } = paths.length ? await supabase.storage.from(LIVE_BUCKET).createSignedUrls(paths, 3600) : { data: [] };
+  const videoFile = (v: VideoRow) => newest(v.video_versions)?.mp4_path ?? null;
+  const postSlides = (p: PostRow) => { const r = newest(p.post_versions)?.content?.renders ?? {}; return r["4:5"] ?? r["9:16"] ?? r["1:1"] ?? r["16:9"] ?? Object.values(r).find((x) => x?.length) ?? []; };
+  const paths = [...videos.flatMap((v) => [videoThumb(v), videoFile(v)]), ...posts.flatMap((p) => [postThumb(p), ...postSlides(p)])].filter((x): x is string => Boolean(x));
+  const { data: signed } = paths.length ? await supabase.storage.from(LIVE_BUCKET).createSignedUrls([...new Set(paths)], 3600) : { data: [] };
   const url = new Map((signed ?? []).filter((s) => !s.error && s.signedUrl).map((s) => [s.path, s.signedUrl]));
 
   const works: Work[] = [
-    ...videos.map((v) => { const t = videoThumb(v); return { id: v.id, kind: "video" as const, type: v.format, title: v.title, status: v.status, platforms: v.format === "16:9" ? ["linkedin", "x"] : ["instagram", "tiktok"], day: v.scheduled_on ?? dayKey(v.created_at), scheduled: Boolean(v.scheduled_on), createdAt: v.created_at, thumb: t ? url.get(t) ?? null : null, href: `/videos/${v.id}` }; }),
-    ...posts.map((p) => { const t = postThumb(p); return { id: p.id, kind: "post" as const, type: p.placement === "story" || p.placement === "cover" ? p.placement : p.type, title: p.title, status: p.status, platforms: p.platforms, day: p.scheduled_on ?? dayKey(p.created_at), scheduled: Boolean(p.scheduled_on), createdAt: p.created_at, thumb: t ? url.get(t) ?? null : null, href: `/posts/${p.id}` }; }),
+    ...videos.map((v) => { const t = videoThumb(v); return { id: v.id, kind: "video" as const, type: v.format, title: v.title, status: v.status, platforms: v.format === "16:9" ? ["linkedin", "x"] : ["instagram", "tiktok"], day: v.scheduled_on ?? dayKey(v.created_at), scheduled: Boolean(v.scheduled_on), createdAt: v.created_at, thumb: t ? url.get(t) ?? null : null, video: url.get(videoFile(v) ?? "") ?? null, href: `/videos/${v.id}` }; }),
+    ...posts.map((p) => { const t = postThumb(p); return { id: p.id, kind: "post" as const, type: p.placement === "story" || p.placement === "cover" ? p.placement : p.type, title: p.title, status: p.status, platforms: p.platforms, day: p.scheduled_on ?? dayKey(p.created_at), scheduled: Boolean(p.scheduled_on), createdAt: p.created_at, thumb: t ? url.get(t) ?? null : null, slides: postSlides(p).flatMap((x) => url.get(x) ?? []), href: `/posts/${p.id}` }; }),
   ];
   return works.filter((w) => (!from || w.day >= from) && (!to || w.day <= to)).sort((a, b) => b.day.localeCompare(a.day) || b.createdAt.localeCompare(a.createdAt));
 }
