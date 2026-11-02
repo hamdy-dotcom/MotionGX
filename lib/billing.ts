@@ -8,13 +8,14 @@ import { withRun, costOf, type RunContext } from "@/lib/ai/usage";
 import { directorEngineEnabled, directorSettings } from "@/lib/live-engine/config";
 import { postsSettings } from "@/lib/posts/config";
 
-export type BillKind = "video" | "post" | "capture" | "idea" | "plan";
+export type BillKind = "video" | "post" | "capture" | "idea" | "plan" | "brand";
 export type EstimateInput =
   | { kind: "video"; lengthS: number; mode: "new" | "direction" | "edit" | "lines" | "rerender"; engine?: "director" | "live" }
   | { kind: "post"; type: "single" | "carousel" | "text"; placement?: string | null; slides?: number | null; change?: boolean }
   | { kind: "capture" }
   | { kind: "idea" }
-  | { kind: "plan" };
+  | { kind: "plan" }
+  | { kind: "brand" };
 /** usd: the billed estimate shown to the user; holdUsd: what is held until the job ends; minimumUsd: the least a new
  *  piece is charged (billed units, USD) */
 export type Estimate = { usd: number; holdUsd: number; free: boolean; minimumUsd: number };
@@ -67,7 +68,7 @@ export async function billed(workspaceId: string, kind: BillKind, costUsd: numbe
 // ── estimates: the median real cost of the last finished jobs like this one, else a default ──────────
 const FALLBACK = { director: { 15: 0.3, 30: 0.5, 45: 0.8, 60: 1, 90: 1.5 } as Record<number, number>, live: 0.1, edit: 0.25, lines: 0.05, post: 0.08, perSlide: 0.05, text: 0.02, postChange: 0.06, capture: 1.5, idea: 0.005, plan: 0.03 };
 // the least a job holds (real cost) — enough for an ordinary run even when the history is cheap
-const FLOOR: Record<BillKind, number> = { video: 1.5, post: 0.3, capture: 3, idea: 0.02, plan: 0.1 };
+const FLOOR: Record<BillKind, number> = { video: 1.5, post: 0.3, capture: 3, idea: 0.02, plan: 0.1, brand: 1 };
 const cache = new Map<string, { at: number; usd: number }>();
 
 async function history(key: string, load: () => Promise<number[]>, fallback: number) {
@@ -84,6 +85,7 @@ async function realEstimate(i: EstimateInput): Promise<number> {
   if (i.kind === "capture") return history("capture", async () => ((await db.from("live_jobs").select("cost_usd").eq("kind", "capture").eq("status", "done").order("created_at", { ascending: false }).limit(30)).data ?? []).map((j) => Number(j.cost_usd)), FALLBACK.capture);
   if (i.kind === "idea") return FALLBACK.idea;
   if (i.kind === "plan") return FALLBACK.plan;
+  if (i.kind === "brand") return 0.6;
   if (i.kind === "video") {
     if (i.mode === "rerender") return 0;
     const engine = i.engine ?? (directorEngineEnabled() ? "director" : "live");
@@ -114,7 +116,7 @@ async function realEstimate(i: EstimateInput): Promise<number> {
 function capOf(i: EstimateInput) {
   if (i.kind === "video") return directorSettings().maxUsd;
   if (i.kind === "post") return postsSettings().maxUsd;
-  return { capture: 6, idea: 0.05, plan: 0.3 }[i.kind];
+  return { capture: 6, idea: 0.05, plan: 0.3, brand: 3 }[i.kind];
 }
 
 export async function estimate(workspaceId: string, i: EstimateInput): Promise<Estimate> {
@@ -170,7 +172,7 @@ export async function closeJobHold(jobId: string, charge: boolean) {
 }
 
 /** an app-side AI action (a plan's ideas, an idea from a notice): hold its estimate, measure its calls, charge them */
-export async function metered<T>(workspaceId: string, kind: "idea" | "plan", note: string, fn: () => Promise<T>): Promise<T> {
+export async function metered<T>(workspaceId: string, kind: "idea" | "plan" | "brand", note: string, fn: () => Promise<T>): Promise<T> {
   const est = await estimate(workspaceId, { kind });
   const hold = await reserve(workspaceId, kind, est, {}, note);
   const ctx: RunContext = { usage: [] };

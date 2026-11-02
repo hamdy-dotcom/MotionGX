@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import type { BrandDraft } from "@/lib/brand/types";
 import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { BrandEditor } from "../brand-editor";
@@ -74,6 +75,19 @@ export function NewCompanyFlow({ liveEngine = false, billing }: { liveEngine?: b
         ) : null}
 
       </form>
+
+      {!x.started ? (
+        <Link href="/companies/create" className="panel flex flex-wrap items-center justify-between gap-3">
+          <span>
+            <span className="block font-medium text-navy">{t("createTitle")}</span>
+            <span className="block text-sm text-ink-muted">{t("createHint")}</span>
+          </span>
+          <span className="btn btn-soft">
+            {t("createCta")}
+            <ArrowIcon className="size-4" />
+          </span>
+        </Link>
+      ) : null}
 
       {brand && !x.running ? (
         <>
