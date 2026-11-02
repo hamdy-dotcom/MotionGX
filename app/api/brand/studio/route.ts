@@ -5,7 +5,7 @@ import { toAiErrorCode } from "@/lib/ai/usage";
 import { InsufficientBalance, metered } from "@/lib/billing";
 import { isLanguage, makeDirections, makeIdentity, MAX_FILE_BYTES, MAX_FILES, MAX_ROUNDS, nextQuestion, readFiles, type UploadedFile } from "@/lib/brand-studio/ai";
 import { buildPack, logoPng } from "@/lib/brand-studio/pack";
-import { fillPage, fullSite, photo, previewPage, previewScene, WORLD_SCENES, worldPrompt } from "@/lib/brand-studio/world";
+import { fillPage, fullSite, photo, previewPage, previewScene, worldPrompt } from "@/lib/brand-studio/world";
 import { DirectionSchema, FileBriefSchema, type FileBrief, type Turn } from "@/lib/brand-studio/types";
 
 /**
@@ -74,30 +74,46 @@ export async function POST(request: NextRequest) {
     if (body.action === "build") {
       if (!chosen.success) return Response.json({ error: "bad_direction" }, { status: 400 });
       const notes = text(body.notes, 1000);
-      // everything that can fail happens inside: the hold is released and nothing is charged unless the pack is ready
-      return Response.json(await metered(workspaceId, "brand", `Brand pack: ${chosen.data.name}`, async (addCost) => {
-        const identity = await makeIdentity({ workspaceId, language, brief, chosen: chosen.data, notes, fileBrief });
-        const logo = await logoPng(identity, language);
-        const about = identity.summary;
-        const paid = async (prompt: string, o: Parameters<typeof photo>[1]) => { const p = await photo(prompt, o); addCost(p.usd); return p.bytes; };
-        // the images run side by side; one that fails is left out rather than failing the pack
-        const [site, world] = await Promise.all([
-          fullSite({ workspaceId, id: identity, brief, lang: language }),
-          Promise.all(WORLD_SCENES.map(async (w) => { try { return { kind: w.kind as string, bytes: await paid(worldPrompt(w.scene, identity.name, about, identity.palette), { logo, quality: "medium" }) }; } catch (err) { console.warn("[brand/studio] photo failed", w.kind, String(err).slice(0, 200)); return null; } })),
-        ]);
-        const photos = await Promise.all(site.photos.map(async (p) => ({ key: p.key, bytes: await paid(`${p.prompt}\n\nPhotorealistic, art-directed. Colours in harmony with ${identity.palette.primary} and ${identity.palette.accent}. No text, logos or watermarks.`, { quality: "medium", size: p.wide ? "1536x1024" : "1024x1024" }) })));
-        const shots = world.filter((w): w is NonNullable<typeof w> => Boolean(w));
-        const pack = await buildPack(identity, language, shots, { html: site.html, photos });
-        const base = `${workspaceId}/brand-packs/${crypto.randomUUID()}`;
-        const photoUrls = Object.fromEntries(await Promise.all(photos.map(async (p) => [p.key, await up(`${base}/site-${p.key}.jpg`, p.bytes, "image/jpeg")] as const)));
-        const logoUrl = await up(`${base}/logo.png`, pack.logoPng, "image/png");
-        return {
-          identity, logoUrl, files: pack.count,
-          packUrl: await up(`${base}/pack.zip`, pack.zip, "application/zip", `${identity.name}-brand-pack.zip`),
-          siteHtml: fillPage(site.html, logoUrl, photoUrls),
-          world: await Promise.all(shots.map(async (w) => ({ kind: w.kind, url: await up(`${base}/${w.kind}.jpg`, w.bytes, "image/jpeg") }))),
-        };
-      }));
+      // NDJSON: each step as it finishes, then the result (or the error)
+      const encoder = new TextEncoder();
+      return new Response(new ReadableStream({
+        async start(ctl) {
+          const send = (v: object) => ctl.enqueue(encoder.encode(`${JSON.stringify(v)}\n`));
+          try {
+            // everything that can fail happens inside: the hold is released and nothing is charged unless the pack is ready
+            send({ result: await metered(workspaceId, "brand", `Brand pack: ${chosen.data.name}`, async (addCost) => {
+              const identity = await makeIdentity({ workspaceId, language, brief, chosen: chosen.data, notes, fileBrief });
+              send({ step: "identity" });
+              const logo = await logoPng(identity, language), about = identity.summary;
+              const paid = async (prompt: string, o: Parameters<typeof photo>[1]) => { const p = await photo(prompt, o); addCost(p.usd); return p.bytes; };
+              // side by side; a real-world photo that fails is left out rather than failing the pack
+              const [site, world] = await Promise.all([
+                fullSite({ workspaceId, id: identity, brief, lang: language }).then(async (page) => {
+                  const photos = await Promise.all(page.photos.map(async (p) => ({ key: p.key, bytes: await paid(`${p.prompt}\n\nPhotorealistic, art-directed. Colours in harmony with ${identity.palette.primary} and ${identity.palette.accent}. No text, logos or watermarks.`, { quality: "medium", size: p.wide ? "1536x1024" : "1024x1024" }) })));
+                  send({ step: "website" });
+                  return { html: page.html, photos };
+                }),
+                Promise.all(identity.world.map(async (w) => { try { return { ...w, bytes: await paid(worldPrompt(w.scene, identity.name, about, identity.palette), { logo, quality: "medium" }) }; } catch (err) { console.warn("[brand/studio] photo failed", w.kind, String(err).slice(0, 200)); return null; } })).then((r) => { send({ step: "photos" }); return r; }),
+              ]);
+              const shots = world.filter((w): w is NonNullable<typeof w> => Boolean(w));
+              const pack = await buildPack(identity, language, shots, site);
+              const base = `${workspaceId}/brand-packs/${crypto.randomUUID()}`;
+              const photoUrls = Object.fromEntries(await Promise.all(site.photos.map(async (p) => [p.key, await up(`${base}/site-${p.key}.jpg`, p.bytes, "image/jpeg")] as const)));
+              const logoUrl = await up(`${base}/logo.png`, pack.logoPng, "image/png");
+              send({ step: "pack" });
+              return {
+                identity, logoUrl, files: pack.count,
+                packUrl: await up(`${base}/pack.zip`, pack.zip, "application/zip", `${identity.name}-brand-pack.zip`),
+                siteHtml: fillPage(site.html, logoUrl, photoUrls),
+                world: await Promise.all(shots.map(async (w) => ({ kind: w.kind, label: w.label, url: await up(`${base}/${w.kind}.jpg`, w.bytes, "image/jpeg") }))),
+              };
+            }) });
+          } catch (err) {
+            console.error("[brand/studio] build failed", err);
+            send({ error: err instanceof InsufficientBalance ? "insufficient_balance" : toAiErrorCode(err) });
+          } finally { ctl.close(); }
+        },
+      }), { headers: { "Content-Type": "application/x-ndjson", "Cache-Control": "no-store" } });
     }
     return Response.json({ error: "bad_action" }, { status: 400 });
   } catch (err) {

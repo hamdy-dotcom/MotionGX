@@ -41,20 +41,10 @@ export async function photo(prompt: string, o: { logo?: Uint8Array; size?: strin
 }
 
 const colours = (p: Palette) => `primary ${p.primary}, accent ${p.accent}, dark ${p.ink}, light ${p.background}`;
-const PHOTO_RULES = "Photorealistic commercial product photography, as shot for a premium brand's guidelines by a professional photographer: real materials and fabric texture, natural light, believable shadows and perspective, shallow depth of field. Never an illustration, a cartoon or a flat vector. The attached image is the brand's logo: reproduce it exactly, same shape, letters and colours, printed or fixed naturally on the object, and never invent another logo. No other text, words or numbers anywhere.";
-
-export const WORLD_SCENES = [
-  { kind: "tshirt", scene: "A premium heavyweight cotton T-shirt in the brand's colour, worn by a person cropped at the neck, against a clean studio backdrop, with the logo on the chest." },
-  { kind: "uniform", scene: "A real staff member at work in the business's own setting, wearing a smart branded uniform (polo or apron fitting this business) with the logo on the chest, face natural and friendly." },
-  { kind: "booth", scene: "A real, professionally built retail booth in a modern shopping mall in Cairo, three-quarter view: branded fascia with the logo lit, counter, displays fitting this business, warm mall lighting, softly blurred shoppers." },
-  { kind: "card", scene: "A stack of premium thick matte business cards on a textured surface, the top card showing the logo large, with a second card beside it in the brand colour, soft window light." },
-  { kind: "packaging", scene: "The business's real packaging, chosen for what it sells (bag, box, wrap or label), arranged on a clean surface with the logo printed on it, as a premium brand shoot." },
-  { kind: "storefront", scene: "The street-level storefront of this business at golden hour on a real Cairo street, with an illuminated sign showing the logo, glass window and warm interior." },
-  { kind: "billboard", scene: "A large outdoor billboard on a Cairo road at dusk showing only the logo big on the brand colour, with soft traffic light trails." },
-] as const;
+const PHOTO_RULES = "Photorealistic commercial product photography, as shot for this brand's guidelines by a professional photographer: real materials and fabric texture, natural light, believable shadows and perspective, shallow depth of field. Never an illustration, a cartoon or a flat vector. The attached image is the brand's logo: reproduce it exactly, same shape, letters and colours, printed or fixed naturally on the object, and never invent another logo. No other text, words or numbers anywhere.";
 
 export const worldPrompt = (scene: string, name: string, about: string, p: Palette) => `${scene}\n\nThe business: ${name}. ${about}\nBrand colours: ${colours(p)}.\n\n${PHOTO_RULES}`;
-export const previewScene = (d: Direction, about: string) => worldPrompt("A premium brand identity flat lay photographed from above on a real textured surface: a business card, a folded T-shirt and a shopping bag, all carrying the logo, arranged by an art director.", d.name, about, d.palette);
+export const previewScene = (d: Direction, about: string) => worldPrompt(d.scene, d.name, about, d.palette);
 
 /** nothing runs in these pages: they are shown in a sandboxed frame and shipped as files */
 export function cleanHtml(html: string) {
@@ -63,7 +53,7 @@ export function cleanHtml(html: string) {
 const htmlOk = (h: string) => (/<html[\s>]/i.test(h) && /<style[\s>]/i.test(h) && h.length > 1500 ? null : "return one complete HTML document with its CSS in a style tag");
 const DESIGN = `You are one of the best web designers alive, the kind whose sites win Awwwards and whom premium brands hire. Design this brand's website with a real point of view: a layout, type treatment and art direction that come from this brand's idea and could not belong to another company. Avoid the generic startup look: no centred hero over three feature cards, no gradient blobs, no emoji icons. Use bold typographic scale, confident composition, generous space and considered details. One complete HTML document, CSS in a <style> tag, no JavaScript. Load its fonts from Google Fonts with a <link>. Responsive. Real, specific copy in the brand's language, never lorem ipsum; dir="rtl" for Arabic. Only claims the brief supports: no invented statistics, customers, testimonials, prices or awards.`;
 const SITE_TOOL = (extra: object) => ({ name: "website", description: "The page.", input_schema: { type: "object" as const, properties: { html: { type: "string" }, ...extra }, required: ["html", ...Object.keys(extra)] } });
-const language = (l: BrandLanguage) => (l === "ar" ? "Arabic (Egyptian market)" : l === "en" ? "English" : "the brand's main language, with the other as a switch in the nav");
+const language = (l: BrandLanguage) => (l === "ar" ? "Arabic, in the dialect of its market" : l === "en" ? "English" : "the brand's main language, with the other as a switch in the nav");
 
 /** the top of the home page, for a preview: no images, so only type, colour and CSS */
 export async function previewPage(o: { workspaceId: string; d: Direction; brief: string; lang: BrandLanguage }) {

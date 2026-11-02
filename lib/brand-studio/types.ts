@@ -1,5 +1,6 @@
 // Shared (client + server) types of the brand creator: a talk, small previews to choose from, the final identity.
 import { z } from "zod";
+import { DIALECTS } from "@/lib/types";
 
 export const BRAND_LANGUAGES = ["ar", "en", "both"] as const;
 export type BrandLanguage = (typeof BRAND_LANGUAGES)[number];
@@ -41,10 +42,16 @@ export const DirectionSchema = z.object({
   headline: z.string().max(70),
   cta: z.string().max(24),
   radius: z.number().min(0).max(40),
+  scene: z.string().max(500),
 });
 export type Direction = z.infer<typeof DirectionSchema>;
 
+export const WorldItemSchema = z.object({ kind: z.string().regex(/^[a-z0-9-]+$/).max(30), label: z.string().max(50), scene: z.string().max(600) });
+export type WorldItem = z.infer<typeof WorldItemSchema>;
+
 export const IdentitySchema = z.object({
+  world: z.array(WorldItemSchema).min(4).max(8),
+  dialect: z.enum(DIALECTS),
   name: z.string().min(1).max(40),
   name_ar: z.string().max(40),
   tagline: z.string().max(90),
@@ -77,8 +84,6 @@ export const IdentitySchema = z.object({
   donts: z.array(z.string().max(220)).min(3).max(8),
 });
 export type Identity = z.infer<typeof IdentitySchema>;
-
-export const FONT_CHOICES = { latin: ["Poppins", "Inter", "Manrope", "Sora", "DM Sans", "Space Grotesk", "Outfit", "Plus Jakarta Sans", "Fraunces", "Playfair Display", "Lora", "DM Serif Display", "Bricolage Grotesque", "Syne", "Archivo", "Nunito"], arabic: ["Readex Pro", "Cairo", "Tajawal", "IBM Plex Sans Arabic", "Almarai", "El Messiri", "Changa", "Lemonada", "Noto Kufi Arabic", "Noto Naskh Arabic", "Amiri", "Markazi Text", "Aref Ruqaa"] };
 
 /** relative luminance contrast (WCAG) */
 export function contrast(a: string, b: string) {

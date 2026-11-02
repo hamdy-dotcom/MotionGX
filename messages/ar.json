@@ -236,17 +236,14 @@
       "startOver": "ابدأ من جديد",
       "errorGeneric": "حصلت مشكلة. جرب تاني.",
       "errorBalance": "محفظتك مفيهاش رصيد كفاية. اشحنها وجرب تاني.",
-      "mock_card": "كارت البيزنس",
-      "mock_tshirt": "التيشيرت",
-      "mock_uniform": "يونيفورم الموظفين",
-      "mock_booth": "بوث في مول",
-      "mock_packaging": "الشنطة والتغليف",
-      "mock_storefront": "واجهة المحل",
       "worldTitle": "البراند بتاعك في الواقع",
       "designingSite": "بنصمم الموقع…",
       "shootingPhoto": "بنصور البراند…",
       "siteTitle": "موقعك",
-      "mock_billboard": "إعلان طريق"
+      "step_identity": "بنخلّص الهوية واللوجو",
+      "step_website": "بنصمم الموقع وصوره",
+      "step_photos": "بنصور البراند في الواقع",
+      "step_pack": "بنجهز ملفات البراند"
     }
   },
   "videos": {

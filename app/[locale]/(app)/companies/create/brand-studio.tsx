@@ -8,7 +8,7 @@ import { EMPTY_FACTS, type BrandDraft } from "@/lib/brand/types";
 import { BRAND_LANGUAGES, iconSvg, type BrandLanguage, type Direction, type FileBrief, type Identity, type NextQuestion, type Turn } from "@/lib/brand-studio/types";
 import { BrandEditor } from "../brand-editor";
 
-type Done = { identity: Identity; packUrl: string; logoUrl: string; files: number; siteHtml?: string; world?: { kind: string; url: string }[] };
+type Done = { identity: Identity; packUrl: string; logoUrl: string; files: number; siteHtml?: string; world?: { kind: string; label?: string; url: string }[] };
 /** what a preview has so far: its page and photo arrive after the direction */
 type Extra = { html?: string; photo?: string };
 type Step = "start" | "talk" | "choose" | "refine" | "done";
@@ -79,6 +79,7 @@ export function BrandStudio({ price }: { price: string }) {
   const [error, setError] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
+  const [steps, setSteps] = useState<string[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => { const v = load(); if (v) setS(v); }, []); // eslint-disable-line react-hooks/set-state-in-effect -- browser storage exists only after mount
@@ -131,8 +132,24 @@ export function BrandStudio({ price }: { price: string }) {
   const reply = (text: string) => { if (s.question) void ask([...s.turns, { q: s.question.question, a: text }]); };
 
   const build = () => s.chosen && run("build", async () => {
-    const r = await call<Done>({ action: "build", ...base, brief: s.brief, chosen: s.chosen, notes: s.notes });
-    patch({ step: "done", done: r });
+    setSteps([]);
+    const res = await fetch("/api/brand/studio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "build", ...base, brief: s.brief, chosen: s.chosen, notes: s.notes }) });
+    if (!res.ok || !res.body) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "failed");
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value;
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines.filter(Boolean)) {
+        const m = JSON.parse(line) as { step?: string; result?: Done; error?: string };
+        if (m.step) setSteps((p) => [...p, m.step!]);
+        if (m.error) throw new Error(m.error);
+        if (m.result) patch({ step: "done", done: m.result });
+      }
+    }
   });
 
   const reset = () => { forget(); setS(FRESH); setError(null); setAnswer(""); setPicked([]); };
@@ -142,7 +159,7 @@ export function BrandStudio({ price }: { price: string }) {
     return {
       name: s.language === "ar" && id.name_ar ? id.name_ar : id.name, websiteUrl: "", logoUrl: d.logoUrl, logoOnDark: false,
       colors: [{ hex: P.primary.toUpperCase(), role: "primary" }, { hex: P.accent.toUpperCase(), role: "accent" }, { hex: P.ink.toUpperCase(), role: "ink" }, { hex: P.background.toUpperCase(), role: "background" }],
-      fonts: { arabic: id.fonts.arabic_display || "Readex Pro", latin: id.fonts.display || "Inter" }, tone: id.voice.summary, tagline: id.tagline, defaultDialect: s.language === "en" ? "en" : "eg",
+      fonts: { arabic: id.fonts.arabic_display || "Readex Pro", latin: id.fonts.display || "Inter" }, tone: id.voice.summary, tagline: id.tagline, defaultDialect: id.dialect ?? (s.language === "en" ? "en" : "eg"),
       facts: { ...EMPTY_FACTS, what_it_does: id.summary.slice(0, 600), audience: id.audience.slice(0, 400), key_features: id.features },
     };
   };
@@ -235,7 +252,18 @@ export function BrandStudio({ price }: { price: string }) {
             <textarea id="notes" dir="auto" rows={4} value={s.notes} onChange={(e) => patch({ notes: e.target.value })} placeholder={t("notesPlaceholder")} className="w-full rounded-3xl bg-white p-4 text-sm text-navy outline-none placeholder:text-ink-muted/70" />
             <p className="text-sm text-ink-muted">{t("priceNote", { price })}</p>
             <button type="button" className="btn btn-primary" disabled={Boolean(busy)} onClick={() => void build()}>{busy ? <SpinnerIcon className="size-4" /> : null}{t("buildCta")}</button>
-            {busy === "build" ? <p className="text-sm text-ink-muted">{t("building")}</p> : null}
+            {busy === "build" ? (
+              <div className="space-y-2">
+                <p className="text-sm text-ink-muted">{t("building")}</p>
+                <ul className="space-y-1 text-sm">
+                  {(["identity", "website", "photos", "pack"] as const).map((k) => (
+                    <li key={k} className={`flex items-center gap-2 ${steps.includes(k) ? "text-navy" : "text-ink-muted"}`}>
+                      {steps.includes(k) ? <span aria-hidden>✓</span> : <SpinnerIcon className="size-3" />}{t(`step_${k}`)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -266,8 +294,8 @@ export function BrandStudio({ price }: { price: string }) {
                 {s.done.world.map((w) => (
                   <figure key={w.kind} className="m-0 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={w.url} alt={t(`mock_${w.kind}` as "mock_card")} className="w-full" />
-                    <figcaption className="px-3 py-2 text-xs text-ink-muted">{t(`mock_${w.kind}` as "mock_card")}</figcaption>
+                    <img src={w.url} alt={w.label ?? ""} className="w-full" />
+                    {w.label ? <figcaption className="px-3 py-2 text-xs text-ink-muted" dir="auto">{w.label}</figcaption> : null}
                   </figure>
                 ))}
               </div>
