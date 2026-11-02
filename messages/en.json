@@ -228,7 +228,7 @@
       "priceNote": "About {price}. You pay the actual cost × 2, and nothing if it fails. A larger amount is held from your wallet until it's done, then the rest is released.",
       "building": "Designing your website and photographing your brand. This can take about 5 minutes, so please keep this page open.",
       "doneTitle": "<b>{name}</b> is ready",
-      "doneHint": "Your pack has {files} files: the logo, a designed website, photos of the brand in the real world, DESIGN.md and BRAND.md for Claude, Codex and other AI tools, design tokens and a brand guide.",
+      "doneHint": "Your pack has {files} files.",
       "download": "Download brand pack",
       "downloadNote": "The link works for 7 days.",
       "trademark": "Before you register this name or logo, have them checked for trademarks in your market. We haven't run that search.",
@@ -243,7 +243,11 @@
       "step_identity": "Finishing the identity and logo",
       "step_website": "Designing the website and its photos",
       "step_photos": "Photographing the brand in the real world",
-      "step_pack": "Building your brand files"
+      "step_pack": "Building your brand files",
+      "packTitle": "Your brand pack",
+      "packHint": "Everything in one download: the logo, the brand guide, the photos, the website design and its code, and the files that keep AI tools like Claude Code and Codex on brand.",
+      "docsTitle": "Brand documents",
+      "logosTitle": "Logo files"
     }
   },
   "videos": {

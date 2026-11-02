@@ -9,6 +9,8 @@ import { brandFiles } from "@/lib/live-engine/server/brand-files";
 import { Rise, escapeMarkup } from "@/components/studio/rise";
 import { StudioMark } from "@/components/studio/mark";
 import { CaptureGallery } from "@/components/studio/capture-gallery";
+import { CreatedBrandFiles } from "@/components/studio/created-brand";
+import { createdBrand } from "@/lib/brand-studio/stored";
 
 const host = (url?: string | null) => { try { return url ? new URL(url).host.replace(/^www\./, "") : ""; } catch { return url ?? ""; } };
 const ROLES = ["primary", "accent", "background", "surface", "ink", "muted"];
@@ -22,7 +24,9 @@ export default async function BrandPage({ params }: { params: Promise<{ locale: 
   const brand = await activeCompany(await listCompanies(ctx));
   if (!brand) redirect({ href: "/companies/new", locale });
   const b = brand!;
-  const [details, captureId] = await Promise.all([brandDetails(ctx, b.id), companyCaptureId(b.id)]);
+  const [details, captureId, profile] = await Promise.all([brandDetails(ctx, b.id), companyCaptureId(b.id), ctx.supabase.from("brand_profiles").select("raw").eq("company_id", b.id).maybeSingle()]);
+  const raw = profile.data?.raw as { source?: string; pack?: string } | null;
+  const created = raw?.source === "created" && raw.pack ? await createdBrand(ctx.workspace.id, raw.pack).catch(() => null) : null;
   const files = captureId ? await brandFiles(ctx.workspace.id, captureId).catch(() => null) : null;
   const colors = (b.brand_profiles?.colors ?? []).filter((c) => /^#[0-9a-f]{6}$/i.test(c.hex));
   const font = b.brand_profiles?.fonts?.arabic || b.brand_profiles?.fonts?.latin || "Readex Pro";
@@ -54,6 +58,7 @@ export default async function BrandPage({ params }: { params: Promise<{ locale: 
         <div className="s-panel span3"><p className="s-label">{t("voice")}</p><p style={{ margin: "0 0 14px", fontSize: 15, lineHeight: 1.8 }} dir="auto">{details.tone || t("none")}</p><p className="s-label">{t("audience")}</p><p style={{ margin: 0, color: "var(--s-ink-2)" }} dir="auto">{facts.audience || t("none")}</p></div>
         <div className="s-panel span3"><p className="s-label">{t("sets")}</p>{sets.length ? <ul className="s-list">{sets.map((s, i) => <li key={i} dir="auto">{s}</li>)}</ul> : <p>{t("none")}</p>}</div>
         <div className="s-panel span3"><p className="s-label">{t("features")}</p>{facts.key_features?.length ? <ul className="s-list">{facts.key_features.map((s, i) => <li key={i} dir="auto">{s}</li>)}</ul> : <p>{t("none")}</p>}</div>
+        {created ? <div className="s-panel full"><CreatedBrandFiles brand={created} /></div> : null}
         {captureId ? (
           <div className="s-panel full"><CaptureGallery captureId={captureId} initial={screens} /></div>
         ) : null}

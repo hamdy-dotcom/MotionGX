@@ -5,6 +5,7 @@ import { toAiErrorCode } from "@/lib/ai/usage";
 import { InsufficientBalance, metered } from "@/lib/billing";
 import { isLanguage, makeDirections, makeIdentity, MAX_FILE_BYTES, MAX_FILES, MAX_ROUNDS, nextQuestion, readFiles, type UploadedFile } from "@/lib/brand-studio/ai";
 import { buildPack, logoPng } from "@/lib/brand-studio/pack";
+import { createdBrand, storePack } from "@/lib/brand-studio/stored";
 import { fillPage, fullSite, photo, previewPage, previewScene, worldPrompt } from "@/lib/brand-studio/world";
 import { DirectionSchema, FileBriefSchema, type FileBrief, type Turn } from "@/lib/brand-studio/types";
 
@@ -97,16 +98,12 @@ export async function POST(request: NextRequest) {
               ]);
               const shots = world.filter((w): w is NonNullable<typeof w> => Boolean(w));
               const pack = await buildPack(identity, language, shots, site);
-              const base = `${workspaceId}/brand-packs/${crypto.randomUUID()}`;
-              const photoUrls = Object.fromEntries(await Promise.all(site.photos.map(async (p) => [p.key, await up(`${base}/site-${p.key}.jpg`, p.bytes, "image/jpeg")] as const)));
-              const logoUrl = await up(`${base}/logo.png`, pack.logoPng, "image/png");
               send({ step: "pack" });
-              return {
-                identity, logoUrl, files: pack.count,
-                packUrl: await up(`${base}/pack.zip`, pack.zip, "application/zip", `${identity.name}-brand-pack.zip`),
-                siteHtml: fillPage(site.html, logoUrl, photoUrls),
-                world: await Promise.all(shots.map(async (w) => ({ kind: w.kind, label: w.label, url: await up(`${base}/${w.kind}.jpg`, w.bytes, "image/jpeg") }))),
-              };
+              const base = `${workspaceId}/brand-packs/${crypto.randomUUID()}`;
+              await storePack(base, identity.name, pack.zip, pack.files, shots.map((w) => ({ kind: w.kind, label: w.label })));
+              const stored = await createdBrand(workspaceId, base);
+              if (!stored) throw new Error("the stored pack could not be read back");
+              return { identity, pack: base, stored };
             }) });
           } catch (err) {
             console.error("[brand/studio] build failed", err);

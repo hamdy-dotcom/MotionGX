@@ -59,7 +59,7 @@ function parseBrand(formData: FormData) {
     market: cleanMarket(parseJson<unknown>(formData.get("market"), {})),
     // Raw Firecrawl payload is cached so only "أعد القراءة" re-scrapes. Live engine: {source: "live", capture_id}
     // — the sandbox capture + brand.json every video of this company reuses.
-    raw: raw && raw.source === "firecrawl" ? raw : raw && raw.source === "live" && typeof raw.capture_id === "string" && /^[0-9a-f-]{36}$/i.test(raw.capture_id) ? { source: "live", capture_id: raw.capture_id } : null,
+    raw: raw && raw.source === "firecrawl" ? raw : raw && raw.source === "live" && typeof raw.capture_id === "string" && /^[0-9a-f-]{36}$/i.test(raw.capture_id) ? { source: "live", capture_id: raw.capture_id } : raw && raw.source === "created" && typeof raw.pack === "string" && /^[0-9a-f-]{36}\/brand-packs\/[0-9a-f-]{36}$/i.test(raw.pack) ? { source: "created", pack: raw.pack } : null,
   };
 }
 

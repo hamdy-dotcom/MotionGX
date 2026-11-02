@@ -313,5 +313,5 @@ export async function buildPack(id: Identity, language: BrandLanguage, world: Wo
   };
   for (const [path, v] of Object.entries(text)) files.push({ path, bytes: enc(v) });
   if (pdf) files.push({ path: "guidelines.pdf", bytes: pdf });
-  return { zip: zip(files.map((f) => ({ path: `${id.name.replace(/[^\p{L}\p{N}]+/gu, "-")}-brand/${f.path}`, bytes: f.bytes }))), logoPng, count: files.length };
+  return { files, zip: zip(files.map((f) => ({ path: `${id.name.replace(/[^\p{L}\p{N}]+/gu, "-")}-brand/${f.path}`, bytes: f.bytes }))), logoPng, count: files.length };
 }

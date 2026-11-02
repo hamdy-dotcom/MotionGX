@@ -6,9 +6,11 @@ import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { boldTag } from "@/components/heading";
 import { EMPTY_FACTS, type BrandDraft } from "@/lib/brand/types";
 import { BRAND_LANGUAGES, iconSvg, type BrandLanguage, type Direction, type FileBrief, type Identity, type NextQuestion, type Turn } from "@/lib/brand-studio/types";
+import { CreatedBrandFiles, PackButton, SiteFrame as Site } from "@/components/studio/created-brand";
+import type { CreatedBrand as StoredBrand } from "@/lib/brand-studio/stored";
 import { BrandEditor } from "../brand-editor";
 
-type Done = { identity: Identity; packUrl: string; logoUrl: string; files: number; siteHtml?: string; world?: { kind: string; label?: string; url: string }[] };
+type Done = { identity: Identity; pack?: string; stored?: StoredBrand; packUrl?: string; logoUrl?: string; files?: number; siteHtml?: string; world?: { kind: string; label?: string; url: string }[] };
 /** what a preview has so far: its page and photo arrive after the direction */
 type Extra = { html?: string; photo?: string };
 type Step = "start" | "talk" | "choose" | "refine" | "done";
@@ -26,23 +28,6 @@ async function call<T>(body: object): Promise<T> {
 }
 
 const familyUrl = (families: string[]) => `https://fonts.googleapis.com/css2?${[...new Set(families.filter(Boolean))].map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@400;700;800`).join("&")}&display=swap`;
-
-/** a designed page in a sandboxed frame (nothing in it can run), scaled to fit: `width` is the page's real width */
-function Site({ html, width = 1280, height = 800, full = false }: { html: string; width?: number; height?: number; full?: boolean }) {
-  const box = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.5);
-  useEffect(() => {
-    if (!box.current) return;
-    const ro = new ResizeObserver(([e]) => setScale(e.contentRect.width / width));
-    ro.observe(box.current);
-    return () => ro.disconnect();
-  }, [width]);
-  return (
-    <div ref={box} className={`relative w-full bg-white ${full ? "overflow-y-auto" : "overflow-hidden"}`} style={{ height: full ? 720 : height * scale }}>
-      <iframe title="website" sandbox="allow-same-origin" srcDoc={html} scrolling={full ? "yes" : "no"} className="absolute start-0 top-0 origin-top-left border-0 rtl:origin-top-right" style={{ width, height: full ? 720 / scale : height, transform: `scale(${scale})` }} />
-    </div>
-  );
-}
 
 const Waiting = ({ className = "", label }: { className?: string; label: string }) => <div className={`flex items-center justify-center gap-2 rounded-2xl bg-field text-sm text-ink-muted ${className}`}><SpinnerIcon className="size-4" />{label}</div>;
 
@@ -157,7 +142,7 @@ export function BrandStudio({ price }: { price: string }) {
   const draft = (d: Done): BrandDraft => {
     const { identity: id } = d, P = id.palette;
     return {
-      name: s.language === "ar" && id.name_ar ? id.name_ar : id.name, websiteUrl: "", logoUrl: d.logoUrl, logoOnDark: false,
+      name: s.language === "ar" && id.name_ar ? id.name_ar : id.name, websiteUrl: "", logoUrl: d.stored?.logoUrl ?? d.logoUrl ?? null, logoOnDark: false,
       colors: [{ hex: P.primary.toUpperCase(), role: "primary" }, { hex: P.accent.toUpperCase(), role: "accent" }, { hex: P.ink.toUpperCase(), role: "ink" }, { hex: P.background.toUpperCase(), role: "background" }],
       fonts: { arabic: id.fonts.arabic_display || "Readex Pro", latin: id.fonts.display || "Inter" }, tone: id.voice.summary, tagline: id.tagline, defaultDialect: id.dialect ?? (s.language === "en" ? "en" : "eg"),
       facts: { ...EMPTY_FACTS, what_it_does: id.summary.slice(0, 600), audience: id.audience.slice(0, 400), key_features: id.features },
@@ -272,38 +257,12 @@ export function BrandStudio({ price }: { price: string }) {
         <>
           <div className="panel space-y-3">
             <h2 className="text-2xl font-semibold text-navy">{t.rich("doneTitle", { ...boldTag, name: s.done.identity.name })}</h2>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={s.done.logoUrl} alt={s.done.identity.name} className="max-h-28 rounded-2xl bg-white p-4" />
-            <p className="text-sm text-ink-muted">{t("doneHint", { files: s.done.files })}</p>
-            <div className="flex flex-wrap items-center gap-3">
-              <a href={s.done.packUrl} className="btn btn-primary">{t("download")}</a>
-              <span className="text-sm text-ink-muted">{t("downloadNote")}</span>
-            </div>
             <p className="text-sm text-warning-ink">{t("trademark")}</p>
           </div>
-          {s.done.siteHtml ? (
-            <div>
-              <h2 className="mb-3 text-xl font-semibold text-navy">{t("siteTitle")}</h2>
-              <div className="overflow-hidden rounded-2xl ring-1 ring-black/5"><Site html={s.done.siteHtml} width={1440} full /></div>
-            </div>
-          ) : null}
-          {s.done.world?.length ? (
-            <div>
-              <h2 className="mb-3 text-xl font-semibold text-navy">{t("worldTitle")}</h2>
-              <div className="grid items-start gap-4 md:grid-cols-2">
-                {s.done.world.map((w) => (
-                  <figure key={w.kind} className="m-0 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={w.url} alt={w.label ?? ""} className="w-full" />
-                    {w.label ? <figcaption className="px-3 py-2 text-xs text-ink-muted" dir="auto">{w.label}</figcaption> : null}
-                  </figure>
-                ))}
-              </div>
-            </div>
-          ) : null}
+          {s.done.stored ? <CreatedBrandFiles brand={s.done.stored} /> : s.done.packUrl ? <PackButton url={s.done.packUrl} /> : null}
           <div>
             <h2 className="mb-3 text-xl font-semibold text-navy">{t("saveTitle")}</h2>
-            <BrandEditor brand={draft(s.done)} raw={null} captureId={null} />
+            <BrandEditor brand={draft(s.done)} raw={s.done.pack ? { source: "created", pack: s.done.pack } : null} captureId={null} />
           </div>
           <button type="button" className="btn btn-soft" onClick={reset}>{t("startOver")}</button>
         </>
