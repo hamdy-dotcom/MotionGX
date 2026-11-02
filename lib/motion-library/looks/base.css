@@ -18,8 +18,9 @@
   --x-hero-size: 168px; --x-hero-track: -0.03em;
   --x-sub-size: 56px; --x-sub-weight: 400;
   --x-body-font: "Readex Pro", var(--x-arabic); --x-body-weight: 400; --x-body-size: 30px;
-  --x-label-font: "JetBrains Mono", ui-monospace, monospace; --x-label-weight: 600; --x-label-case: uppercase; --x-label-track: 0.18em;
-  --x-mono-font: "JetBrains Mono", ui-monospace, monospace;
+  --x-label-font: "JetBrains Mono", var(--x-arabic), ui-monospace, monospace; --x-label-weight: 600; --x-label-case: uppercase; --x-label-track: 0.18em;
+  --x-mono-font: "JetBrains Mono", var(--x-arabic), ui-monospace, monospace;
+  --x-serif-font: "Newsreader", "Noto Naskh Arabic", var(--x-arabic), serif; --x-script-font: "Caveat", "Aref Ruqaa", var(--x-arabic), cursive; --x-hand-font: "Caveat", "Aref Ruqaa", var(--x-arabic), cursive;
   /* edges */
   --x-radius: 30px; --x-radius-s: 999px; --x-edge: 1px; --x-edge-color: var(--x-line);
   --x-shadow: 0 2px 4px rgba(20, 20, 30, 0.05), 0 24px 60px -20px rgba(20, 20, 30, 0.22);
@@ -51,3 +52,5 @@
 .ml-label { font: var(--x-label-weight) 22px var(--x-label-font); letter-spacing: var(--x-label-track); text-transform: var(--x-label-case); color: var(--x-dim); }
 .ml-panel { background: var(--x-panel); border: var(--x-edge) solid var(--x-edge-color); border-radius: var(--x-radius); box-shadow: var(--x-shadow); }
 .ml-w, .ml-c { display: inline-block; }
+/* Arabic letters join: never letter-space them (labels are spaced in Latin only) */
+[dir="rtl"] .ml-label, .ml-label:lang(ar) { letter-spacing: 0; text-transform: none; }

@@ -37,14 +37,14 @@ function page(card: MoveCard, lang: "ar" | "en", shape: string, dur: number) {
   const body = `
 <div class="ml-head"><div class="ml-title"${slot("headline")}${slot("line")}>${s.headline}</div><div class="ml-sub"${slot("word")}>${s.sub}</div></div>
 <div class="ml-pic"><div class="ml-panel" style="padding:40px;display:grid;gap:22px;width:80%">
-  <div class="ml-label"${slot("label")}>${s.label}</div>
+  <div style="display:flex;align-items:center;gap:18px"><svg viewBox="0 0 120 40" width="180" height="60"${slot("logo")}><rect x="0" y="4" width="32" height="32" rx="9" fill="var(--x-accent)"/><text x="42" y="30" font-size="26" font-weight="700" fill="var(--x-ink)" font-family="var(--x-head-font)">brand</text></svg><div class="ml-label"${slot("label")}>${s.label}</div></div>
   <div style="font:800 120px var(--x-head-font)"${slot("number")}>${s.number}</div>
   <img src="${IMG}" style="width:100%;height:260px;object-fit:cover;border-radius:var(--x-pic-radius)"${slot("image")}>
   <div style="display:flex;gap:14px"${slot("list")}>${s.list.map((x) => `<span class="ml-panel" style="padding:12px 20px;font-size:28px">${x}</span>`).join("")}</div>
 </div></div>`.replace(/ data-slot="(\w+)" data-slot="\w+"/g, ' data-slot="$1"');
   const moveFile = path.join(MOVES_DIR, card.category, card.id.split(".")[1] + ".js");
   return `<!doctype html><html lang="${lang}" dir="${s.dir}"${LOOK ? ` data-look="${LOOK}"` : ""}><head><meta charset="utf-8">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;600;700&family=JetBrains+Mono:wght@500;600&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;600;700&family=JetBrains+Mono:wght@500;600&family=Newsreader:ital,wght@0,400;1,400&family=Caveat:wght@500&family=Noto+Naskh+Arabic:wght@400;700&family=Aref+Ruqaa&display=block">
 <style>${fs.readFileSync(path.join(here, "looks", "base.css"), "utf8")}${LOOK ? fs.readFileSync(path.join(here, "looks", `${LOOK}.css`), "utf8") : ""}</style></head>
 <body style="margin:0"><div id="stage" data-shape="${shape}"><section class="ml-scene" id="s0">${body}</section></div>
 ${GSAP_FILES.map((f) => `<script>${fs.readFileSync(f, "utf8")}</script>`).join("")}<script>${GSAP_REGISTER}</script>
