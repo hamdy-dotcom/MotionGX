@@ -3,7 +3,7 @@ import { setRequestLocale } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
 import { getFxRate } from "@/lib/pricing";
 import { listCompanies } from "@/lib/data/companies";
-import { billed, estimate } from "@/lib/billing";
+import { estimate } from "@/lib/billing";
 import { LIVE_BUCKET } from "@/lib/live-engine/protocol";
 import type { PostContent } from "@/lib/posts/server/versions";
 import { PostStudio } from "./post-studio";
@@ -30,7 +30,7 @@ export default async function PostPage({ params, searchParams }: { params: Promi
   // what it cost so far, what a change would cost, and the live cost of the job running now — all as billed
   const paidUsd = (holdsRes.data ?? []).reduce((a, h) => a + Number(h.charged_usd ?? 0), 0);
   const change = await estimate(workspace.id, { kind: "post", type: post.type as "single", placement: post.placement, slides: post.slides, change: true });
-  const generation = { ...(post.generation ?? {}), cost_usd: await billed(workspace.id, "post", Number((post.generation ?? {}).cost_usd ?? 0)) };
+  const generation = { ...(post.generation ?? {}) };
   type Row = { version: number; content: PostContent; origin: string; parent_version: number | null; request: string | null; created_at: string };
   const versions = (versionsRes.data ?? []) as Row[];
   const shown = versions.find((x) => String(x.version) === v) ?? versions[0] ?? null;

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import createIntlMiddleware from "next-intl/middleware";
 import { createServerClient } from "@supabase/ssr";
 import { routing } from "./i18n/routing";
+import { PUBLIC_PAGES } from "./lib/site";
 
 const intl = createIntlMiddleware(routing);
 
@@ -48,6 +49,8 @@ export async function proxy(request: NextRequest) {
   // 3. Guard: everything except /login needs a session.
   const [, locale = routing.defaultLocale, ...rest] = request.nextUrl.pathname.split("/");
   const isLogin = rest[0] === "login";
+  // the public pages: pricing and the policies, open without a session
+  if (PUBLIC_PAGES.includes(rest[0])) return response;
   // development only: /<locale>/dev/… renders components with sample data, without a session (never in production)
   if (process.env.NODE_ENV === "development" && rest[0] === "dev") return response;
 

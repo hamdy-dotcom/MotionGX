@@ -3,6 +3,7 @@ import { Heading, boldTag } from "@/components/heading";
 import { HeroIllustration } from "@/components/illustrations";
 import { LanguageSwitch } from "@/components/nav/language-switch";
 import { LoginForm } from "./login-form";
+import { Link } from "@/i18n/navigation";
 
 export default async function LoginPage({
   params,
@@ -15,6 +16,7 @@ export default async function LoginPage({
   setRequestLocale(locale);
   const { error } = await searchParams;
   const t = await getTranslations("login");
+  const tl = await getTranslations("legalLinks");
   const tn = await getTranslations("nav");
   const ta = await getTranslations("art");
 
@@ -36,6 +38,10 @@ export default async function LoginPage({
             <p className="mt-4 text-base leading-relaxed text-ink-muted">{t("subtitle")}</p>
             <div className="divider my-7" />
             <LoginForm linkError={Boolean(error)} />
+            <p className="mt-4 text-center text-xs leading-relaxed text-ink-muted">
+              {tl.rich("agree", { terms: (c) => <Link href="/terms" className="underline">{c}</Link>, privacy: (c) => <Link href="/privacy" className="underline">{c}</Link> })}
+              {" · "}<Link href="/pricing" className="underline">{tl("pricing")}</Link>
+            </p>
           </div>
           <div className="rounded-panel bg-field p-6 sm:p-10">
             <HeroIllustration label={ta("hero")} className="mx-auto w-full max-w-md" />

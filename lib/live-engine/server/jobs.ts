@@ -149,7 +149,8 @@ export async function captureProgress(workspaceId: string, captureId: string) {
     stage: (job?.stage as string | null) ?? null,
     waitingCode: job?.status === "waiting_code",
     askedTo: (job?.ask as { sent_to?: string } | null)?.sent_to ?? null,
-    log: ((job?.log as string[] | null) ?? []).filter((l) => l.trim()).slice(-12),
+    // the ledger lines ("  $ step · model · …") are for us: what a call really cost stays on the server
+    log: ((job?.log as string[] | null) ?? []).filter((l) => l.trim() && !l.trimStart().startsWith("$")).slice(-12),
     error: (cap.error as string | null) ?? (job?.error as string | null) ?? null,
     profile: cap.status === "done" ? (cap.profile as Record<string, unknown> | null) : null,
     prefix: storagePath("brand/x", { workspaceId, captureId }).replace(/\/x$/, ""),
@@ -523,7 +524,7 @@ export async function handleReport(job: JobRow, r: Report): Promise<unknown> {
       const { error } = await db.from("ai_usage").insert({ workspace_id: job.workspace_id, video_id: job.video_id, ...(job.post_id ? { post_id: job.post_id } : {}), kind: aiKind(row.step), model: row.model, input_tokens: row.in, output_tokens: row.out, cache_read_tokens: row.cacheRead, cache_write_tokens: row.cacheWrite });
       if (error) console.error("[live] ai_usage insert failed", { message: error.message });
       if (job.capture_id && job.kind === "capture") await db.from("live_brand_captures").update({ cost_usd: cost, updated_at: now() }).eq("id", job.capture_id);
-      if (job.kind === "post" && job.post_id) await mergePostGeneration(job.post_id, { cost_usd: cost });
+      if (job.kind === "post" && job.post_id) await mergePostGeneration(job.post_id, { cost_usd: await billed(job.workspace_id, "post", cost) });
       return { ok: true };
     }
     case "upload": {
@@ -612,12 +613,12 @@ async function finishJob(job: JobRow, summary: Record<string, unknown>) {
   await closeJobHold(job.id, true);
   if (job.kind === "post") {
     const version = await insertPostVersion(fresh, summary);
-    await setPostGeneration(job.post_id!, { stage: "done", mode: job.mode ?? "new", version, cost_usd: Number(Number(fresh.cost_usd).toFixed(4)), seconds: Math.round((Date.now() - new Date(job.created_at).getTime()) / 1000) }, "ready");
+    await setPostGeneration(job.post_id!, { stage: "done", mode: job.mode ?? "new", version, cost_usd: await billed(job.workspace_id, "post", Number(fresh.cost_usd)), seconds: Math.round((Date.now() - new Date(job.created_at).getTime()) / 1000) }, "ready");
     return { ok: true, version };
   }
   const version = await insertLiveVersion(fresh, summary);
   const seconds = Math.round((Date.now() - new Date(job.created_at).getTime()) / 1000);
-  await setGeneration(job.video_id!, { stage: "done", mode: job.mode ?? "new", version, cost_usd: Number(Number(fresh.cost_usd).toFixed(4)), to_preview_s: seconds }, "ready");
+  await setGeneration(job.video_id!, { stage: "done", mode: job.mode ?? "new", version, cost_usd: await billed(job.workspace_id, "video", Number(fresh.cost_usd)), to_preview_s: seconds }, "ready");
   return { ok: true, version };
 }
 

@@ -1,3 +1,4 @@
+import { Link } from "@/i18n/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAppContext } from "@/lib/context";
 import { getFxRate, toLocal } from "@/lib/pricing";
@@ -24,6 +25,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
   setRequestLocale(locale);
   const { supabase, workspace, role } = await getAppContext();
   const t = await getTranslations("wallet");
+  const tl = await getTranslations("legalLinks");
 
   const ws = workspace.id;
   // no price list: each piece costs what it costs — these are the typical (billed) costs right now
@@ -100,7 +102,7 @@ export default async function WalletPage({ params }: { params: Promise<{ locale:
               <div key={k} className="s-count"><span>{t(k)}</span><b style={{ fontSize: 20 }} dir="ltr">~{n(e.usd)}</b></div>
             ))}
             <div className="s-count"><span>{t("typCapture")}</span><b style={{ fontSize: 20 }} dir="ltr">{capture.free ? t("freeFirst") : `~${n(capture.usd)}`}</b></div>
-            <p style={{ color: "var(--s-muted)", fontSize: 12.5, margin: "10px 0 0" }}>{t("howBilled", { min: formatMoney(toLocal(await minimumUsd(), fx), workspace.currency_code, locale) })}</p>
+            <p style={{ color: "var(--s-muted)", fontSize: 12.5, margin: "10px 0 0" }}>{t("howBilled", { min: formatMoney(toLocal(await minimumUsd(), fx), workspace.currency_code, locale) })} <Link href="/pricing" style={{ color: "var(--s-brand)" }}>{tl("policies")}</Link></p>
           </div>
         </div>
       </div>

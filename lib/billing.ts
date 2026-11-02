@@ -1,7 +1,7 @@
 import "server-only";
 // Usage billing (migration 0017). The workspace pays the real AI cost of what it starts × prices.cost_multiplier;
 // a brand capture × prices.capture_multiplier, its first capture free. Before a job: estimate → hold (the job never
-// runs on an empty wallet); when it ends: wallet_settle charges the billed cost (at most the hold); a failure on our
+// runs on an empty wallet); when it ends: wallet_settle charges the billed cost (never past the balance); a failure on our
 // side releases the hold. Every amount here that reaches the UI is the billed one, never the raw cost.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withRun, costOf, type RunContext } from "@/lib/ai/usage";
@@ -85,7 +85,7 @@ async function realEstimate(i: EstimateInput): Promise<number> {
   if (i.kind === "capture") return history("capture", async () => ((await db.from("live_jobs").select("cost_usd").eq("kind", "capture").eq("status", "done").order("created_at", { ascending: false }).limit(30)).data ?? []).map((j) => Number(j.cost_usd)), FALLBACK.capture);
   if (i.kind === "idea") return FALLBACK.idea;
   if (i.kind === "plan") return FALLBACK.plan;
-  if (i.kind === "brand") return 1;
+  if (i.kind === "brand") return 0.7;
   if (i.kind === "video") {
     if (i.mode === "rerender") return 0;
     const engine = i.engine ?? (directorEngineEnabled() ? "director" : "live");
@@ -221,4 +221,14 @@ export async function releaseHold(holdId: string) {
 export async function captureBilling(workspaceId: string, currency: string, fxRate: number, t: (key: "captureFree" | "captureEstimate", v?: { price: string }) => string, money: (local: number) => string) {
   const est = await estimate(workspaceId, { kind: "capture" });
   return { note: est.free ? t("captureFree") : t("captureEstimate", { price: money(Math.round(est.usd * fxRate * 100) / 100) }), fxRate, currency };
+}
+
+/** a typical price for the public pricing page: what a piece like this costs a customer today, in EGP */
+export async function publicPrice(i: EstimateInput): Promise<number> {
+  const m = await multipliers();
+  const factor = i.kind === "capture" ? m.capture : m.cost;
+  const min = isNewPiece(i) ? await minimumUsd() : 0;
+  await minimumUsd();
+  const usd = Math.max((await realEstimate(i)) * factor, min);
+  return Math.max(5, Math.round((usd * (egp?.rate ?? 50)) / 5) * 5);
 }
