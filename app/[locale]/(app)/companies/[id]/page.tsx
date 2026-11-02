@@ -29,7 +29,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ locale
   const raw = profile?.raw as { source?: string; capture_id?: string; pack?: string } | null;
   const created = raw?.source === "created" && raw.pack ? await createdBrand(ctx.workspace.id, raw.pack).catch(() => null) : null;
   // live engine: the capture its videos use (the saved one, or a newer re-read of the company)
-  const captureId = liveEngineEnabled() || raw?.source === "live" ? await companyCaptureId(id) : null;
+  const captureId = !created && (liveEngineEnabled() || raw?.source === "live") ? await companyCaptureId(id) : null;
   const facts = { ...EMPTY_FACTS, ...((profile?.facts ?? {}) as Partial<BrandFacts>) };
 
   const brand: BrandDraft = {

@@ -73,7 +73,7 @@ export default async function BrandPage({ params }: { params: Promise<{ locale: 
         <div className="s-panel span3"><p className="s-label">{t("sets")}</p>{sets.length ? <ul className="s-list">{sets.map((s, i) => <li key={i} dir="auto">{s}</li>)}</ul> : <p>{t("none")}</p>}</div>
         <div className="s-panel span3"><p className="s-label">{t("features")}</p>{facts.key_features?.length ? <ul className="s-list">{facts.key_features.map((s, i) => <li key={i} dir="auto">{s}</li>)}</ul> : <p>{t("none")}</p>}</div>
         {created ? <div className="s-panel full"><CreatedBrandFiles brand={created} /></div> : null}
-        {captureId ? (
+        {captureId && !created ? (
           <div className="s-panel full"><CaptureGallery captureId={captureId} initial={screens} /></div>
         ) : null}
       </div>

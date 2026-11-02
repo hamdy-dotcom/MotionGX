@@ -8,6 +8,7 @@ import { redirect } from "@/i18n/navigation";
 import { DIALECTS, type BrandColor, type Dialect } from "@/lib/types";
 import { linkCapture } from "@/lib/live-engine/server/jobs";
 import { cleanMarket, saveCompanyMarket } from "@/lib/data/market";
+import { captureFromPack } from "@/lib/brand-studio/capture";
 
 export type SaveCompanyState = { error?: "nameRequired" | "marketRequired" | "generic"; saved?: boolean };
 
@@ -129,6 +130,8 @@ export async function saveCompany(_prev: SaveCompanyState, formData: FormData): 
   if (b.raw?.source === "live") await linkCapture(ctx.workspace.id, String(b.raw.capture_id), company.id);
   await saveCompanyMarket(ctx, company.id, b.market);
   await saveLogo(ctx, company.id, formData);
+  // a brand created here: its pack becomes the capture the video and post engines read
+  if (b.raw?.source === "created") await captureFromPack(ctx.workspace.id, company.id, String(b.raw.pack)).catch((err) => console.error("[saveCompany] no capture from the pack", err));
   revalidatePath("/", "layout");
   redirect({ href: "/", locale: ctx.locale });
   return {};

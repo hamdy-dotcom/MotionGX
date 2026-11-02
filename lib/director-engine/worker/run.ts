@@ -154,7 +154,7 @@ function firstMessage(o: { brand: any; cap: any; brief: JobFile["brief"]; langua
   };
   return [
     `BRIEF`,
-    `- Product: ${brand.name || o.brief.url} (${o.brief.url})`,
+    brand.created ? `- Product: ${brand.name} (a new brand with no website yet: never show or say a web address)` : `- Product: ${brand.name || o.brief.url} (${o.brief.url})`,
     `- Goal: ${OBJECTIVE[o.brief.objective] ?? o.brief.objective}`,
     `- What the client wants (their own words): ${o.brief.description || "(none)"}`,
     o.brief.offer ? `- Offer / CTA: ${o.brief.offer}` : "",

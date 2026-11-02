@@ -182,7 +182,7 @@ export async function startLiveGeneration(videoId: string, mode: LiveMode) {
   const { data: video } = await db.from("videos").select("*").eq("id", videoId).single();
   if (!video) return;
   const { data: company } = await db.from("companies").select("id, website_url").eq("id", video.company_id).single();
-  if (!company?.website_url) { await releasePiece({ videoId }); return setGeneration(videoId, { stage: "error", mode: mode.kind, error: "brand missing" }, "failed"); }
+  if (!company || (!company.website_url && !(await usableCapture(company.id)))) { await releasePiece({ videoId }); return setGeneration(videoId, { stage: "error", mode: mode.kind, error: "brand missing" }, "failed"); }
 
   let prevJobId: string | null = null;
   if (mode.kind === "lines" || mode.kind === "edit" || mode.kind === "rerender") {
@@ -208,7 +208,7 @@ export async function startLiveGeneration(videoId: string, mode: LiveMode) {
   await setGeneration(videoId, { stage: capture ? "queued" : "plan", mode: mode.kind, first: !capture }, "generating");
   if (capture) return launch(job.id);
   // a company saved before the live "Add company" flow has no capture yet: capture it now (once), the video waits
-  await ensureCaptureJob(video, company.website_url);
+  if (company.website_url) await ensureCaptureJob(video, company.website_url);
 }
 
 /** the capture a post is made from: a video's capture (it got inside the app) when there is one; otherwise any finished
@@ -323,10 +323,12 @@ export async function launch(jobId: string) {
   } else {
     const { data: video } = await db.from("videos").select("*").eq("id", job.video_id!).single();
     const { data: company } = await db.from("companies").select("website_url").eq("id", job.company_id!).single();
-    if (!video || !company?.website_url) return failJob(job, "missing video or company website");
+    // a brand created here has no website: its capture's address stands in
+    const siteUrl = company?.website_url || capture.site_url;
+    if (!video || !siteUrl) return failJob(job, "missing video or company website");
     piece = video;
     // the brand folder is the capture's site (brands/<slug> as in the sandbox), the brief the video's
-    brief = { ...briefFor(video, company.website_url), url: capture.site_url ?? company.website_url };
+    brief = { ...briefFor(video, siteUrl), url: capture.site_url ?? siteUrl };
   }
   if (flowClipsEnabled() && job.kind !== "post") brief = { ...brief, flowClips: true };
   const ids = { workspaceId: job.workspace_id, captureId: capture.id };
