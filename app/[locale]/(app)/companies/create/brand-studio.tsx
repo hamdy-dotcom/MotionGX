@@ -8,6 +8,7 @@ import { EMPTY_FACTS, type BrandDraft } from "@/lib/brand/types";
 import { BRAND_LANGUAGES, iconSvg, type BrandLanguage, type Direction, type FileBrief, type Identity, type NextQuestion, type Turn } from "@/lib/brand-studio/types";
 import { CreatedBrandFiles, PackButton, SiteFrame as Site } from "@/components/studio/created-brand";
 import type { CreatedBrand as StoredBrand } from "@/lib/brand-studio/stored";
+import { cleanCountries } from "@/lib/market/countries";
 import { BrandEditor } from "../brand-editor";
 
 type Done = { identity: Identity; pack?: string; stored?: StoredBrand; packUrl?: string; logoUrl?: string; files?: number; siteHtml?: string; world?: { kind: string; label?: string; url: string }[] };
@@ -262,7 +263,7 @@ export function BrandStudio({ price }: { price: string }) {
           {s.done.stored ? <CreatedBrandFiles brand={s.done.stored} /> : s.done.packUrl ? <PackButton url={s.done.packUrl} /> : null}
           <div>
             <h2 className="mb-3 text-xl font-semibold text-navy">{t("saveTitle")}</h2>
-            <BrandEditor brand={draft(s.done)} raw={s.done.pack ? { source: "created", pack: s.done.pack } : null} captureId={null} />
+            <BrandEditor brand={draft(s.done)} raw={s.done.pack ? { source: "created", pack: s.done.pack } : null} captureId={null} market={{ industry: s.done.identity.industry ?? null, countries: cleanCountries(s.done.identity.countries), socials: {} }} />
           </div>
           <button type="button" className="btn btn-soft" onClick={reset}>{t("startOver")}</button>
         </>

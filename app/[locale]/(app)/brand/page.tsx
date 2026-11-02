@@ -11,6 +11,8 @@ import { StudioMark } from "@/components/studio/mark";
 import { CaptureGallery } from "@/components/studio/capture-gallery";
 import { CreatedBrandFiles } from "@/components/studio/created-brand";
 import { createdBrand } from "@/lib/brand-studio/stored";
+import { MarketCard } from "@/components/studio/market-card";
+import { companyMarket } from "@/lib/data/market";
 
 const host = (url?: string | null) => { try { return url ? new URL(url).host.replace(/^www\./, "") : ""; } catch { return url ?? ""; } };
 const ROLES = ["primary", "accent", "background", "surface", "ink", "muted"];
@@ -26,6 +28,7 @@ export default async function BrandPage({ params }: { params: Promise<{ locale: 
   const b = brand!;
   const [details, captureId, profile] = await Promise.all([brandDetails(ctx, b.id), companyCaptureId(b.id), ctx.supabase.from("brand_profiles").select("raw").eq("company_id", b.id).maybeSingle()]);
   const raw = profile.data?.raw as { source?: string; pack?: string } | null;
+  const market = await companyMarket(ctx, b.id);
   const created = raw?.source === "created" && raw.pack ? await createdBrand(ctx.workspace.id, raw.pack).catch(() => null) : null;
   const files = captureId ? await brandFiles(ctx.workspace.id, captureId).catch(() => null) : null;
   const colors = (b.brand_profiles?.colors ?? []).filter((c) => /^#[0-9a-f]{6}$/i.test(c.hex));
@@ -48,6 +51,7 @@ export default async function BrandPage({ params }: { params: Promise<{ locale: 
         <div className="s-chips"><Link href={`/companies/${b.id}`} className="s-btn ghost">{t("reread")}</Link><Link href={`/companies/${b.id}`} className="s-btn ghost">{t("edit")}</Link></div>
       </div>
       <div className="s-look">
+        <div className="s-panel full"><MarketCard key={`${b.id}:${market.industry}:${market.countries.join()}`} companyId={b.id} industry={market.industry} countries={market.countries} /></div>
         <div className="s-panel span4"><p className="s-label">{t("palette")}</p><div className="s-chart">{colors.map((c, i) => <div key={`${c.hex}-${i}`} style={{ background: c.hex }}><span dir="ltr">{role(c.role)} {c.hex}</span></div>)}</div></div>
         <div className="s-panel span2" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
           <StudioMark company={b} size={96} />

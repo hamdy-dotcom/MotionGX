@@ -49,7 +49,7 @@ const tool = {
   },
 };
 
-const regionKey = (countries: string[]) => [...countries].sort().join(",") || "GCC,EG";
+const regionKey = (countries: string[]) => [...countries].sort().join(",");
 
 /** today's trends for an industry + region: the stored row, or null while (or if) none exists yet */
 export async function trendsFor(industry: string, countries: string[]): Promise<Trend[] | null> {

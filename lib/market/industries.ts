@@ -1,10 +1,13 @@
-// The brand's industry (one, from this list): what ideas, seasons and daily trends are matched against.
+// The brand's industry (one, from this list): what ideas, seasons and daily trends are matched against. A specific one
+// belongs to a broader one (PARENT), so a season meant for restaurants also reaches bakeries.
 
 export const INDUSTRIES = [
   "ecommerce", "retail", "fashion", "beauty", "jewelry", "food", "grocery", "health", "pharma", "fitness",
   "education", "kids", "software", "fintech", "realestate", "construction", "logistics", "automotive", "travel",
   "events", "media", "gaming", "telecom", "home", "electronics", "b2b", "agency", "legal", "nonprofit", "energy",
-  "agriculture", "other",
+  "agriculture",
+  "bakery", "coffee", "catering", "cloudkitchen", "perfume", "salon", "eyewear", "footwear", "luxury", "textiles", "flowers", "toys", "pets", "books", "sportsgoods", "wholesale", "marketplace", "secondhand", "hospital", "dental", "mentalhealth", "veterinary", "medicaldevices", "cosmeticclinic", "nutrition", "university", "school", "onlinecourses", "languages", "coaching", "ai", "cybersecurity", "itservices", "hardware", "hrtech", "banking", "insurance", "investment", "crypto", "accounting", "microfinance", "interior", "architecture", "homeservices", "cleaning", "coworking", "buildingmaterials", "carrental", "ridehailing", "aviation", "shipping", "hotels", "weddings", "sports", "music", "film", "photography", "news", "printing", "pr", "manufacturing", "chemicals", "oilgas", "mining", "renewable", "utilities", "recycling", "security", "government", "religious", "community", "foodproduction", "fisheries",
+  "other",
 ] as const;
 export type Industry = (typeof INDUSTRIES)[number];
 
@@ -40,11 +43,88 @@ export const INDUSTRY_LABEL: Record<Industry, { ar: string; en: string }> = {
   nonprofit: { ar: "جمعيات وعمل خيري", en: "Nonprofit & charity" },
   energy: { ar: "طاقة وخدمات صناعية", en: "Energy & industrial" },
   agriculture: { ar: "زراعة وأغذية", en: "Agriculture & food production" },
+  bakery: { ar: "مخابز وحلويات", en: "Bakeries & desserts" },
+  coffee: { ar: "قهوة ومشروبات", en: "Coffee & beverages" },
+  catering: { ar: "كيترينج وتجهيز طعام", en: "Catering" },
+  cloudkitchen: { ar: "مطابخ سحابية وتوصيل طعام", en: "Cloud kitchens & food delivery" },
+  perfume: { ar: "عطور", en: "Perfume & fragrance" },
+  salon: { ar: "صالونات وسبا", en: "Salons & spas" },
+  eyewear: { ar: "نظارات", en: "Eyewear" },
+  footwear: { ar: "أحذية وشنط", en: "Footwear & bags" },
+  luxury: { ar: "سلع فاخرة", en: "Luxury goods" },
+  textiles: { ar: "نسيج ومفروشات", en: "Textiles" },
+  flowers: { ar: "ورد وهدايا", en: "Flowers & gifts" },
+  toys: { ar: "ألعاب أطفال", en: "Toys" },
+  pets: { ar: "حيوانات أليفة", en: "Pets & pet care" },
+  books: { ar: "كتب ونشر", en: "Books & publishing" },
+  sportsgoods: { ar: "معدات رياضية", en: "Sports equipment" },
+  wholesale: { ar: "جملة وتوزيع", en: "Wholesale & distribution" },
+  marketplace: { ar: "منصات وأسواق إلكترونية", en: "Online marketplaces" },
+  secondhand: { ar: "سلع مستعملة", en: "Second-hand & resale" },
+  hospital: { ar: "مستشفيات", en: "Hospitals" },
+  dental: { ar: "أسنان", en: "Dental" },
+  mentalhealth: { ar: "صحة نفسية", en: "Mental health" },
+  veterinary: { ar: "طب بيطري", en: "Veterinary" },
+  medicaldevices: { ar: "أجهزة طبية", en: "Medical devices" },
+  cosmeticclinic: { ar: "تجميل طبي وليزر", en: "Aesthetic clinics" },
+  nutrition: { ar: "تغذية ومكملات", en: "Nutrition & supplements" },
+  university: { ar: "جامعات", en: "Universities" },
+  school: { ar: "مدارس وحضانات", en: "Schools & nurseries" },
+  onlinecourses: { ar: "كورسات أونلاين", en: "Online courses" },
+  languages: { ar: "تعليم لغات", en: "Language learning" },
+  coaching: { ar: "كوتشينج وتطوير ذاتي", en: "Coaching & personal development" },
+  ai: { ar: "ذكاء اصطناعي", en: "Artificial intelligence" },
+  cybersecurity: { ar: "أمن سيبراني", en: "Cybersecurity" },
+  itservices: { ar: "خدمات تقنية المعلومات", en: "IT services" },
+  hardware: { ar: "أجهزة كمبيوتر ومعدات", en: "Computers & hardware" },
+  hrtech: { ar: "موارد بشرية وتوظيف", en: "HR & recruitment" },
+  banking: { ar: "بنوك", en: "Banking" },
+  insurance: { ar: "تأمين", en: "Insurance" },
+  investment: { ar: "استثمار وتداول", en: "Investing & trading" },
+  crypto: { ar: "عملات رقمية", en: "Crypto & web3" },
+  accounting: { ar: "محاسبة وضرائب", en: "Accounting & tax" },
+  microfinance: { ar: "تمويل وتقسيط", en: "Lending & instalments" },
+  interior: { ar: "تصميم داخلي", en: "Interior design" },
+  architecture: { ar: "هندسة معمارية", en: "Architecture & engineering" },
+  homeservices: { ar: "صيانة وخدمات منزلية", en: "Home services & maintenance" },
+  cleaning: { ar: "نظافة", en: "Cleaning services" },
+  coworking: { ar: "مساحات عمل", en: "Coworking spaces" },
+  buildingmaterials: { ar: "مواد بناء", en: "Building materials" },
+  carrental: { ar: "تأجير سيارات", en: "Car rental" },
+  ridehailing: { ar: "نقل تشاركي وتاكسي", en: "Ride-hailing & taxis" },
+  aviation: { ar: "طيران", en: "Airlines & aviation" },
+  shipping: { ar: "شحن بحري وموانئ", en: "Marine & ports" },
+  hotels: { ar: "فنادق ومنتجعات", en: "Hotels & resorts" },
+  weddings: { ar: "أفراح ومناسبات", en: "Weddings & occasions" },
+  sports: { ar: "نوادي وفرق رياضية", en: "Sports clubs & teams" },
+  music: { ar: "موسيقى وفنون", en: "Music & arts" },
+  film: { ar: "سينما وإنتاج", en: "Film & production" },
+  photography: { ar: "تصوير", en: "Photography" },
+  news: { ar: "أخبار ونشر", en: "News & publishing" },
+  printing: { ar: "طباعة وتغليف", en: "Printing & packaging" },
+  pr: { ar: "علاقات عامة وإعلان", en: "PR & advertising" },
+  manufacturing: { ar: "تصنيع", en: "Manufacturing" },
+  chemicals: { ar: "كيماويات", en: "Chemicals" },
+  oilgas: { ar: "بترول وغاز", en: "Oil & gas" },
+  mining: { ar: "تعدين", en: "Mining" },
+  renewable: { ar: "طاقة متجددة", en: "Renewable energy" },
+  utilities: { ar: "مياه ومرافق", en: "Water & utilities" },
+  recycling: { ar: "إعادة تدوير وبيئة", en: "Recycling & environment" },
+  security: { ar: "أمن وحراسة", en: "Security services" },
+  government: { ar: "جهات حكومية", en: "Government" },
+  religious: { ar: "مؤسسات دينية", en: "Religious organisations" },
+  community: { ar: "مجتمعات ونقابات", en: "Communities & associations" },
+  foodproduction: { ar: "صناعات غذائية", en: "Food manufacturing" },
+  fisheries: { ar: "ثروة حيوانية وسمكية", en: "Livestock & fisheries" },
   other: { ar: "مجال آخر", en: "Other" },
 };
 
 export const isIndustry = (v: unknown): v is Industry => typeof v === "string" && (INDUSTRIES as readonly string[]).includes(v);
 export const industryLabel = (v: string | null | undefined, locale: string) => (isIndustry(v) ? INDUSTRY_LABEL[v][locale === "ar" ? "ar" : "en"] : "");
+
+const PARENT: Partial<Record<Industry, Industry>> = { bakery: "food", coffee: "food", catering: "food", cloudkitchen: "food", perfume: "beauty", salon: "beauty", eyewear: "fashion", footwear: "fashion", luxury: "fashion", textiles: "fashion", flowers: "retail", toys: "kids", pets: "retail", books: "retail", sportsgoods: "fitness", wholesale: "b2b", marketplace: "ecommerce", secondhand: "ecommerce", hospital: "health", dental: "health", mentalhealth: "health", veterinary: "health", medicaldevices: "health", cosmeticclinic: "beauty", nutrition: "fitness", university: "education", school: "education", onlinecourses: "education", languages: "education", coaching: "education", ai: "software", cybersecurity: "software", itservices: "software", hardware: "electronics", hrtech: "software", banking: "fintech", insurance: "fintech", investment: "fintech", crypto: "fintech", accounting: "b2b", microfinance: "fintech", interior: "home", architecture: "construction", homeservices: "home", cleaning: "home", coworking: "realestate", buildingmaterials: "construction", carrental: "automotive", ridehailing: "logistics", aviation: "travel", shipping: "logistics", hotels: "travel", weddings: "events", sports: "fitness", music: "media", film: "media", photography: "media", news: "media", printing: "b2b", pr: "agency", manufacturing: "energy", chemicals: "energy", oilgas: "energy", mining: "energy", renewable: "energy", utilities: "energy", recycling: "energy", security: "b2b", government: "nonprofit", religious: "nonprofit", community: "nonprofit", foodproduction: "agriculture", fisheries: "agriculture" };
+/** does a season's list of industries include this one, itself or through its broader industry? */
+export const industryIn = (list: readonly string[], v: string) => list.includes(v) || (isIndustry(v) && Boolean(PARENT[v]) && list.includes(PARENT[v] as string));
 
 /** groups the seasons calendar uses ("shopping" moments matter to every seller, and so on) */
 export const SELLERS: Industry[] = ["ecommerce", "retail", "fashion", "beauty", "jewelry", "grocery", "pharma", "home", "electronics", "kids", "automotive", "food"];

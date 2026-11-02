@@ -4,7 +4,7 @@
 // festivals had not announced their dates yet. Re-check and extend each year.
 
 import { ARAB, GCC, MUSLIM } from "./countries";
-import { FAMILY, SELLERS, type Industry } from "./industries";
+import { FAMILY, industryIn, SELLERS, type Industry } from "./industries";
 
 export type Season = {
   id: string;
@@ -170,17 +170,19 @@ function paydays(fromDay: string, months: number): Season[] {
 /** the researched calendar; the live one overlays what the daily check found (lib/market/live.ts) */
 export const BASE_SEASONS = [...SEASONS, ...paydays("2026-10", 15)];
 
+/** a moment belongs to a brand only through its own countries and industry; "other" is an industry we can't narrow by */
+const forMarket = (s: Season, countries: string[], industry?: string | null) =>
+  (s.countries === "all" || s.countries.some((c) => countries.includes(c))) && (!s.industries || industry === "other" || (Boolean(industry) && industryIn(s.industries, industry!)));
+
 export type UpcomingSeason = Season & { daysAway: number; ongoing: boolean };
 
 /** the moments in the next `within` days (or each one's own lead) for a brand's countries and industry, soonest first */
 export function upcomingSeasons(opts: { today: string; countries: string[]; industry?: string | null; within?: number; list?: Season[] }): UpcomingSeason[] {
   const day = (s: string) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
   const t = day(opts.today);
-  const markets = opts.countries.length ? opts.countries : [...GCC, "EG"]; // a brand that hasn't said yet: the core markets
   return (opts.list ?? BASE_SEASONS).filter((s) => {
     if (s.status === "cancelled") return false;
-    if (s.countries !== "all" && !s.countries.some((c) => markets.includes(c))) return false;
-    if (s.industries && opts.industry && opts.industry !== "other" && !s.industries.includes(opts.industry as Industry)) return false;
+    if (!forMarket(s, opts.countries, opts.industry)) return false;
     const start = day(s.from), end = day(s.to ?? s.from);
     if (end < t) return false;
     const lead = opts.within ?? s.lead ?? 21;
@@ -193,7 +195,6 @@ export function upcomingSeasons(opts: { today: string; countries: string[]; indu
 /** the dated moments inside a period (for plan ideas) */
 export function seasonsBetween(opts: { from: string; to: string; countries: string[]; industry?: string | null; list?: Season[] }) {
   return (opts.list ?? BASE_SEASONS).filter((s) => s.status !== "cancelled" && (s.to ?? s.from) >= opts.from && s.from <= opts.to)
-    .filter((s) => s.countries === "all" || s.countries.some((c) => (opts.countries.length ? opts.countries : [...GCC, "EG"]).includes(c)))
-    .filter((s) => !s.industries || !opts.industry || opts.industry === "other" || s.industries.includes(opts.industry as Industry))
+    .filter((s) => forMarket(s, opts.countries, opts.industry))
     .sort((a, b) => a.from.localeCompare(b.from));
 }

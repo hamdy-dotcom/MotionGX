@@ -16,6 +16,9 @@ import { countryName } from "@/lib/market/countries";
 import { addDays, todayKey } from "@/lib/dates";
 
 /** the pop-ups for a brand; the day's trends are looked up in the background the first time they're asked for */
+/** at most 4 countries a day, in turn, so a brand in many countries still has each one checked regularly */
+const checkedToday = (countries: string[]) => { const start = Math.floor(Date.now() / 864e5) % countries.length; return [...countries, ...countries].slice(start, start + Math.min(4, countries.length)); };
+
 export async function getNotices(companyId: string): Promise<Notice[]> {
   const ctx = await getAppContext();
   const { data: company } = await ctx.supabase.from("companies").select("id").eq("id", companyId).maybeSingle(); // RLS
@@ -24,7 +27,7 @@ export async function getNotices(companyId: string): Promise<Notice[]> {
   const { notices, trendsPending } = await buildNotices(ctx, companyId, market, ctx.locale);
   if (trendsPending && market.industry && ctx.role !== "viewer") after(() => ensureTrends(ctx.workspace.id, market.industry!, market.countries));
   // the seasons calendar of each of the brand's countries is checked once a day (dates confirmed / moved, new seasons)
-  if (market.countries.length && ctx.role !== "viewer") after(async () => { for (const c of market.countries.slice(0, 4)) await ensureSeasonCheck(ctx.workspace.id, c); });
+  if (market.countries.length && ctx.role !== "viewer") after(async () => { for (const c of checkedToday(market.countries)) await ensureSeasonCheck(ctx.workspace.id, c); });
   return notices;
 }
 

@@ -1,6 +1,7 @@
 // Shared (client + server) types of the brand creator: a talk, small previews to choose from, the final identity.
 import { z } from "zod";
 import { DIALECTS } from "@/lib/types";
+import { INDUSTRIES } from "@/lib/market/industries";
 
 export const BRAND_LANGUAGES = ["ar", "en", "both"] as const;
 export type BrandLanguage = (typeof BRAND_LANGUAGES)[number];
@@ -51,6 +52,8 @@ export type WorldItem = z.infer<typeof WorldItemSchema>;
 
 export const IdentitySchema = z.object({
   world: z.array(WorldItemSchema).min(4).max(8),
+  industry: z.enum(INDUSTRIES),
+  countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(60),
   dialect: z.enum(DIALECTS),
   name: z.string().min(1).max(40),
   name_ar: z.string().max(40),

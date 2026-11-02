@@ -1143,7 +1143,11 @@
     "social_linkedin": "LinkedIn — page link",
     "social_x": "X — @handle",
     "social_youtube": "YouTube — channel link",
-    "social_snapchat": "Snapchat — @handle"
+    "social_snapchat": "Snapchat — @handle",
+    "required": "Every brand needs its industry and at least one country. Its seasons and notifications follow them.",
+    "save": "Save",
+    "saved": "Saved",
+    "saveFailed": "Not saved. Please try again."
   },
   "notices": {
     "seasonEye": "Coming up",

@@ -225,7 +225,7 @@ export function BrandEditor({
         </Field>
 
         <div className="divider" />
-        <Field label={tm("industry")}>
+        <Field label={`${tm("industry")} *`}>
           <SearchSelect
             label={tm("industry")}
             options={INDUSTRIES.map((i) => ({ value: i, label: INDUSTRY_LABEL[i][ar ? "ar" : "en"] }))}
@@ -235,7 +235,7 @@ export function BrandEditor({
             empty={tm("noMatch")}
           />
         </Field>
-        <Field label={tm("countries")}>
+        <Field label={`${tm("countries")} *`}>
           <SearchSelect
             multiple
             label={tm("countries")}
@@ -272,7 +272,7 @@ export function BrandEditor({
 
         {state.error ? (
           <p role="alert" className="text-sm text-danger-ink">
-            {state.error === "nameRequired" ? t("nameRequired") : tc("error")}
+            {state.error === "nameRequired" ? t("nameRequired") : state.error === "marketRequired" ? tm("required") : tc("error")}
           </p>
         ) : null}
         {state.saved ? (

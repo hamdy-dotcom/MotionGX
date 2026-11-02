@@ -9,7 +9,7 @@ import { DIALECTS, type BrandColor, type Dialect } from "@/lib/types";
 import { linkCapture } from "@/lib/live-engine/server/jobs";
 import { cleanMarket, saveCompanyMarket } from "@/lib/data/market";
 
-export type SaveCompanyState = { error?: "nameRequired" | "generic"; saved?: boolean };
+export type SaveCompanyState = { error?: "nameRequired" | "marketRequired" | "generic"; saved?: boolean };
 
 function parseJson<T>(value: FormDataEntryValue | null, fallback: T): T {
   try {
@@ -100,6 +100,7 @@ export async function saveCompany(_prev: SaveCompanyState, formData: FormData): 
   const ctx = await getAppContext();
   const b = parseBrand(formData);
   if (!b.name) return { error: "nameRequired" };
+  if (!b.market.industry || !b.market.countries.length) return { error: "marketRequired" };
 
   const { data: company, error } = await ctx.supabase
     .from("companies")
@@ -138,6 +139,7 @@ export async function updateCompany(companyId: string, _prev: SaveCompanyState, 
   const ctx = await getAppContext();
   const b = parseBrand(formData);
   if (!b.name) return { error: "nameRequired" };
+  if (!b.market.industry || !b.market.countries.length) return { error: "marketRequired" };
 
   const { error } = await ctx.supabase
     .from("companies")
@@ -162,4 +164,15 @@ export async function updateCompany(companyId: string, _prev: SaveCompanyState, 
   await saveLogo(ctx, companyId, formData);
   revalidatePath("/", "layout");
   return { saved: true };
+}
+
+/** the brand page's quick edit: its industry and countries, the two things every brand must have */
+export async function updateCompanyMarket(companyId: string, industry: string | null, countries: string[]): Promise<{ ok: boolean }> {
+  const ctx = await getAppContext();
+  const clean = cleanMarket({ industry, countries });
+  if (ctx.role === "viewer" || !clean.industry || !clean.countries.length) return { ok: false };
+  const { error } = await ctx.supabase.from("companies").update({ industry: clean.industry, countries: clean.countries }).eq("id", companyId).eq("workspace_id", ctx.workspace.id);
+  if (error) { console.error("[company] market not saved", { code: error.code, message: error.message }); return { ok: false }; }
+  revalidatePath("/", "layout");
+  return { ok: true };
 }

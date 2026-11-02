@@ -19,7 +19,8 @@ type Row = { season_key: string; country: string; action: "confirm" | "move" | "
 
 /** the calendar for a brand's countries: base seasons with their updates applied, plus the added ones */
 export async function liveSeasons(countries: string[]): Promise<Season[]> {
-  const markets = countries.length ? countries : ["SA", "AE", "EG"];
+  const markets = countries;
+  if (!markets.length) return BASE_SEASONS;
   const { data, error } = await createAdminClient().from("season_updates").select("season_key, country, action, from_day, to_day, data, source_url, source_title").in("country", markets);
   if (error || !data?.length) return BASE_SEASONS;
   const rows = data as Row[];
