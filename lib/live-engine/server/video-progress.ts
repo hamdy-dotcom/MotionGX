@@ -65,7 +65,7 @@ export async function videoProgress(videoId: string): Promise<VideoProgress | nu
   // the video's newest job: the brand capture (a first video) until the video job itself starts
   const { data } = await createAdminClient().from("live_jobs").select("kind, created_at, cost_usd, stage, log, workspace_id, capture_id").eq("video_id", videoId).in("kind", ["capture", "video"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (!data) return null;
-  // the cost as the user pays it (lib/billing): × the multiplier; a capture at cost, free when it is the first
-  const cost = await billed(data.workspace_id as string, data.kind === "capture" ? "capture" : "video", Number(data.cost_usd ?? 0), data.capture_id as string | null);
+  // the cost as the user pays it (lib/billing): × the multiplier; a capture at cost
+  const cost = await billed(data.workspace_id as string, data.kind === "capture" ? "capture" : "video", Number(data.cost_usd ?? 0));
   return { kind: data.kind === "capture" ? "capture" : "video", startedAt: data.created_at as string, cost, step: (data.stage as string | null) ?? null, events: parseVideoLog((data.log ?? []) as string[]) };
 }
