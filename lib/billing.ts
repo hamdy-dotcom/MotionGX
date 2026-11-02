@@ -53,7 +53,7 @@ export async function multipliers() {
 
 /** the workspace's first capture is free: true while it has no finished capture (other than `except`) */
 export async function firstCaptureFree(workspaceId: string, except?: string | null) {
-  let q = admin().from("live_brand_captures").select("id", { count: "exact", head: true }).eq("workspace_id", workspaceId).eq("status", "done").neq("domain", "created.local");
+  let q = admin().from("live_brand_captures").select("id", { count: "exact", head: true }).eq("workspace_id", workspaceId).eq("status", "done");
   if (except) q = q.neq("id", except);
   return ((await q).count ?? 0) === 0;
 }
