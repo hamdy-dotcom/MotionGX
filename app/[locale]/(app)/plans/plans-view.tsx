@@ -10,6 +10,7 @@ import { Rise, escapeMarkup } from "@/components/studio/rise";
 import { KindIcon, PlatformIcon } from "@/components/studio/platform-icon";
 import { PlanCard, makeIdea, useBestTime } from "@/components/studio/plan-bits";
 import type { Work } from "@/lib/data/works";
+import { WorkLink } from "@/components/studio/work-preview";
 
 type Len = "w1" | "w2" | "m1" | "custom";
 const KINDS = ["image", "carousel", "video", "text"] as const;
@@ -200,7 +201,7 @@ export function PlansView({ brand, today, plan: initialPlan, ideas: initialIdeas
                     ) : i.status === "no" ? (
                       <button type="button" className="s-btn ghost small" onClick={() => act(i, () => updateIdea(i.id, { status: "new" }))}>{t("undo")}</button>
                     ) : i.status === "made" ? (
-                      <><Link href={madeHref(i)} className="s-btn small">{t("open")}</Link>{i.scheduled_on ? <span className="s-mono" style={{ fontSize: 10.5, color: "var(--s-muted)" }} dir="ltr">{dayMono(i.scheduled_on)}</span> : null}</>
+                      <>{workOf(i) ? <WorkLink work={workOf(i)!} className="s-btn small">{t("open")}</WorkLink> : <Link href={madeHref(i)} className="s-btn small">{t("open")}</Link>}{i.scheduled_on ? <span className="s-mono" style={{ fontSize: 10.5, color: "var(--s-muted)" }} dir="ltr">{dayMono(i.scheduled_on)}</span> : null}</>
                     ) : (
                       <>
                         <select aria-label={t("pickDay")} value={i.scheduled_on ?? ""} onChange={(e) => place(i.id, e.target.value || null)}>
@@ -226,7 +227,7 @@ export function PlansView({ brand, today, plan: initialPlan, ideas: initialIdeas
                 <div key={d} className={`s-dayrow${over === d ? " over" : ""}`} onDragOver={(e) => { if (!dragId) return; e.preventDefault(); setOver(d); }} onDragLeave={() => setOver((o) => (o === d ? null : o))} onDrop={(e) => { e.preventDefault(); const id = dragId; setDragId(null); setOver(null); if (id) place(id, d); }}>
                   <div><span className="dn">{WEEKDAY_MONO[weekday(d)]}</span><b>{d.slice(8)}</b></div>
                   <div className="its">
-                    {its.map((w) => <Link key={w.id} href={w.href} className={`s-clip${w.kind === "video" ? " v" : ""}`} dir="auto">{w.kind === "video" ? "▶" : "▣"} {w.title}</Link>)}
+                    {its.map((w) => <WorkLink key={w.id} work={w} className={`s-clip${w.kind === "video" ? " v" : ""}`} dir="auto">{w.kind === "video" ? "▶" : "▣"} {w.title}</WorkLink>)}
                     {ids.map((i) => <PlanCard key={i.id} idea={i} onOpen={() => setFilter("ok")} onMake={() => makeIdea(i, brand)} onDragStart={(e) => { setDragId(i.id); e.dataTransfer.setData("text/plain", i.id); }} />)}
                     {!its.length && !ids.length ? <span className="empty">{t("empty")}</span> : null}
                   </div>

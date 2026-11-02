@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Link, useRouter } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { updateIdea } from "@/lib/actions/plans";
 import { draftFromNotice } from "@/lib/actions/notices";
 import type { PlanIdea } from "@/lib/plans/types";
 import type { Work } from "@/lib/data/works";
+import { WorkLink } from "@/components/studio/work-preview";
 import { dayLabel, dayMono } from "@/lib/dates";
 import { KindIcon, PlatformIcon } from "@/components/studio/platform-icon";
 import { PlanCard, makeIdea, useBestTime, type IdeaBrand } from "@/components/studio/plan-bits";
@@ -77,7 +78,7 @@ export function CalendarView({ cells, today, seasons = [], works, ideas: initial
               >
                 <span className="d">{key.slice(8)}</span>
                 {seasonsOn(key).map((x) => <button key={x.id} type="button" className={`s-season k-${x.kind}${x.status ? " ok" : x.approx ? " approx" : ""}`} onClick={(e) => { e.stopPropagation(); setSeason(x); }} title={x.name} dir="auto">{x.status ? "✓ " : x.approx ? "~ " : "◆ "}{x.name}</button>)}
-                {its.map((w) => <Link key={w.id} href={w.href} className={`s-clip${w.kind === "video" ? " v" : ""}`} onClick={(e) => e.stopPropagation()} dir="auto">{w.kind === "video" ? "▶" : "▣"} {w.title}</Link>)}
+                {its.map((w) => <WorkLink key={w.id} work={w} className={`s-clip${w.kind === "video" ? " v" : ""}`} dir="auto">{w.kind === "video" ? "▶" : "▣"} {w.title}</WorkLink>)}
                 {pl.map((i) => <PlanCard key={i.id} idea={i} onOpen={() => setOpen(i)} onMake={() => makeIdea(i, brand)} onDragStart={(e) => { setDrag(i.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", i.id); }} />)}
                 {future ? <span className="add">{t("add")}</span> : null}
               </div>

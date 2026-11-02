@@ -20,7 +20,7 @@ export function WorkPreview({ work: w, onClose }: { work: Work; onClose: () => v
   const status = ["draft", "ready", "review", "exporting", "failed", "generating", "needs_direction"].includes(w.status) ? ts(w.status as "ready") : w.status;
   const go = (d: number) => setSlide((s) => (s + d + slides.length) % slides.length);
   return (
-    <dialog ref={box} className="s-wp" aria-label={w.title} onClose={onClose} onClick={(e) => { if (e.target === box.current) box.current?.close(); }} onKeyDown={(e) => { if (slides.length > 1 && (e.key === "ArrowRight" || e.key === "ArrowLeft")) go((e.key === "ArrowRight") !== rtl ? 1 : -1); }}>
+    <dialog ref={box} className="s-wp" aria-label={w.title} onClose={onClose} onClick={(e) => { e.stopPropagation(); if (e.target === box.current) box.current?.close(); }} onKeyDown={(e) => { if (slides.length > 1 && (e.key === "ArrowRight" || e.key === "ArrowLeft")) go((e.key === "ArrowRight") !== rtl ? 1 : -1); }}>
       <div className="s-wp-card">
         <div className={`s-wp-media${tall(w) ? " v" : w.type === "cover" ? " wide" : ""}`}>
           {w.video ? (
@@ -60,11 +60,11 @@ export function WorkPreview({ work: w, onClose }: { work: Work; onClose: () => v
 }
 
 /** a piece that opens in the popup; a plain link when there's nothing to preview yet (still being made), or with cmd / ctrl */
-export function WorkLink({ work, className, style, label, children }: { work: Work; className?: string; style?: CSSProperties; label?: string; children: ReactNode }) {
+export function WorkLink({ work, className, style, label, dir, children }: { work: Work; className?: string; style?: CSSProperties; label?: string; dir?: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Link href={work.href} prefetch={false} className={className} style={style} aria-label={label} onClick={(e) => { if (work.status === "generating" || !(work.thumb || work.video) || e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); setOpen(true); }}>{children}</Link>
+      <Link href={work.href} prefetch={false} className={className} style={style} aria-label={label} dir={dir} onClick={(e) => { e.stopPropagation(); if (work.status === "generating" || !(work.thumb || work.video) || e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); setOpen(true); }}>{children}</Link>
       {open ? <WorkPreview work={work} onClose={() => setOpen(false)} /> : null}
     </>
   );
