@@ -5,7 +5,7 @@ import { SITE } from "@/lib/site";
 import { LangSwitch } from "./lang-switch";
 import "../../studio.css";
 
-const T = { ar: { pricing: "الأسعار", terms: "الشروط", privacy: "الخصوصية", refunds: "الاسترداد", login: "دخول", other: "English" }, en: { pricing: "Pricing", terms: "Terms", privacy: "Privacy", refunds: "Refunds", login: "Log in", other: "العربية" } };
+const T = { ar: { pricing: "الأسعار", terms: "الشروط", privacy: "الخصوصية", refunds: "الاسترداد", login: "دخول", start: "ابدأ", other: "English" }, en: { pricing: "Pricing", terms: "Terms", privacy: "Privacy", refunds: "Refunds", login: "Log in", start: "Get started", other: "العربية" } };
 
 /** the public pages: pricing and the policies, open without an account */
 export default async function SiteLayout({ children, params }: { children: ReactNode; params: Promise<{ locale: string }> }) {
@@ -17,8 +17,8 @@ export default async function SiteLayout({ children, params }: { children: React
     <div className="s-site">
       <header className="s-site-top">
         <Link href="/" className="s-site-name">{SITE.name}</Link>
-        <nav>{nav}</nav>
-        <div className="s-site-end"><LangSwitch label={t.other} locale={other} /><Link href="/login" className="s-btn small">{t.login}</Link></div>
+        <nav><Link href="/pricing">{t.pricing}</Link></nav>
+        <div className="s-site-end"><LangSwitch label={t.other} locale={other} /><Link href="/login" className="s-site-login">{t.login}</Link><Link href="/signup" className="s-btn small lit">{t.start}</Link></div>
       </header>
       <main>{children}</main>
       <footer className="s-site-foot"><span>© {SITE.updated.slice(0, 4)} {SITE.name}</span><nav>{nav}</nav></footer>

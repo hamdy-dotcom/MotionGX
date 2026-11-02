@@ -11,4 +11,4 @@ export const SITE = {
   },
   updated: "2026-11-03",
 };
-export const PUBLIC_PAGES = ["pricing", "terms", "privacy", "refunds"];
+export const PUBLIC_PAGES = ["welcome", "pricing", "terms", "privacy", "refunds"];

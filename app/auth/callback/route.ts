@@ -3,7 +3,8 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { routing, type Locale } from "@/i18n/routing";
 
-// Magic-link landing. Handles both the PKCE `code` flow and the `token_hash` email template flow.
+// Where emailed links land (confirming an email, resetting a password). Handles both the PKCE `code` flow and the
+// `token_hash` email template flow.
 export async function GET(request: NextRequest) {
   const url = request.nextUrl;
   const code = url.searchParams.get("code");
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     if (profile?.locale && routing.locales.includes(profile.locale)) locale = profile.locale as Locale;
   }
 
-  const response = NextResponse.redirect(new URL(`/${locale}`, url.origin));
+  const response = NextResponse.redirect(new URL(url.searchParams.get("next") === "reset-password" ? `/${locale}/reset-password` : `/${locale}`, url.origin));
   response.cookies.set("NEXT_LOCALE", locale, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
   return response;
 }

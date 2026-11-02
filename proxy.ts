@@ -48,7 +48,15 @@ export async function proxy(request: NextRequest) {
 
   // 3. Guard: everything except /login needs a session.
   const [, locale = routing.defaultLocale, ...rest] = request.nextUrl.pathname.split("/");
-  const isLogin = rest[0] === "login";
+  const isLogin = rest[0] === "login" || rest[0] === "signup";
+  // signed out, the root is the public homepage
+  if (!signedIn && !rest.filter(Boolean).length) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${locale}/welcome`;
+    const page = NextResponse.rewrite(url);
+    response.cookies.getAll().forEach((cookie) => page.cookies.set(cookie));
+    return page;
+  }
   // the public pages: pricing and the policies, open without a session
   if (PUBLIC_PAGES.includes(rest[0])) return response;
   // development only: /<locale>/dev/… renders components with sample data, without a session (never in production)
