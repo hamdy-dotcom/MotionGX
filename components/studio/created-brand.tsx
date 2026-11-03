@@ -28,6 +28,10 @@ export function PackButton({ url }: { url: string }) {
     <div className="flex flex-wrap items-center gap-3">
       <a href={url} className="btn btn-primary">{t("download")}</a>
       <span className="max-w-xl text-sm text-ink-muted">{t("packHint")}</span>
+      <div className="grid w-full gap-3 md:grid-cols-2">
+        <div className="rounded-2xl bg-white p-4 text-sm"><b className="mb-1 block text-navy">{t("packDevT")}</b><span className="text-ink-muted">{t("packDev")}</span></div>
+        <div className="rounded-2xl bg-white p-4 text-sm"><b className="mb-1 block text-navy">{t("packAiT")}</b><span className="text-ink-muted">{t("packAi")}</span></div>
+      </div>
     </div>
   );
 }
@@ -38,7 +42,7 @@ export function CreatedBrandFiles({ brand }: { brand: Brand }) {
   return (
     <div className="space-y-6">
       <section className="panel space-y-3"><h2 className="text-xl font-semibold text-navy">{t("packTitle")}</h2>{brand.packUrl ? <PackButton url={brand.packUrl} /> : null}</section>
-      {brand.siteHtml ? <section><h2 className="mb-3 text-xl font-semibold text-navy">{t("siteTitle")}</h2><div className="overflow-hidden rounded-2xl ring-1 ring-black/5"><SiteFrame html={brand.siteHtml} width={1440} full /></div></section> : null}
+      {brand.siteHtml ? <section><h2 className="text-xl font-semibold text-navy">{t("siteTitle")}</h2><p className="mb-3 text-sm text-ink-muted">{t("siteNote")}</p><div className="overflow-hidden rounded-2xl ring-1 ring-black/5"><SiteFrame html={brand.siteHtml} width={1440} full /></div></section> : null}
       {brand.world.length ? (
         <section>
           <h2 className="mb-3 text-xl font-semibold text-navy">{t("worldTitle")}</h2>

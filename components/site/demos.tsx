@@ -39,6 +39,7 @@ export function Phone({ children, label }: { children: ReactNode; label?: string
 export type DemoText = {
   site: { url: string; read: string; logo: string; colors: string; fonts: string; voice: string; ready: string };
   edit: { ask: string; before: string; after: string };
+  look: { name: string; palette: string; roles: string[]; font: string; specimen: string; tagline: string; voice: string; voiceD: string; audience: string; audienceD: string; features: string; featuresD: string[]; made: string };
 };
 
 /** reading a website: the address goes in, the brand comes out */
@@ -114,21 +115,8 @@ export function VoiceDemo({ dialects }: { dialects: string[] }) {
 }
 
 /** the page wears a different brand every few seconds */
-const THEMES = [["#5558e3", "#ffb454"], ["#e4502e", "#ffd166"], ["#0d8a6f", "#a8f0d1"], ["#d72c6b", "#ffc2d9"], ["#1d6fe0", "#7ee8fa"]];
-export function ThemeCycle({ children, className = "" }: { children: ReactNode; className?: string }) {
-  const el = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let i = 0;
-    const id = setInterval(() => {
-      if (document.hidden || !el.current) return;
-      i = (i + 1) % THEMES.length;
-      el.current.style.setProperty("--lp-a", THEMES[i][0]);
-      el.current.style.setProperty("--lp-b", THEMES[i][1]);
-    }, 4200);
-    return () => clearInterval(id);
-  }, []);
-  return <div ref={el} className={className}>{children}</div>;
+export function BrandStage({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={className}>{children}</div>;
 }
 
 /** objects drifting around the phones, a little closer as the pointer moves */
@@ -157,10 +145,11 @@ export function FeedDemo() {
 }
 
 /** what a month would cost, from what this company makes and what it pays today */
-export function CostCalc({ t, post, carousel, video, money }: { t: CalcText; post: number; carousel: number; video: [number, number]; money: string }) {
-  const [posts, setPosts] = useState(12), [videos, setVideos] = useState(4), [today, setToday] = useState("");
+export function CostCalc({ t, post, carousel, video, money, team }: { t: CalcText; post: number; carousel: number; video: [number, number]; money: string; team: number }) {
+  const [posts, setPosts] = useState(12), [videos, setVideos] = useState(4), [today, setToday] = useState(String(team));
   const low = posts * post + videos * video[0], high = posts * carousel + videos * video[1];
   const paid = Number(today.replace(/[^\d]/g, "")) || 0, fmt = (n: number) => n.toLocaleString("en");
+  const share = (n: number) => (n < 10 ? n.toFixed(1) : String(Math.round(n)));
   const saveLow = Math.max(0, paid - high), saveHigh = Math.max(0, paid - low);
   return (
     <div className="d-calc">
@@ -173,9 +162,37 @@ export function CostCalc({ t, post, carousel, video, money }: { t: CalcText; pos
         <small>{t.month}</small>
         <p className="sum"><span dir="ltr">{fmt(low)}–{fmt(high)}</span> {money}</p>
         {saveHigh > 0 ? <p className="save">{t.save} <b dir="ltr">{saveLow > 0 ? `${fmt(saveLow)}–${fmt(saveHigh)}` : fmt(saveHigh)}</b> {money}</p> : <p className="hint">{t.noCommit}</p>}
+        {paid > 0 ? <p className="hint">{t.share} <b dir="ltr">{share(((low + high) / 2 / paid) * 100)}%</b></p> : null}
         <small className="fine">{t.fine}</small>
       </div>
     </div>
   );
 }
-export type CalcText = { posts: string; videos: string; today: string; todayHint: string; month: string; save: string; noCommit: string; fine: string };
+export type CalcText = { posts: string; videos: string; today: string; todayHint: string; month: string; save: string; noCommit: string; fine: string; share: string };
+
+/** the lookbook, as it sits in the app: a real brand made with the brand creator, then what gets made from it */
+export function LookbookDemo({ t }: { t: DemoText["look"] }) {
+  const root = useScene((q, tl) => {
+    tl.from(q(".s-chart div"), { scaleY: 0, transformOrigin: "50% 100%", stagger: 0.09, duration: 0.5 }, 0.2);
+    tl.from(q(".lk-mark img"), { ...pop, duration: 0.5, ease: "back.out(2)" }, 0.8);
+    tl.to({}, { duration: 6 }, 1.4);
+  });
+  return (
+    <div ref={root} className="d-look">
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@800&display=swap" />
+      <div className="s-slate-line"><span>LOOKBOOK</span><i /><span dir="ltr">{t.name}</span></div>
+      <div className="s-look">
+        <div className="s-panel span4"><p className="s-label">{t.palette}</p><div className="s-chart">{[["#3F4A2F", 0], ["#D8A25E", 1], ["#1D2117", 2], ["#7B8068", 3], ["#EFE9DA", 4], ["#DDD6C0", 5]].map(([c, i]) => <div key={c} style={{ background: c as string }}><span dir="ltr">{t.roles[i as number]}</span></div>)}</div></div>
+        <div className="s-panel span2 lk-mark">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/site/demo/ouwra/logo.png" alt={t.name} />
+        </div>
+        <div className="s-panel span3"><p className="s-label">{t.font}</p><div className="lk-spec" dir="auto">{t.specimen}</div><p className="lk-b" dir="auto">{t.tagline}</p></div>
+        <div className="s-panel span3"><p className="s-label">{t.voice}</p><p className="lk-b" dir="auto">{t.voiceD}</p></div>
+        <div className="s-panel span3"><p className="s-label">{t.audience}</p><p className="lk-b" dir="auto">{t.audienceD}</p></div>
+        <div className="s-panel span3"><p className="s-label">{t.features}</p><ul className="s-list">{t.featuresD.map((f) => <li key={f} dir="auto">{f}</li>)}</ul></div>
+      </div>
+      <div className="lk-made"><p className="s-label">{t.made}</p><div>{["post", "storefront", "packaging", "tshirt", "booth", "card"].map((f) => <i key={f} style={{ backgroundImage: `url(/site/demo/ouwra/${f}.jpg)` }} />)}</div></div>
+    </div>
+  );
+}

@@ -2,7 +2,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { LanguageSwitch } from "@/components/nav/language-switch";
 import { SITE } from "@/lib/site";
-import { Drift, Phone, ThemeCycle } from "@/components/site/demos";
+import { Drift, Phone, BrandStage } from "@/components/site/demos";
 import { LiveBrand, LivePost } from "@/components/site/live-demos";
 import { LIVE_TEXT } from "@/components/site/demo-text";
 import { publicPrice } from "@/lib/billing";
@@ -26,7 +26,7 @@ export async function AuthScreen({ mode, locale, linkError = false }: { mode: "l
         <p className="fine">{t.rich("agree", { terms: (c) => <Link href="/terms">{c}</Link>, privacy: (c) => <Link href="/privacy">{c}</Link> })} · <Link href="/pricing">{t("pricing")}</Link></p>
       </main>
       <aside aria-hidden="true">
-        <ThemeCycle className="s-auth-stage">
+        <BrandStage className="s-auth-stage">
           <i className="glow" />
           <Drift>
             <div className="fl-o o1"><div className="o-post"><i /><b /><b className="s" /></div></div>
@@ -34,7 +34,7 @@ export async function AuthScreen({ mode, locale, linkError = false }: { mode: "l
             <div className="fl-o o2"><div className="o-play">▶</div></div>
             <div className="phones one"><div className="p mid"><Phone>{mode === "login" ? <LivePost t={live} price={price} /> : <LiveBrand t={live} price={price} />}</Phone></div></div>
           </Drift>
-        </ThemeCycle>
+        </BrandStage>
       </aside>
     </div>
   );
