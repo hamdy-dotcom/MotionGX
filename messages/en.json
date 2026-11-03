@@ -1231,12 +1231,8 @@
   "auth": {
     "loginTitle": "Sign in.",
     "loginLead": "Use your email and password.",
-    "loginOther": "New here?",
-    "loginOtherLink": "Create an account",
     "signupTitle": "Create your account.",
     "signupLead": "Start with your email and a password. Nothing to pay until you top up.",
-    "signupOther": "Already have an account?",
-    "signupOtherLink": "Sign in",
     "agree": "By continuing you accept our <terms>Terms</terms> and <privacy>Privacy Policy</privacy>.",
     "pricing": "Pricing",
     "loginSubmit": "Sign in",
@@ -1263,6 +1259,8 @@
     "error_taken": "This email already has an account. Sign in instead.",
     "error_generic": "Something went wrong. Please try again.",
     "error_link": "That link is invalid or expired. Please request a new one.",
-    "pitch": "A full content and design team, for 1% of the cost."
+    "pitch": "A full content and design team, for 1% of the cost.",
+    "loginTab": "Sign in",
+    "signupTab": "New account"
   }
 }
