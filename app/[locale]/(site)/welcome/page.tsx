@@ -2,105 +2,114 @@ import { setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { todayKey } from "@/lib/dates";
 import { upcomingSeasons } from "@/lib/market/seasons";
+import { BrandDemo, CalendarDemo, CostCalc, Drift, EditDemo, FeedDemo, Phone, PostDemo, SiteDemo, SizesDemo, ThemeCycle, VideoDemo, VoiceDemo } from "@/components/site/demos";
+import { publicPrice } from "@/lib/billing";
+import { DEMO_TEXT } from "@/components/site/demo-text";
 import { Reveal } from "./parts";
 
 const C = {
   ar: {
-    kicker: "استوديو محتوى بيعرف براندك",
-    h1: ["براندك يستاهل", "يتشاف كل يوم."],
-    lead: "حط لينك موقعك أو ابدأ من الصفر، وخد فيديوهات وبوستات بألوانك وصوتك وسوقك. من غير ما تشرح براندك كل مرة.",
-    start: "ابدأ دلوقتي", prices: "شوف الأسعار",
-    doorsT: "من أي مكان تبدأ منه.",
-    doors: [{ t: "عندك موقع؟", d: "حط اللينك، وبنقرا لوجوك وألوانك وخطوطك وصوتك وشاشاتك الحقيقية. كل قطعة بعد كده بتطلع بهوية براندك." , c: "حط لينك موقعك" }, { t: "لسه بتبدأ؟", d: "احكي عن شغلك. بنسألك الأسئلة الصح، ونوريك اتجاهات مختلفة، وتخرج ببراند كامل: لوجو وموقع وصور وملفات جاهزة لأدوات الذكاء الاصطناعي.", c: "اعمل براندك" }],
-    makeK: "اللي بتعمله هنا", makeT: "كل اللي براندك بينزله، من مكان واحد.",
-    make: [{ t: "فيديوهات موشن", d: "قصة كاملة بصوت بلهجتك وموسيقى، وشاشاتك الحقيقية في المشاهد." }, { t: "بوستات وكاروسيل وستوريز", d: "بالمقاس الصح لكل منصة، ومكتوبة بكلام براندك." }, { t: "خطة وجدول نشر", d: "أفكار الشهر كله، موزعة على أيام الأسبوع، وتتعمل بضغطة." }],
-    brandK: "براند من الصفر", brandT: "مش لوجو وبس. براند تقدر تشوفه في الواقع.", brandD: "كل براند بياخد موقع متصمم مخصوص، وصور في الأماكن اللي شغله فعلًا بيتشاف فيها. والذكاء الاصطناعي بيختار اللي يناسب شغلك: اللي يناسب مخبز غير اللي يناسب شركة مدفوعات.",
-    sample: "براندات تجريبية اتعملت بـ MotionGX. الصور منتجة بالذكاء الاصطناعي.",
-    siteL: "موقع متصمم للبراند",
-    marketK: "بيعرف سوقك", marketT: "مواسم وترندات بلدك، قبل ما تفوتك.", now: "دلوقتي", inDays: "بعد {n} يوم", marketD: "اختار مجالك والدول اللي شغال فيها. بنفكرك برمضان والأعياد والأيام الوطنية وترند مجالك النهارده، ونكتبلك فكرة تناسب براندك. والصوت بيتكلم مصري أو سعودي زي عميلك.",
-    howT: "تلات خطوات.", how: [["عرّفنا ببراندك", "لينك موقعك، أو كلمنا عن شغلك."], ["قول عايز إيه", "فيديو أو بوست أو خطة شهر كامل، وشوف السعر المتوقع قبل ما تبدأ."], ["عدّل وانشر", "اطلب أي تغيير بكلامك، ونزّل شغلك وحطه في الجدول."]],
-    priceT: "ادفع على اللي بتعمله بس.", priceD: "من غير اشتراك ولا باقات. اشحن رصيدك، وكل قطعة ليها سعرها.", priceC: "الأسعار بالتفصيل",
-    endT: "براندك جاهز. ابدأ أول قطعة.", 
+    kicker: "استوديو محتوى بيعرف براندك", h1a: "براندك", h1b: "يستاهل يتشاف.", lead: "من أول براند لأول فيديو. احكيلنا، وشوف شغلك بيتعمل قدامك، بألوانك وصوتك وسوقك.", start: "ابدأ دلوقتي", prices: "الأسعار",
+    tape: ["فيديوهات", "بوستات", "ستوريز", "لوجوهات", "مواقع", "خطط محتوى", "كاروسيل", "أغلفة"],
+    pillars: ["سهل", "ذكي", "مفيد", "فعّال", "موفّر"],
+    easyK: "سهل", easyT: "لو تعرف تحكي عن شغلك، تعرف تستخدمه.", easyD: "مفيش برامج تتعلمها ولا فريق تنسق معاه. جملة واحدة منك، والباقي علينا.",
+    smartK: "ذكي", smartT: "بيعرف براندك وسوقك من غير ما تشرح.", smartD: "بيقرا هويتك مرة واحدة ويفتكرها في كل قطعة. وبيعرف مواسم بلدك وترند مجالك، وبيتكلم لهجة عميلك.",
+    usefulK: "مفيد", usefulT: "كل اللي براندك بينزله، من مكان واحد.", usefulD: "فيديو، بوست، ستوري، غلاف، خطة شهر كامل، وحتى البراند نفسه لو لسه بتبدأ.",
+    effectK: "فعّال", effectT: "براندك يفضل ظاهر كل أسبوع، وبنفس الشكل.", effectD: "الناس بتفتكر البراند اللي بتشوفه كتير وشكله ثابت. جدولك مليان، كل قطعة بألوانك وصوتك، وكل موسم في ميعاده.", effects: ["هوية واحدة في كل قطعة", "محتوى في مواعيد مواسم سوقك", "لهجة عميلك، مش ترجمة", "شاشاتك الحقيقية في الفيديوهات"],
+    costK: "موفّر", costT: "احسبها بنفسك.", costD: "من غير اشتراك ولا عقد شهري. حرّك الأرقام، وقارنها باللي بتدفعه النهاردة.",
+    calc: { posts: "بوستات في الشهر", videos: "فيديوهات في الشهر", today: "بتدفع كام في الشهر دلوقتي؟ (اختياري)", todayHint: "مثلًا لوكالة أو فريلانسر", month: "تكلفتك المتوقعة في الشهر", save: "ممكن توفر حوالي", noCommit: "بتدفع على اللي بتعمله بس، وتوقف في أي وقت.", fine: "تقدير من أسعارنا المعتادة. السعر النهائي لكل قطعة حسب اللي احتاجته." }, money: "ج.م",
+    doorsT: "من أي مكان تبدأ منه.", doorA: "عندك موقع؟", doorAd: "حط اللينك. بنقرا لوجوك وألوانك وخطوطك وصوتك، وكل قطعة بعد كده بتطلع بهوية براندك.", doorB: "لسه بتبدأ؟", doorBd: "احكي عن شغلك، واختار اتجاه، وخد براند كامل: لوجو وموقع وصور وملفات جاهزة لأدوات الذكاء الاصطناعي.", doorC: "ابدأ من هنا",
+    sizesT: "كل المقاسات", sizesD: "فيد وستوري وغلاف، من فكرة واحدة.", calT: "شهر كامل", calD: "أفكار موزعة على الجدول، تتعمل بضغطة.", calL: ["بوست", "فيديو", "ستوري"], editT: "عدّل بكلامك", editD: "قول عايز إيه، والقطعة بتتغير.", voiceT: "بيتكلم زي عميلك", voiceD: "صوت بلهجة سوقك، مش فصحى مترجمة.", voices: ["مصري", "سعودي", "إنجليزي"],
+    marketT: "مواسم سوقك، قبل ما تفوتك.", marketD: "اختار مجالك والدول اللي شغال فيها. بنفكرك بكل موسم وترند، ونكتبلك فكرة تناسب براندك.", now: "دلوقتي", inDays: "بعد {n} يوم",
+    endT: "أول قطعة ليك مستنية.", endD: "من غير اشتراك. بتدفع على اللي بتعمله بس.", 
   },
   en: {
-    kicker: "The content studio that knows your brand",
-    h1: ["Your brand deserves", "to be seen every day."],
-    lead: "Paste your website or start from nothing, and get videos and posts in your colours, your voice and your market, without explaining your brand every time.",
-    start: "Get started", prices: "See pricing",
-    doorsT: "Start from wherever you are.",
-    doors: [{ t: "Have a website?", d: "Paste the link. We read your logo, colours, fonts, voice and real screens, so everything after that comes out in your brand.", c: "Paste your link" }, { t: "Just starting?", d: "Tell us about your business. We ask the right questions, show you different directions, and you leave with a whole brand: logo, website, photos, and files ready for AI tools.", c: "Create your brand" }],
-    makeK: "What you make here", makeT: "Everything your brand publishes, in one place.",
-    make: [{ t: "Motion videos", d: "A whole story, with a voice in your dialect, music, and your real screens in the scenes." }, { t: "Posts, carousels and stories", d: "The right size for each platform, written in your brand's words." }, { t: "A plan and a calendar", d: "A month of ideas across the week, each one a click away from being made." }],
-    brandK: "A brand from nothing", brandT: "Not just a logo. A brand you can see in the real world.", brandD: "Each brand gets its own designed website, and photos in the places its business really shows up. The AI chooses what fits: what a bakery brands isn't what a payments company brands.",
-    sample: "Sample brands made with MotionGX. Images are AI-generated.",
-    siteL: "A website designed for the brand",
-    marketK: "It knows your market", marketT: "Your country's seasons and trends, before you miss them.", now: "now", inDays: "in {n} days", marketD: "Choose your industry and the countries you work in. We remind you of Ramadan, holidays, national days and today's trends in your field, and draft an idea that fits your brand. And the voice speaks Egyptian or Saudi, like your customer.",
-    howT: "Three steps.", how: [["Introduce your brand", "Your website link, or tell us about your business."], ["Say what you want", "A video, a post or a whole month's plan. See the expected price before you start."], ["Change it and publish", "Ask for any change in your own words, then download it and put it on the calendar."]],
-    priceT: "Pay only for what you make.", priceD: "No subscription, no plans. Top up your balance, and each piece has its price.", priceC: "Pricing in detail",
-    endT: "Your brand is ready. Start your first piece.",
+    kicker: "The content studio that knows your brand", h1a: "Your brand", h1b: "deserves to be seen.", lead: "From your first brand to your first video. Tell us about it, and watch your work get made in front of you, in your colours, your voice and your market.", start: "Get started", prices: "Pricing",
+    tape: ["Videos", "Posts", "Stories", "Logos", "Websites", "Content plans", "Carousels", "Covers"],
+    pillars: ["Easy", "Smart", "Useful", "Effective", "Cost-efficient"],
+    easyK: "Easy", easyT: "If you can describe your business, you can use it.", easyD: "No software to learn and no team to coordinate. One sentence from you, and the rest is on us.",
+    smartK: "Smart", smartT: "It knows your brand and market without being told.", smartD: "It reads your identity once and remembers it in every piece. It knows your country's seasons and your field's trends, and speaks your customer's dialect.",
+    usefulK: "Useful", usefulT: "Everything your brand publishes, in one place.", usefulD: "Videos, posts, stories, covers, a whole month's plan, and even the brand itself if you're just starting.",
+    effectK: "Effective", effectT: "Your brand shows up every week, looking like itself.", effectD: "People remember brands they see often and that stay consistent. Your calendar stays full, every piece is in your colours and voice, and every season lands on time.", effects: ["One identity across every piece", "Content on your market's dates", "Your customer's dialect, not a translation", "Your real screens in your videos"],
+    costK: "Cost-efficient", costT: "Work it out yourself.", costD: "No subscription and no monthly contract. Move the numbers and compare them with what you pay today.",
+    calc: { posts: "Posts a month", videos: "Videos a month", today: "What do you pay a month now? (optional)", todayHint: "e.g. for an agency or freelancer", month: "Your expected monthly cost", save: "You could save about", noCommit: "Pay only for what you make, and stop any time.", fine: "An estimate from our typical prices. Each piece's final price depends on what it took." }, money: "EGP",
+    doorsT: "Start from wherever you are.", doorA: "Have a website?", doorAd: "Paste the link. We read your logo, colours, fonts and voice, and everything after that comes out in your brand.", doorB: "Just starting?", doorBd: "Tell us about your business, choose a direction, and get a whole brand: logo, website, photos, and files ready for AI tools.", doorC: "Start here",
+    sizesT: "Every size", sizesD: "Feed, story and cover, from one idea.", calT: "A whole month", calD: "Ideas across your calendar, a click from being made.", calL: ["Post", "Video", "Story"], editT: "Change it in words", editD: "Say what you want, and the piece changes.", voiceT: "Sounds like your customer", voiceD: "A voice in your market's dialect, not translated formal Arabic.", voices: ["Egyptian", "Saudi", "English"],
+    marketT: "Your market's seasons, before you miss them.", marketD: "Choose your industry and the countries you work in. We remind you of every season and trend, and draft an idea that fits your brand.", now: "now", inDays: "in {n} days",
+    endT: "Your first piece is waiting.", endD: "No subscription. Pay only for what you make.",
   },
 };
-const PHOTOS = ["storefront", "booth", "card", "uniform", "packaging", "billboard", "tshirt"];
 
 /** the public homepage: what signed-out visitors get at the root */
 export default async function WelcomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const c = C[locale === "ar" ? "ar" : "en"];
-  const L = locale === "ar" ? "ar" : "en";
-  // the real calendar, for one market, so visitors see what "it knows your market" means
-  const seasons = upcomingSeasons({ today: todayKey(), countries: ["EG"], industry: "other", within: 120 }).filter((s) => s.kind !== "payday").slice(0, 4);
+  const L = locale === "ar" ? "ar" : "en", c = C[L], d = DEMO_TEXT[L];
+  const seasons = upcomingSeasons({ today: todayKey(), countries: ["EG"], industry: "other", within: 150 }).filter((s) => s.kind !== "payday").slice(0, 5);
+  const tape = [...c.tape, ...c.tape, ...c.tape];
+  const [post, carousel] = await Promise.all([publicPrice({ kind: "post", type: "single" }), publicPrice({ kind: "post", type: "carousel", slides: 5 })]);
   return (
-    <div className="s-lp">
+    <ThemeCycle className="s-lp">
       <section className="s-lp-hero">
-        <div className="s-lp-aurora" aria-hidden="true"><i /><i /></div>
+        <i className="glow" aria-hidden="true" />
         <p className="s-lp-k">{c.kicker}</p>
-        <h1><span>{c.h1[0]}</span> <span className="lit">{c.h1[1]}</span></h1>
+        <h1><span className="lit">{c.h1a}</span> <span>{c.h1b}</span></h1>
         <p className="lead">{c.lead}</p>
         <div className="cta"><Link href="/signup" className="s-btn lit">{c.start}</Link><Link href="/pricing" className="s-btn ghost">{c.prices}</Link></div>
-        <div className="s-lp-shots" aria-hidden="true">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="a" src="/landing/post.webp" alt="" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="b" src="/landing/website.webp" alt="" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="c" src="/landing/bakery-storefront.webp" alt="" />
-        </div>
+        <Drift>
+          <div className="fl-o o1" aria-hidden="true"><div className="o-post"><i /><b /><b className="s" /></div></div>
+          <div className="fl-o o2" aria-hidden="true"><div className="o-play">▶</div></div>
+          <div className="fl-o o3" aria-hidden="true"><div className="o-swatch"><i /><i /><i /><i /></div></div>
+          <div className="fl-o o4" aria-hidden="true"><div className="o-time"><i /><i /><i /><u /></div></div>
+          <div className="fl-o o5" aria-hidden="true"><div className="o-logo"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="var(--lp-a)" /><path d="M50 50 96 50A46 46 0 0 1 50 96Z" fill="var(--lp-b)" /></svg></div></div>
+          <div className="fl-o o6" aria-hidden="true"><div className="o-aa">Aa أب</div></div>
+          <div className="phones">
+            <div className="p side"><Phone label={d.video.head}><VideoDemo t={d.video} /></Phone></div>
+            <div className="p mid"><Phone label={d.brand.head}><BrandDemo t={d.brand} /></Phone></div>
+            <div className="p side"><Phone label={d.post.head}><PostDemo t={d.post} /></Phone></div>
+          </div>
+        </Drift>
       </section>
 
-      <Reveal className="s-lp-sec"><h2 className="s-lp-t">{c.doorsT}</h2>
-        <div className="s-lp-doors">{c.doors.map((d, i) => <Link key={d.t} href="/signup" className={`door d${i}`}><h3>{d.t}</h3><p>{d.d}</p><span>{d.c} <i aria-hidden="true">←</i></span></Link>)}</div>
-      </Reveal>
+      <div className="s-lp-tape" aria-hidden="true"><div>{tape.map((w, i) => <span key={i}>{w}<i /></span>)}</div></div>
 
-      <Reveal className="s-lp-sec"><p className="s-lp-k">{c.makeK}</p><h2 className="s-lp-t">{c.makeT}</h2>
-        <div className="s-lp-make">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <div className="art"><img src="/landing/post.webp" alt="" loading="lazy" /></div>
-          <ol>{c.make.map((m, i) => <li key={m.t}><i>0{i + 1}</i><div><h3>{m.t}</h3><p>{m.d}</p></div></li>)}</ol>
-        </div>
-      </Reveal>
+      <div className="s-lp-light">
+        <nav className="s-lp-pills" aria-label={c.kicker}>{c.pillars.map((p, i) => <a key={p} href={`#p${i}`}>{p}</a>)}</nav>
 
-      <section className="s-lp-dark"><Reveal className="in-dark">
-        <p className="s-lp-k">{c.brandK}</p><h2 className="s-lp-t">{c.brandT}</h2><p className="s-lp-d">{c.brandD}</p>
-        <div className="s-lp-gallery">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <figure className="site"><img src="/landing/website.webp" alt={c.siteL} loading="lazy" /><figcaption>{c.siteL}</figcaption></figure>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {PHOTOS.map((p) => <figure key={p}><img src={`/landing/bakery-${p}.webp`} alt="" loading="lazy" /></figure>)}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <figure><img src="/landing/fintech.webp" alt="" loading="lazy" /></figure>
-        </div>
-        <p className="s-lp-fine">{c.sample}</p>
-      </Reveal></section>
+        <Reveal className="s-lp-sec" ><span id="p0" className="anchor" /><p className="s-lp-pk">{c.easyK}</p><h2 className="s-lp-t">{c.easyT}</h2><p className="s-lp-d">{c.easyD}</p>
+          <div className="s-lp-doors">
+            <Link href="/signup" className="door"><h3>{c.doorA}</h3><p>{c.doorAd}</p><SiteDemo t={d.site} /><span>{c.doorC}</span></Link>
+            <Link href="/signup" className="door d1"><h3>{c.doorB}</h3><p>{c.doorBd}</p><div className="door-phone"><Phone label={d.brand.head}><BrandDemo t={d.brand} /></Phone></div><span>{c.doorC}</span></Link>
+          </div>
+        </Reveal>
 
-      <Reveal className="s-lp-sec s-lp-market"><div><p className="s-lp-k">{c.marketK}</p><h2 className="s-lp-t">{c.marketT}</h2><p className="s-lp-d">{c.marketD}</p></div><ul className="s-lp-cal">{seasons.map((x) => <li key={x.id}><b dir="auto">{x.name[L]}</b><span>{x.ongoing ? c.now : c.inDays.replace("{n}", String(x.daysAway))}</span></li>)}</ul></Reveal>
+        <Reveal className="s-lp-sec"><span id="p1" className="anchor" /><p className="s-lp-pk">{c.smartK}</p><h2 className="s-lp-t">{c.smartT}</h2><p className="s-lp-d">{c.smartD}</p>
+          <div className="s-lp-bento">
+            <article className="b3"><VoiceDemo dialects={c.voices} /><h3>{c.voiceT}</h3><p>{c.voiceD}</p></article>
+            <article className="b3"><ul className="s-lp-cal">{seasons.map((x) => <li key={x.id}><b dir="auto">{x.name[L]}</b><span>{x.ongoing ? c.now : c.inDays.replace("{n}", String(x.daysAway))}</span></li>)}</ul><h3>{c.marketT}</h3><p>{c.marketD}</p></article>
+          </div>
+        </Reveal>
 
-      <Reveal className="s-lp-sec"><h2 className="s-lp-t">{c.howT}</h2><ol className="s-lp-how">{c.how.map(([h, d], i) => <li key={h}><i>{i + 1}</i><h3>{h}</h3><p>{d}</p></li>)}</ol></Reveal>
+        <Reveal className="s-lp-sec"><span id="p2" className="anchor" /><p className="s-lp-pk">{c.usefulK}</p><h2 className="s-lp-t">{c.usefulT}</h2><p className="s-lp-d">{c.usefulD}</p>
+          <div className="s-lp-bento">
+            <article className="b1"><SizesDemo /><h3>{c.sizesT}</h3><p>{c.sizesD}</p></article>
+            <article className="b2"><CalendarDemo labels={c.calL} /><h3>{c.calT}</h3><p>{c.calD}</p></article>
+            <article className="b5"><EditDemo t={d.edit} /><div><h3>{c.editT}</h3><p>{c.editD}</p></div></article>
+          </div>
+        </Reveal>
 
-      <Reveal className="s-lp-sec s-lp-end">
-        <div className="price"><h2>{c.priceT}</h2><p>{c.priceD}</p><Link href="/pricing" className="link">{c.priceC}</Link></div>
-        <div className="final"><h2>{c.endT}</h2><Link href="/signup" className="s-btn">{c.start}</Link></div>
-      </Reveal>
-    </div>
+        <Reveal className="s-lp-sec s-lp-effect"><span id="p3" className="anchor" /><div><p className="s-lp-pk">{c.effectK}</p><h2 className="s-lp-t">{c.effectT}</h2><p className="s-lp-d">{c.effectD}</p><ul>{c.effects.map((x) => <li key={x}>{x}</li>)}</ul></div><FeedDemo /></Reveal>
+
+        <Reveal className="s-lp-sec"><span id="p4" className="anchor" /><p className="s-lp-pk">{c.costK}</p><h2 className="s-lp-t">{c.costT}</h2><p className="s-lp-d">{c.costD}</p>
+          <CostCalc t={c.calc} post={post} carousel={carousel} video={[50, 200]} money={c.money} />
+        </Reveal>
+      </div>
+
+      <section className="s-lp-final">
+        <i className="glow" aria-hidden="true" />
+        <h2>{c.endT}</h2><p>{c.endD}</p>
+        <div className="cta"><Link href="/signup" className="s-btn lit">{c.start}</Link><Link href="/pricing" className="s-btn ghost">{c.prices}</Link></div>
+      </section>
+    </ThemeCycle>
   );
 }
