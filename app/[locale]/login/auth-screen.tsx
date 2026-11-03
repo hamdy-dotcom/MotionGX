@@ -19,6 +19,7 @@ export async function AuthScreen({ mode, locale, linkError = false }: { mode: "l
     <div className="s-auth">
       <main className="form">
         <header><Link href="/" className="s-site-name" dir="ltr">{SITE.name}</Link><LanguageSwitch persist={false} /></header>
+        <p className="pitch">{t("pitch")}</p>
         <div className="body">
           <AuthForm mode={mode} linkError={linkError} />
           {mode === "reset" ? null : <p className="other">{t(`${mode}Other`)} <Link href={mode === "login" ? "/signup" : "/login"}>{t(`${mode}OtherLink`)}</Link></p>}
