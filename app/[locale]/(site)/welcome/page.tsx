@@ -2,9 +2,10 @@ import { setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { todayKey } from "@/lib/dates";
 import { upcomingSeasons } from "@/lib/market/seasons";
-import { BrandDemo, CalendarDemo, CostCalc, Drift, EditDemo, FeedDemo, Phone, PostDemo, SiteDemo, SizesDemo, ThemeCycle, VideoDemo, VoiceDemo } from "@/components/site/demos";
+import { CalendarDemo, CostCalc, Drift, EditDemo, FeedDemo, Phone, SiteDemo, SizesDemo, ThemeCycle, VoiceDemo } from "@/components/site/demos";
 import { publicPrice } from "@/lib/billing";
-import { DEMO_TEXT } from "@/components/site/demo-text";
+import { LiveBrand, LivePost, LiveVideo } from "@/components/site/live-demos";
+import { DEMO_TEXT, LIVE_TEXT } from "@/components/site/demo-text";
 import { Reveal } from "./parts";
 
 const C = {
@@ -44,10 +45,10 @@ const C = {
 export default async function WelcomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const L = locale === "ar" ? "ar" : "en", c = C[L], d = DEMO_TEXT[L];
+  const L = locale === "ar" ? "ar" : "en", c = C[L], d = DEMO_TEXT[L], live = LIVE_TEXT[L];
   const seasons = upcomingSeasons({ today: todayKey(), countries: ["EG"], industry: "other", within: 150 }).filter((s) => s.kind !== "payday").slice(0, 5);
   const tape = [...c.tape, ...c.tape, ...c.tape];
-  const [post, carousel] = await Promise.all([publicPrice({ kind: "post", type: "single" }), publicPrice({ kind: "post", type: "carousel", slides: 5 })]);
+  const [post, carousel, brandPrice] = await Promise.all([publicPrice({ kind: "post", type: "single" }), publicPrice({ kind: "post", type: "carousel", slides: 5 }), publicPrice({ kind: "brand" })]);
   return (
     <ThemeCycle className="s-lp">
       <section className="s-lp-hero">
@@ -64,9 +65,9 @@ export default async function WelcomePage({ params }: { params: Promise<{ locale
           <div className="fl-o o5" aria-hidden="true"><div className="o-logo"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="var(--lp-a)" /><path d="M50 50 96 50A46 46 0 0 1 50 96Z" fill="var(--lp-b)" /></svg></div></div>
           <div className="fl-o o6" aria-hidden="true"><div className="o-aa">Aa أب</div></div>
           <div className="phones">
-            <div className="p side"><Phone label={d.video.head}><VideoDemo t={d.video} /></Phone></div>
-            <div className="p mid"><Phone label={d.brand.head}><BrandDemo t={d.brand} /></Phone></div>
-            <div className="p side"><Phone label={d.post.head}><PostDemo t={d.post} /></Phone></div>
+            <div className="p side"><Phone label={live.video.title}><LiveVideo t={live} /></Phone></div>
+            <div className="p mid"><Phone label={live.name}><LiveBrand t={live} price={brandPrice} /></Phone></div>
+            <div className="p side"><Phone label={live.post.title}><LivePost t={live} price={post} /></Phone></div>
           </div>
         </Drift>
       </section>
@@ -79,7 +80,7 @@ export default async function WelcomePage({ params }: { params: Promise<{ locale
         <Reveal className="s-lp-sec" ><span id="p0" className="anchor" /><p className="s-lp-pk">{c.easyK}</p><h2 className="s-lp-t">{c.easyT}</h2><p className="s-lp-d">{c.easyD}</p>
           <div className="s-lp-doors">
             <Link href="/signup" className="door"><h3>{c.doorA}</h3><p>{c.doorAd}</p><SiteDemo t={d.site} /><span>{c.doorC}</span></Link>
-            <Link href="/signup" className="door d1"><h3>{c.doorB}</h3><p>{c.doorBd}</p><div className="door-phone"><Phone label={d.brand.head}><BrandDemo t={d.brand} /></Phone></div><span>{c.doorC}</span></Link>
+            <div className="door d1"><h3>{c.doorB}</h3><p>{c.doorBd}</p><div className="door-phone"><Phone label={live.name}><LiveBrand t={live} price={brandPrice} /></Phone></div><span>{c.doorC}</span><Link href="/signup" className="door-cover" aria-label={c.doorC} /></div>
           </div>
         </Reveal>
 

@@ -5,15 +5,14 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowIcon, SparkIcon, SpinnerIcon } from "@/components/icons";
 import { boldTag } from "@/components/heading";
 import { EMPTY_FACTS, type BrandDraft } from "@/lib/brand/types";
-import { BRAND_LANGUAGES, iconSvg, type BrandLanguage, type Direction, type FileBrief, type Identity, type NextQuestion, type Turn } from "@/lib/brand-studio/types";
-import { CreatedBrandFiles, PackButton, SiteFrame as Site } from "@/components/studio/created-brand";
+import { BRAND_LANGUAGES, type BrandLanguage, type Direction, type FileBrief, type Identity, type NextQuestion, type Turn } from "@/lib/brand-studio/types";
+import { CreatedBrandFiles, PackButton } from "@/components/studio/created-brand";
+import { Preview, type Extra } from "./brand-preview";
 import type { CreatedBrand as StoredBrand } from "@/lib/brand-studio/stored";
 import { cleanCountries } from "@/lib/market/countries";
 import { BrandEditor } from "../brand-editor";
 
 type Done = { identity: Identity; pack?: string; stored?: StoredBrand; packUrl?: string; logoUrl?: string; files?: number; siteHtml?: string; world?: { kind: string; label?: string; url: string }[] };
-/** what a preview has so far: its page and photo arrive after the direction */
-type Extra = { html?: string; photo?: string };
 type Step = "start" | "talk" | "choose" | "refine" | "done";
 type Saved = { step: Step; language: BrandLanguage; business: string; fileBrief: FileBrief | null; turns: Turn[]; question: NextQuestion | null; brief: string; directions: Direction[]; rounds: number; extras: Record<string, Extra>; chosen: Direction | null; notes: string; done: Done | null };
 const KEY = "mgx-brand-studio";
@@ -29,34 +28,6 @@ async function call<T>(body: object): Promise<T> {
 }
 
 const familyUrl = (families: string[]) => `https://fonts.googleapis.com/css2?${[...new Set(families.filter(Boolean))].map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@400;700;800`).join("&")}&display=swap`;
-
-const Waiting = ({ className = "", label }: { className?: string; label: string }) => <div className={`flex items-center justify-center gap-2 rounded-2xl bg-field text-sm text-ink-muted ${className}`}><SpinnerIcon className="size-4" />{label}</div>;
-
-/** a preview: a page designed for this direction and a photo of it in the world */
-function Preview({ d, extra, language, onChoose, label }: { d: Direction; extra?: Extra; language: BrandLanguage; onChoose: () => void; label: string }) {
-  const t = useTranslations("companies.studio"), P = d.palette, name = language === "ar" && d.name_ar ? d.name_ar : d.name;
-  return (
-    <div className="rounded-panel bg-white p-3 shadow-sm ring-1 ring-black/5">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-2 pb-3">
-        <div className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img alt="" width={44} height={44} src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg(d.icon, { P: P.primary, A: P.accent, I: P.ink }, 44))}`} />
-          <span className="text-2xl font-bold text-navy" dir="auto">{name}</span>
-          <span className="flex gap-1">{[P.primary, P.accent, P.ink, P.background].map((c) => <i key={c} className="block size-4 rounded-full ring-1 ring-black/10" style={{ background: c }} />)}</span>
-        </div>
-        <button type="button" onClick={onChoose} className="btn btn-primary">{label}</button>
-      </div>
-      <p className="px-2 pb-3 text-sm text-ink-muted" dir="auto">{d.concept}</p>
-      <div className="grid items-stretch gap-2 md:grid-cols-5">
-        <div className="overflow-hidden rounded-2xl ring-1 ring-black/5 md:col-span-3">{extra?.html ? <Site html={extra.html} /> : <Waiting className="h-72" label={t("designingSite")} />}</div>
-        <div className="overflow-hidden rounded-2xl ring-1 ring-black/5 md:col-span-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {extra?.photo ? <img src={extra.photo} alt="" className="size-full object-cover" /> : <Waiting className="h-72" label={t("shootingPhoto")} />}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function BrandStudio({ price }: { price: string }) {
   const t = useTranslations("companies.studio"), locale = useLocale();
